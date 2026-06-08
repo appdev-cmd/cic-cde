@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Colors mapped to CSS variables for dynamic Dark Mode toggle */
+  --color-surface: var(--color-surface-val);
+  --color-surface-dim: var(--color-surface-dim-val);
+  --color-surface-bright: var(--color-surface-bright-val);
+  --color-surface-container-lowest: var(--color-surface-container-lowest-val);
+  --color-surface-container-low: var(--color-surface-container-low-val);
+  --color-surface-container: var(--color-surface-container-val);
+  --color-surface-container-high: var(--color-surface-container-high-val);
+  --color-surface-container-highest: var(--color-surface-container-highest-val);
+
+  --color-on-surface: var(--color-on-surface-val);
+  --color-on-surface-variant: var(--color-on-surface-variant-val);
+  --color-inverse-surface: var(--color-inverse-surface-val);
+  --color-inverse-on-surface: var(--color-inverse-on-surface-val);
+
+  --color-outline: var(--color-outline-val);
+  --color-outline-variant: var(--color-outline-variant-val);
+  --color-surface-tint: var(--color-surface-tint-val);
+
+  --color-primary: var(--color-primary-val);
+  --color-on-primary: var(--color-on-primary-val);
+  --color-primary-container: var(--color-primary-container-val);
+  --color-on-primary-container: var(--color-on-primary-container-val);
+  --color-primary-fixed: var(--color-primary-fixed-val);
+  --color-primary-fixed-dim: var(--color-primary-fixed-dim-val);
+  --color-on-primary-fixed: var(--color-on-primary-fixed-val);
+  --color-on-primary-fixed-variant: var(--color-on-primary-fixed-variant-val);
+
+  --color-secondary: var(--color-secondary-val);
+  --color-on-secondary: var(--color-on-secondary-val);
+  --color-secondary-container: var(--color-secondary-container-val);
+  --color-on-secondary-container: var(--color-on-secondary-container-val);
+  --color-secondary-fixed: var(--color-secondary-fixed-val);
+  --color-secondary-fixed-dim: var(--color-secondary-fixed-dim-val);
+  --color-on-secondary-fixed: var(--color-on-secondary-fixed-val);
+  --color-on-secondary-fixed-variant: var(--color-on-secondary-fixed-variant-val);
+
+  --color-tertiary: var(--color-tertiary-val);
+  --color-on-tertiary: var(--color-on-tertiary-val);
+  --color-tertiary-container: var(--color-tertiary-container-val);
+  --color-on-tertiary-container: var(--color-on-tertiary-container-val);
+  --color-tertiary-fixed: var(--color-tertiary-fixed-val);
+  --color-tertiary-fixed-dim: var(--color-tertiary-fixed-dim-val);
+  --color-on-tertiary-fixed: var(--color-on-tertiary-fixed-val);
+  --color-on-tertiary-fixed-variant: var(--color-on-tertiary-fixed-variant-val);
+
+  --color-error: var(--color-error-val);
+  --color-on-error: var(--color-on-error-val);
+  --color-error-container: var(--color-error-container-val);
+  --color-on-error-container: var(--color-on-error-container-val);
+
+  --color-background: var(--color-background-val);
+  --color-on-background: var(--color-on-background-val);
+  --color-teal-accent: var(--color-teal-accent-val);
+}
+
+:root {
+  --color-surface-val: #f9f9ff;
+  --color-surface-dim-val: #d9dae0;
+  --color-surface-bright-val: #f9f9ff;
+  --color-surface-container-lowest-val: #ffffff;
+  --color-surface-container-low-val: #f2f3fa;
+  --color-surface-container-val: #ededf4;
+  --color-surface-container-high-val: #e7e8ef;
+  --color-surface-container-highest-val: #e1e2e9;
+
+  --color-on-surface-val: #191c20;
+  --color-on-surface-variant-val: #424751;
+  --color-inverse-surface-val: #2e3036;
+  --color-inverse-on-surface-val: #eff0f7;
+
+  --color-outline-val: #727783;
+  --color-outline-variant-val: #c2c6d3;
+  --color-surface-tint-val: #175eae;
+
+  --color-primary-val: #004282;
+  --color-on-primary-val: #ffffff;
+  --color-primary-container-val: #0c59a9;
+  --color-on-primary-container-val: #bad2ff;
+  --color-primary-fixed-val: #d6e3ff;
+  --color-primary-fixed-dim-val: #a8c8ff;
+  --color-on-primary-fixed-val: #001b3d;
+  --color-on-primary-fixed-variant-val: #00468a;
+
+  --color-secondary-val: #4c5f80;
+  --color-on-secondary-val: #ffffff;
+  --color-secondary-container-val: #c4d8fe;
+  --color-on-secondary-container-val: #4b5e7e;
+  --color-secondary-fixed-val: #d6e3ff;
+  --color-secondary-fixed-dim-val: #b4c7ed;
+  --color-on-secondary-fixed-val: #051b39;
+  --color-on-secondary-fixed-variant-val: #344767;
+
+  --color-tertiary-val: #6f3000;
+  --color-on-tertiary-val: #ffffff;
+  --color-tertiary-container-val: #934200;
+  --color-on-tertiary-container-val: #ffc5a5;
+  --color-tertiary-fixed-val: #ffdbc9;
+  --color-tertiary-fixed-dim-val: #ffb68d;
+  --color-on-tertiary-fixed-val: #321200;
+  --color-on-tertiary-fixed-variant-val: #763300;
+
+  --color-error-val: #ba1a1a;
+  --color-on-error-val: #ffffff;
+  --color-error-container-val: #ffdad6;
+  --color-on-error-container-val: #93000a;
+
+  --color-background-val: #f9f9ff;
+  --color-on-background-val: #191c20;
+  --color-teal-accent-val: #008080;
+}
+
+.dark {
+  --color-surface-val: #111317;
+  --color-surface-dim-val: #0a0b0e;
+  --color-surface-bright-val: #181a20;
+  --color-surface-container-lowest-val: #0c0d10;
+  --color-surface-container-low-val: #15171d;
+  --color-surface-container-val: #1c1f27;
+  --color-surface-container-high-val: #242832;
+  --color-surface-container-highest-val: #2d313d;
+
+  --color-on-surface-val: #e1e2e9;
+  --color-on-surface-variant-val: #c2c6d3;
+  --color-inverse-surface-val: #f9f9ff;
+  --color-inverse-on-surface-val: #191c20;
+
+  --color-outline-val: #8d919d;
+  --color-outline-variant-val: #424751;
+  --color-surface-tint-val: #7baaff;
+
+  --color-primary-val: #3b82f6;
+  --color-on-primary-val: #ffffff;
+  --color-primary-container-val: #1e3a8a;
+  --color-on-primary-container-val: #bfdbfe;
+  --color-primary-fixed-val: #2563eb;
+  --color-primary-fixed-dim-val: #3b82f6;
+  --color-on-primary-fixed-val: #eff6ff;
+  --color-on-primary-fixed-variant-val: #1d4ed8;
+
+  --color-secondary-val: #64748b;
+  --color-on-secondary-val: #ffffff;
+  --color-secondary-container-val: #334155;
+  --color-on-secondary-container-val: #cbd5e1;
+  --color-secondary-fixed-val: #475569;
+  --color-secondary-fixed-dim-val: #64748b;
+  --color-on-secondary-fixed-val: #f8fafc;
+  --color-on-secondary-fixed-variant-val: #475569;
+
+  --color-tertiary-val: #f97316;
+  --color-on-tertiary-val: #ffffff;
+  --color-tertiary-container-val: #7c2d12;
+  --color-on-tertiary-container-val: #ffedd5;
+  --color-tertiary-fixed-val: #ea580c;
+  --color-tertiary-fixed-dim-val: #f97316;
+  --color-on-tertiary-fixed-val: #fff7ed;
+  --color-on-tertiary-fixed-variant-val: #c2410c;
+
+  --color-error-val: #ef4444;
+  --color-on-error-val: #ffffff;
+  --color-error-container-val: #7f1d1d;
+  --color-on-error-container-val: #fca5a5;
+
+  --color-background-val: #0a0b0d;
+  --color-on-background-val: #e1e2e9;
+  --color-teal-accent-val: #00a8a8;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-background font-sans antialiased;
+  }
+}
+
+/* Custom Scrollbar for Technical Feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}

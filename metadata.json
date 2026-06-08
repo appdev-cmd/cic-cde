@@ -1,0 +1,6 @@
+{
+  "name": "CDE CIC Technical System",
+  "description": "High-fidelity React prototype of a Building Information Modeling (BIM) Common Data Environment.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
