@@ -5,6 +5,9 @@ import {
   RefreshCw, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Info, Settings
 } from 'lucide-react';
 import { DocumentItem, ApprovalItem, ActivityItem } from '../../types';
+import { uploadFile } from '../../lib/api/storage';
+import { createDocument, updateDocument } from '../../lib/api/documents';
+import { logActivity, createApproval, deleteApproval } from '../../lib/api/data';
 
 export function validateISO19650(id: string): { 
   isValid: boolean; 
@@ -54,6 +57,33 @@ export function validateISO19650(id: string): {
   };
 }
 
+// ISO 19650 suitability codes (mã phù hợp - mục đích sử dụng tài liệu)
+export const SUITABILITY_CODES: { code: string; label: string }[] = [
+  { code: 'S0', label: 'S0 - Bản nháp ban đầu (WIP)' },
+  { code: 'S1', label: 'S1 - Phù hợp để phối hợp' },
+  { code: 'S2', label: 'S2 - Phù hợp để tham khảo thông tin' },
+  { code: 'S3', label: 'S3 - Phù hợp để thẩm định/bình duyệt' },
+  { code: 'S4', label: 'S4 - Phù hợp để phê duyệt giai đoạn' },
+  { code: 'D1', label: 'D1 - Phù hợp để thẩm định thiết kế' },
+  { code: 'D2', label: 'D2 - Phù hợp để đấu thầu' },
+  { code: 'A1', label: 'A1 - Đã duyệt để thi công' },
+  { code: 'B1', label: 'B1 - Duyệt có điều kiện' },
+  { code: 'CR', label: 'CR - Hồ sơ hoàn công (As-built)' },
+];
+
+// Suy ra mã phù hợp mặc định từ trạng thái container nếu chưa đặt thủ công
+const deriveSuitability = (doc: { status: string; suitabilityCode?: string }): string => {
+  if (doc.suitabilityCode) return doc.suitabilityCode;
+  switch (doc.status) {
+    case 'S0 - WIP': return 'S0';
+    case 'S1 - SHARED': return 'S1';
+    case 'S2 - PUBLISHED': return 'A1';
+    case 'S3 - ARCHIVED': return 'CR';
+    case 'PENDING_APPROVAL': return 'S3';
+    default: return 'S0';
+  }
+};
+
 interface DocumentsTabProps {
   documents: DocumentItem[];
   setDocuments: React.Dispatch<React.SetStateAction<DocumentItem[]>>;
@@ -62,6 +92,8 @@ interface DocumentsTabProps {
   activities: ActivityItem[];
   setActivities: React.Dispatch<React.SetStateAction<ActivityItem[]>>;
   onOpenModel?: (fileUrl: string) => void;
+  globalSearch?: string;
+  projectId?: string;
 }
 
 export function DocumentsTab({
@@ -71,7 +103,9 @@ export function DocumentsTab({
   setApprovals,
   activities,
   setActivities,
-  onOpenModel
+  onOpenModel,
+  globalSearch = '',
+  projectId
 }: DocumentsTabProps) {
   const [selectedDocId, setSelectedDocId] = useState<string | null>('PRJ-STR-Z01-ZZ-M3-S-0023');
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,10 +220,23 @@ export function DocumentsTab({
       type: 'system'
     };
     setActivities(prev => [newAct, ...prev]);
+
+    if (projectId) {
+      updateDocument(doc, projectId, { code: newId });
+      logActivity(projectId, 'BIM Manager (Bạn)', 'đã đổi tên và chuẩn hóa mã tài liệu thành', newId, 'system');
+    }
   };
 
   // Filter documents based on active folder, subfolder, search query, and status filter
   const filteredDocuments = documents.filter(doc => {
+    // 0. Global search (từ thanh tìm kiếm trên header): tìm xuyên suốt mọi thư mục
+    if (globalSearch.trim() !== '') {
+      const gq = globalSearch.toLowerCase();
+      return doc.name.toLowerCase().includes(gq) ||
+             doc.id.toLowerCase().includes(gq) ||
+             doc.creator.toLowerCase().includes(gq);
+    }
+
     // 1. Folder match
     if (doc.folder !== activeFolder) return false;
     
@@ -247,65 +294,66 @@ export function DocumentsTab({
   };
 
   // Handle local file uploads (converts IFC files to Blobs for viewer tab)
-  const handleFileUpload = (files: FileList | null) => {
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
-    
+
+    const fileType: DocumentItem['fileType'] =
+      file.name.endsWith('.ifc') ? 'ifc' : file.name.endsWith('.dwg') ? 'dwg' : 'pdf';
+    const code = `PRJ-${fileType.toUpperCase()}-${activeFolder === '02_SHARED' ? 'Z01' : 'Z02'}-ZZ-M3-${fileType === 'ifc' ? 'W' : 'A'}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     setIsUploading(true);
-    setUploadProgress(10);
-    
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsUploading(false);
-            
-            // Create a blob URL for IFC files so they can be loaded directly inside BimViewer
-            let fileUrl = undefined;
-            if (file.name.endsWith('.ifc')) {
-              fileUrl = URL.createObjectURL(file);
-            }
-            
-            const fileType = file.name.endsWith('.ifc') ? 'ifc' : file.name.endsWith('.dwg') ? 'dwg' : 'pdf';
-            const newDoc: DocumentItem = {
-              id: `PRJ-${fileType.toUpperCase()}-${activeFolder === '02_SHARED' ? 'Z01' : 'Z02'}-ZZ-M3-${fileType === 'ifc' ? 'W' : 'A'}-${Math.floor(1000 + Math.random() * 9000)}`,
-              name: file.name.replace(/\.[^/.]+$/, ""),
-              folder: '01_WIP', // Standard ISO 19650: Uploaded files always start in WIP
-              subFolder: activeSubFolder || 'Bản vẽ thiết kế',
-              status: 'S0 - WIP',
-              revision: 'P01',
-              version: 'V1',
-              modifiedDate: new Date().toISOString(),
-              size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-              creator: 'BIM Manager (Bạn)',
-              classification: fileType === 'ifc' ? 'EF_55_20' : 'EF_20_10',
-              volume: activeFolder === '02_SHARED' ? 'Z01 - Zone 1' : 'Z00 - All Zones',
-              fileType,
-              fileUrl
-            };
-            
-            setDocuments(prev => [newDoc, ...prev]);
-            setSelectedDocId(newDoc.id);
-            setActiveFolder('01_WIP'); // Switch to WIP tab to let user see their newly uploaded file
-            setActiveSubFolder(undefined);
-            
-            // Log activity
-            const newAct: ActivityItem = {
-              id: `act-${Date.now()}`,
-              user: 'BIM Manager (Bạn)',
-              action: 'đã tải lên tài liệu mới',
-              target: file.name,
-              time: 'Vừa xong',
-              type: 'upload'
-            };
-            setActivities(prev => [newAct, ...prev]);
-          }, 300);
-          return 100;
-        }
-        return prev + 30;
+    setUploadProgress(20);
+
+    try {
+      if (!projectId) throw new Error('Chưa chọn dự án để tải tài liệu.');
+
+      // 1. Tải file thật lên Supabase Storage
+      const up = await uploadFile(file, projectId);
+      setUploadProgress(70);
+
+      // 2. Tạo bản ghi tài liệu trong Supabase (luôn vào WIP theo ISO 19650)
+      const record = await createDocument({
+        projectId,
+        code,
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        folder: '01_WIP',
+        subFolder: activeSubFolder || 'Bản vẽ thiết kế',
+        status: 'S0 - WIP',
+        suitabilityCode: 'S0',
+        revision: 'P01',
+        version: 'V1',
+        size: up.sizeLabel,
+        creator: 'BIM Manager (Bạn)',
+        classification: fileType === 'ifc' ? 'EF_55_20' : 'EF_20_10',
+        volume: activeFolder === '02_SHARED' ? 'Z01 - Zone 1' : 'Z00 - All Zones',
+        fileType,
+        fileUrl: up.publicUrl,
+        hashSha256: up.hash,
       });
-    }, 100);
+      setUploadProgress(100);
+
+      setDocuments(prev => [record, ...prev]);
+      setSelectedDocId(record.id);
+      setActiveFolder('01_WIP');
+      setActiveSubFolder(undefined);
+
+      // 3. Ghi nhật ký hoạt động vào Supabase + cập nhật UI
+      await logActivity(projectId, 'BIM Manager (Bạn)', 'đã tải lên tài liệu mới', file.name, 'upload');
+      setActivities(prev => [{
+        id: `act-${Date.now()}`,
+        user: 'BIM Manager (Bạn)',
+        action: 'đã tải lên tài liệu mới',
+        target: file.name,
+        time: 'Vừa xong',
+        type: 'upload',
+      }, ...prev]);
+    } catch (err) {
+      console.error(err);
+      alert('Tải tài liệu thất bại: ' + (err as Error).message);
+    } finally {
+      setTimeout(() => { setIsUploading(false); setUploadProgress(0); }, 300);
+    }
   };
 
   // Submit for approval (Moves document status to PENDING_APPROVAL and alerts Dashboard)
@@ -318,19 +366,23 @@ export function DocumentsTab({
       return d;
     }));
     
-    // 2. Create approval item for DashboardTab
+    // 2. Create approval item for DashboardTab — mô tả đúng cửa kiểm soát (Gate)
+    const isGate2 = doc.folder === '02_SHARED';
+    const gateDesc = isGate2
+      ? `Đề xuất phê duyệt XUẤT BẢN (Gate 2) tài liệu [${doc.id}] từ SHARED (02_SHARED) sang PUBLISHED (03_PUBLISHED) để phục vụ thi công.`
+      : `Đề xuất phê duyệt CHIA SẺ (Gate 1) tài liệu [${doc.id}] từ WIP (01_WIP) sang SHARED (02_SHARED).`;
     const newApproval: ApprovalItem = {
       id: `RFI-00${Math.floor(50 + Math.random() * 50)}`,
       type: doc.name,
       deadline: 'Trong 3 ngày',
       requester: 'BIM Manager (Bạn)',
-      description: `Đề xuất phê duyệt tài liệu và chuyển đổi trạng thái bản vẽ/mô hình [${doc.id}] từ WIP (01_WIP) sang SHARED (02_SHARED).`,
+      description: gateDesc,
       file: doc.name + (doc.fileType === 'ifc' ? '.ifc' : doc.fileType === 'dwg' ? '.dwg' : '.pdf'),
       createdDate: new Date().toISOString().split('T')[0],
       documentId: doc.id
     };
     setApprovals(prev => [newApproval, ...prev]);
-    
+
     // 3. Log activity
     const newAct: ActivityItem = {
       id: `act-${Date.now()}`,
@@ -341,38 +393,97 @@ export function DocumentsTab({
       type: 'upload'
     };
     setActivities(prev => [newAct, ...prev]);
+
+    // 4. Persist to Supabase
+    if (projectId) {
+      updateDocument(doc, projectId, { status: 'PENDING_APPROVAL' });
+      createApproval(projectId, newApproval);
+      logActivity(projectId, 'BIM Manager (Bạn)', 'đã gửi yêu cầu phê duyệt', doc.id, 'upload');
+    }
   };
 
   // Handle Approve action directly from Documents tab properties panel
   const handleApproveDocument = (doc: DocumentItem) => {
     const nextFolder = doc.folder === '01_WIP' ? '02_SHARED' : '03_PUBLISHED';
     const nextStatus = nextFolder === '02_SHARED' ? 'S1 - SHARED' : 'S2 - PUBLISHED';
-    
+
     setDocuments(prev => prev.map(d => {
       if (d.id === doc.id) {
+        // Gate 2 (xuất bản): nâng mã phiên bản từ Preliminary (P..) sang
+        // Construction (C..) theo quy ước ISO 19650.
+        const nextRevision = nextStatus === 'S2 - PUBLISHED' && /^P/i.test(d.revision)
+          ? 'C01'
+          : d.revision;
         return {
           ...d,
           folder: nextFolder,
           status: nextStatus,
+          revision: nextRevision,
           modifiedDate: new Date().toISOString()
         };
       }
       return d;
     }));
-    
+
     // Remove from approvals
     setApprovals(prev => prev.filter(app => app.documentId !== doc.id));
-    
+
     // Log activity
+    const gateLabel = nextStatus === 'S2 - PUBLISHED' ? 'xuất bản (Gate 2)' : 'chia sẻ (Gate 1)';
     const newAct: ActivityItem = {
       id: `act-${Date.now()}`,
       user: 'BIM Manager (Bạn)',
-      action: 'đã phê duyệt tài liệu',
+      action: `đã phê duyệt ${gateLabel} tài liệu`,
       target: doc.id,
       time: 'Vừa xong',
       type: 'approve'
     };
     setActivities(prev => [newAct, ...prev]);
+
+    // Persist to Supabase
+    if (projectId) {
+      const nextRevision = nextStatus === 'S2 - PUBLISHED' && /^P/i.test(doc.revision) ? 'C01' : doc.revision;
+      updateDocument(doc, projectId, { folder: nextFolder, status: nextStatus, revision: nextRevision });
+      // Xóa các approval gắn với tài liệu này (theo code)
+      approvals.filter(a => a.documentId === doc.id).forEach(a => deleteApproval(projectId, a.id));
+      logActivity(projectId, 'BIM Manager (Bạn)', `đã phê duyệt ${gateLabel} tài liệu`, doc.id, 'approve');
+    }
+  };
+
+  // Cập nhật mã phù hợp (suitability code) thủ công
+  const handleSetSuitability = (doc: DocumentItem, code: string) => {
+    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, suitabilityCode: code } : d));
+    if (projectId) updateDocument(doc, projectId, { suitabilityCode: code });
+  };
+
+  // Archive a published document (S2 - PUBLISHED -> S3 - ARCHIVED)
+  const handleArchiveDocument = (doc: DocumentItem) => {
+    setDocuments(prev => prev.map(d => {
+      if (d.id === doc.id) {
+        return {
+          ...d,
+          folder: '04_ARCHIVE',
+          status: 'S3 - ARCHIVED',
+          modifiedDate: new Date().toISOString()
+        };
+      }
+      return d;
+    }));
+
+    const newAct: ActivityItem = {
+      id: `act-${Date.now()}`,
+      user: 'BIM Manager (Bạn)',
+      action: 'đã lưu trữ tài liệu',
+      target: doc.id,
+      time: 'Vừa xong',
+      type: 'system'
+    };
+    setActivities(prev => [newAct, ...prev]);
+
+    if (projectId) {
+      updateDocument(doc, projectId, { folder: '04_ARCHIVE', status: 'S3 - ARCHIVED' });
+      logActivity(projectId, 'BIM Manager (Bạn)', 'đã lưu trữ tài liệu', doc.id, 'system');
+    }
   };
 
   // Handle Reject action directly from Documents tab properties panel
@@ -401,6 +512,12 @@ export function DocumentsTab({
       type: 'system'
     };
     setActivities(prev => [newAct, ...prev]);
+
+    if (projectId) {
+      updateDocument(doc, projectId, { status: 'S0 - WIP' });
+      approvals.filter(a => a.documentId === doc.id).forEach(a => deleteApproval(projectId, a.id));
+      logActivity(projectId, 'BIM Manager (Bạn)', 'đã từ chối phê duyệt tài liệu', doc.id, 'system');
+    }
   };
 
   // Drag and drop events
@@ -948,6 +1065,20 @@ export function DocumentsTab({
                </div>
 
                <div className="space-y-3">
+                  {/* Suitability code editor (ISO 19650 - mã phù hợp) */}
+                  <div className="grid grid-cols-[100px_1fr] border-b border-outline-variant/20 pb-2 text-[12.5px] items-center">
+                     <div className="font-mono text-[10.5px] text-outline flex items-center">Mã phù hợp</div>
+                     <select
+                       value={deriveSuitability(selectedDoc)}
+                       onChange={(e) => handleSetSuitability(selectedDoc, e.target.value)}
+                       className="ml-auto bg-surface border border-outline-variant/60 rounded-md px-2 py-1 text-[11.5px] font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer max-w-full truncate"
+                       title="Mã phù hợp ISO 19650 (mục đích sử dụng tài liệu)"
+                     >
+                       {SUITABILITY_CODES.map(s => (
+                         <option key={s.code} value={s.code}>{s.label}</option>
+                       ))}
+                     </select>
+                  </div>
                   {[
                      { label: 'Trạng thái', value: selectedDoc.status === 'PENDING_APPROVAL' ? 'CHỜ PHÊ DUYỆT' : selectedDoc.status },
                      { label: 'Revision', value: selectedDoc.revision },
@@ -990,11 +1121,29 @@ export function DocumentsTab({
                
                {/* Contextual actions based on ISO 19650 workflow status */}
                {selectedDoc.status === 'S0 - WIP' && (
-                 <button 
+                 <button
                    onClick={() => handleSubmitForApproval(selectedDoc)}
                    className="w-full py-2.5 bg-primary hover:bg-primary/95 text-on-primary rounded-xl font-bold text-[13px] shadow transition-all active:scale-98 flex items-center justify-center gap-1.5"
                  >
-                   Gửi yêu cầu phê duyệt
+                   Gửi duyệt chia sẻ (Gate 1)
+                 </button>
+               )}
+
+               {selectedDoc.status === 'S1 - SHARED' && (
+                 <button
+                   onClick={() => handleSubmitForApproval(selectedDoc)}
+                   className="w-full py-2.5 bg-primary hover:bg-primary/95 text-on-primary rounded-xl font-bold text-[13px] shadow transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                 >
+                   Trình duyệt xuất bản (Gate 2)
+                 </button>
+               )}
+
+               {selectedDoc.status === 'S2 - PUBLISHED' && (
+                 <button
+                   onClick={() => handleArchiveDocument(selectedDoc)}
+                   className="w-full py-2.5 border border-outline-variant text-on-surface-variant hover:bg-surface-container rounded-xl font-bold text-[13px] transition-colors flex items-center justify-center gap-1.5"
+                 >
+                   Lưu trữ tài liệu (Archive)
                  </button>
                )}
 

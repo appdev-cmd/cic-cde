@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon } from 'lucide-react';
+import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   activeModule: 'overview' | 'projects' | 'gis' | 'settings';
@@ -7,9 +7,13 @@ interface SidebarProps {
   isCollapsed: boolean;
   darkMode: boolean;
   toggleTheme: () => void;
+  userName?: string;
+  userRole?: string;
+  onSignOut?: () => void;
 }
 
-export function Sidebar({ activeModule, setActiveModule, isCollapsed, darkMode, toggleTheme }: SidebarProps) {
+export function Sidebar({ activeModule, setActiveModule, isCollapsed, darkMode, toggleTheme, userName = 'Người dùng', userRole = 'Architect', onSignOut }: SidebarProps) {
+  const initials = userName.split(' ').map(w => w[0]).filter(Boolean).slice(-2).join('').toUpperCase() || 'U';
   const itemClasses = (active: boolean) => 
     `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-medium text-[15px] cursor-pointer ${
       active 
@@ -94,15 +98,22 @@ export function Sidebar({ activeModule, setActiveModule, isCollapsed, darkMode, 
           <Settings size={20} className={iconClasses(activeModule === 'settings')} />
           {!isCollapsed && <span>Cài đặt</span>}
         </div>
-        {!isCollapsed && (
-          <div className="mt-2 flex items-center gap-3 px-2 py-2 hover:bg-surface-container rounded-lg cursor-pointer transition-colors">
+        {!isCollapsed ? (
+          <div className="mt-2 flex items-center gap-2 px-2 py-2 hover:bg-surface-container rounded-lg transition-colors group">
              <div className="w-8 h-8 shrink-0 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-xs">
-                AD
+                {initials}
              </div>
-             <div className="min-w-0">
-                <div className="font-semibold text-sm truncate text-on-surface">Admin User</div>
-                <div className="font-mono text-[10px] text-on-surface-variant truncate">BIM Manager</div>
+             <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm truncate text-on-surface">{userName}</div>
+                <div className="font-mono text-[10px] text-on-surface-variant truncate">{userRole}</div>
              </div>
+             <button onClick={onSignOut} title="Đăng xuất" className="p-1.5 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-colors shrink-0">
+                <LogOut size={16} />
+             </button>
+          </div>
+        ) : (
+          <div onClick={onSignOut} title="Đăng xuất" className="mt-2 flex items-center justify-center py-2.5 rounded-lg hover:bg-error/10 text-outline hover:text-error cursor-pointer transition-colors">
+             <LogOut size={18} />
           </div>
         )}
       </div>

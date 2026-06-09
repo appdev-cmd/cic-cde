@@ -29,6 +29,99 @@ export const extractItemProperties = (item: any, id: number) => {
   return props;
 };
 
+// Quantity Take-Off (QTO) aggregated per IFC category
+export interface QtoRow {
+  category: string;
+  count: number;
+  area: number;    // m2
+  volume: number;  // m3
+  length: number;  // m
+}
+
+export interface QtoResult {
+  rows: QtoRow[];
+  totalElements: number;
+  elementsWithQuantities: number;
+}
+
+// Pull a numeric value out of an ItemAttribute-like object ({value} | number)
+const attrNum = (a: any): number | null => {
+  if (a === null || a === undefined) return null;
+  const v = typeof a === 'object' && 'value' in a ? a.value : a;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const attrStr = (a: any): string => {
+  if (a === null || a === undefined) return '';
+  const v = typeof a === 'object' && 'value' in a ? a.value : a;
+  return String(v ?? '');
+};
+
+/**
+ * Extract Quantity Take-Off from a Fragments model by reading IFC quantity sets
+ * (Qto_*BaseQuantities) attached to elements via the IsDefinedBy relation.
+ * Defensive: classifies each quantity by its *Value field name (Volume/Area/Length).
+ */
+export const extractQto = async (model: any): Promise<QtoResult> => {
+  const idsSet = await model.getLocalIds();
+  const ids = Array.from(idsSet) as number[];
+  const items = await model.getItemsData(ids, {
+    attributesDefault: true,
+    relations: {
+      IsDefinedBy: { attributes: true, relations: true },
+    },
+  });
+
+  const map: Record<string, QtoRow> = {};
+  let withQ = 0;
+
+  for (const item of items) {
+    if (!item) continue;
+    const category = attrStr(item._category) || 'IFC ELEMENT';
+    if (!map[category]) {
+      map[category] = { category, count: 0, area: 0, volume: 0, length: 0 };
+    }
+    map[category].count += 1;
+
+    const definedBy = (item as any).IsDefinedBy;
+    if (!Array.isArray(definedBy)) continue;
+
+    // Recursively walk the relation tree and collect any *Value quantity fields,
+    // regardless of how the Fragments API nests quantity sets. Bounded depth to
+    // avoid pathological recursion.
+    let elementHasQ = false;
+    const visit = (node: any, depth: number) => {
+      if (!node || depth > 6) return;
+      if (Array.isArray(node)) {
+        for (const child of node) visit(child, depth + 1);
+        return;
+      }
+      if (typeof node !== 'object') return;
+      for (const key in node) {
+        const val = node[key];
+        if (key.endsWith('VolumeValue')) {
+          const n = attrNum(val); if (n) { map[category].volume += n; elementHasQ = true; }
+        } else if (key.endsWith('AreaValue')) {
+          const n = attrNum(val); if (n) { map[category].area += n; elementHasQ = true; }
+        } else if (key.endsWith('LengthValue')) {
+          const n = attrNum(val); if (n) { map[category].length += n; elementHasQ = true; }
+        } else if (val && typeof val === 'object') {
+          visit(val, depth + 1);
+        }
+      }
+    };
+    visit(definedBy, 0);
+    if (elementHasQ) withQ += 1;
+  }
+
+  const rows = Object.values(map)
+    .filter(r => r.count > 0)
+    .sort((a, b) => b.volume - a.volume || b.count - a.count);
+
+  return { rows, totalElements: ids.length, elementsWithQuantities: withQ };
+};
+
 export interface BimViewerProps {
   onModelLoaded?: (spatialTree: any, properties: any, model: any) => void;
   onElementSelected?: (properties: any) => void;
@@ -43,6 +136,9 @@ export interface BimViewerRef {
   isolateElements: (expressIds: number[]) => void;
   setGhostMode: (expressIds: number[], active: boolean) => void;
   setCameraView: (viewType: 'top' | 'front' | 'right' | 'iso') => void;
+  getQuantityTakeoff: () => Promise<QtoResult | null>;
+  zoomIn: () => void;
+  zoomOut: () => void;
 }
 
 export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoaded, onElementSelected }, ref) => {
@@ -431,6 +527,28 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
           controls.setLookAt(center.x + maxDim, center.y + maxDim, center.z + maxDim, center.x, center.y, center.z, true);
           break;
       }
+    },
+
+    getQuantityTakeoff: async () => {
+      if (!currentModelRef.current) return null;
+      try {
+        return await extractQto(currentModelRef.current);
+      } catch (err) {
+        console.error('QTO extraction error:', err);
+        return null;
+      }
+    },
+
+    zoomIn: () => {
+      const controls = worldRef.current?.camera?.controls;
+      if (!controls) return;
+      controls.dolly(controls.distance * 0.3, true);
+    },
+
+    zoomOut: () => {
+      const controls = worldRef.current?.camera?.controls;
+      if (!controls) return;
+      controls.dolly(-controls.distance * 0.3, true);
     }
   }));
 

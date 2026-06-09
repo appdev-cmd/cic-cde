@@ -1,0 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+config();
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+const { data: projects, error: e1 } = await supabase.from('projects').select('*');
+console.log('projects:', e1 ? 'ERROR '+e1.message : projects.length + ' rows ->', projects?.map(p=>p.id).join(','));
+const { data: docs, error: e2 } = await supabase.from('documents').select('*').eq('project_id','fpt-arch');
+console.log('documents(fpt-arch):', e2 ? 'ERROR '+e2.message : docs.length + ' rows');
+const { data: clashes, error: e3 } = await supabase.from('clashes').select('*').eq('project_id','fpt-arch');
+console.log('clashes(fpt-arch):', e3 ? 'ERROR '+e3.message : clashes.length + ' rows');

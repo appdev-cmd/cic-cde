@@ -5,6 +5,9 @@ import {
   X, HelpCircle, ArrowUpRight, Folder, Eye, CheckCircle 
 } from 'lucide-react';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from '../../types';
+import { askAssistant, isAiConfigured, type ChatTurn } from '../../lib/ai/gemini';
+import { updateDocument } from '../../lib/api/documents';
+import { updateClashStatus, deleteApproval, logActivity } from '../../lib/api/data';
 
 export interface DashboardTabProps {
   documents: DocumentItem[];
@@ -15,6 +18,7 @@ export interface DashboardTabProps {
   setClashes: React.Dispatch<React.SetStateAction<ClashItem[]>>;
   activities: ActivityItem[];
   setActivities: React.Dispatch<React.SetStateAction<ActivityItem[]>>;
+  projectId?: string;
 }
 
 export function DashboardTab({
@@ -25,7 +29,8 @@ export function DashboardTab({
   clashes,
   setClashes,
   activities,
-  setActivities
+  setActivities,
+  projectId
 }: DashboardTabProps) {
   // --- STATE ---
   const documentsCount = 1243 + documents.length;
@@ -48,33 +53,30 @@ export function DashboardTab({
   const [inputValue, setInputValue] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
 
-  const sendChatMessage = (text: string) => {
+  const sendChatMessage = async (text: string) => {
     if (!text.trim()) return;
-    
+
     const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { sender: 'user' as const, text, time: timeNow };
+
+    // Lưu lại lịch sử trước khi thêm câu hỏi mới (để gửi context cho AI).
+    const history: ChatTurn[] = chatMessages.map(m => ({ sender: m.sender, text: m.text }));
+
     setChatMessages(prev => [...prev, userMsg]);
     setInputValue('');
     setIsAiTyping(true);
 
-    setTimeout(() => {
-      let aiText = '';
-      const query = text.toLowerCase();
-      if (query.includes('19650') || query.includes('đặt tên') || query.includes('naming')) {
-        aiText = 'Theo tiêu chuẩn ISO 19650, tên file phải gồm đúng 7 trường phân tách bằng dấu gạch ngang (-): [Dự án]-[Đơn vị]-[Phân khu]-[Cao trình]-[Loại]-[Bộ môn]-[Số thứ tự]. Ví dụ: PRJ-ARC-Z01-ZZ-M3-A-0001. Hệ thống CDE tự động kiểm tra định dạng này khi tải lên.';
-      } else if (query.includes('9386') || query.includes('động đất') || query.includes('tcvn')) {
-        aiText = 'TCVN 9386:2012 quy định thiết kế công trình chịu động đất. Đối với công trình này, gia tốc nền thiết kế là 0.108g. Hệ số ứng xử kết cấu q được áp dụng là 3.9 cho hệ khung dẻo trung bình (DCM).';
-      } else if (query.includes('xung đột') || query.includes('cl-01') || query.includes('dầm')) {
-        aiText = 'Xung đột CL-01 (Dầm trục 3-C với Ống gió tầng 2) thuộc cấp độ Cao. Ống gió chính kích thước 600x400 đi xuyên qua dầm chính chịu lực. Khuyến nghị phối hợp nâng trần thạch cao thêm 100mm và hạ ống gió đi dưới dầm, hoặc sử dụng thiết kế dầm đục lỗ tăng cường thép.';
-      } else if (query.includes('tiến độ') || query.includes('chi phí') || query.includes('eva') || query.includes('ngân sách') || query.includes('actual') || query.includes('đã chi')) {
-        aiText = `Báo cáo phân tích EVA hiện tại: Ngân sách hoàn thành (BAC) của dự án là 125.4 Tỷ, chi phí thực tế đã giải ngân (AC) là ${spendingActual} Tỷ. Tỷ lệ phê duyệt hồ sơ chất lượng đạt ${approvalPercent}%. Dự án đang ở trạng thái kiểm soát tốt.`;
-      } else {
-        aiText = 'Tôi đã nhận được yêu cầu của bạn. Tôi đang phân tích cơ sở dữ liệu BIM và hồ sơ tài liệu của dự án để đưa ra phản hồi chính xác nhất.';
-      }
+    const projectContext = `- Ngân sách hoàn thành (BAC): 125.4 Tỷ VNĐ\n- Chi phí thực tế đã giải ngân (AC): ${spendingActual} Tỷ VNĐ\n- Tỷ lệ phê duyệt hồ sơ: ${approvalPercent}%\n- Số xung đột chưa xử lý: ${clashes.filter(c => c.status !== 'Đã giải quyết').length}`;
 
-      setChatMessages(prev => [...prev, { sender: 'ai' as const, text: aiText, time: timeNow }]);
+    try {
+      const aiText = await askAssistant(history, text, projectContext);
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setChatMessages(prev => [...prev, { sender: 'ai' as const, text: aiText, time: replyTime }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { sender: 'ai' as const, text: 'Đã xảy ra lỗi khi gọi trợ lý AI. Vui lòng thử lại.', time: timeNow }]);
+    } finally {
       setIsAiTyping(false);
-    }, 1000);
+    }
   };
   
   // Custom temporary toast alerts
@@ -151,6 +153,20 @@ export function DashboardTab({
     };
     setActivities(prev => [newActivity, ...prev]);
     setSelectedApproval(null);
+
+    // Persist to Supabase
+    if (projectId) {
+      deleteApproval(projectId, id);
+      if (item.documentId) {
+        const linkedDoc = documents.find(d => d.id === item.documentId);
+        if (linkedDoc) {
+          updateDocument(linkedDoc, projectId, isAccepted
+            ? { folder: '02_SHARED', status: 'S1 - SHARED' }
+            : { status: 'S0 - WIP' });
+        }
+      }
+      logActivity(projectId, 'BIM Manager (Bạn)', isAccepted ? 'đã phê duyệt thành công' : 'đã từ chối đề xuất', `${id}: ${item.type}`, 'approve');
+    }
   };
 
   // Handle Clash Resolution
@@ -170,6 +186,11 @@ export function DashboardTab({
       type: 'clash'
     };
     setActivities(prev => [newActivity, ...prev]);
+
+    if (projectId) {
+      updateClashStatus(projectId, id, 'Đã giải quyết');
+      logActivity(projectId, 'BIM Manager (Bạn)', 'đã giải quyết hành động xung đột', `${id} (${clash.discipline})`, 'clash');
+    }
   };
 
   // Simulated File Upload Action
@@ -765,6 +786,11 @@ export function DashboardTab({
                
                {/* Message Feed */}
                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                  {!isAiConfigured() && (
+                    <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-[11.5px] leading-relaxed text-on-surface-variant font-medium">
+                      <span className="font-bold text-warning">Chế độ ngoại tuyến:</span> chưa cấu hình <code className="font-mono">VITE_GEMINI_API_KEY</code>. Trợ lý đang dùng câu trả lời mẫu. Thêm key vào <code className="font-mono">.env</code> để bật AI đầy đủ.
+                    </div>
+                  )}
                   {chatMessages.map((msg, idx) => (
                     <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
                       <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed shadow-sm ${

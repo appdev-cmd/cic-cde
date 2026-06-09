@@ -80,13 +80,16 @@ export const PROJECTS_LIST: ProjectItem[] = [
 
 interface ProjectListProps {
   onSelectProject: (project: ProjectItem) => void;
+  projects?: ProjectItem[];
 }
 
-export function ProjectList({ onSelectProject }: ProjectListProps) {
+export function ProjectList({ onSelectProject, projects }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const filteredProjects = PROJECTS_LIST.filter(proj => {
+  const sourceProjects = projects && projects.length > 0 ? projects : PROJECTS_LIST;
+
+  const filteredProjects = sourceProjects.filter(proj => {
     const matchesSearch = proj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           proj.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           proj.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -124,7 +127,7 @@ export function ProjectList({ onSelectProject }: ProjectListProps) {
           </p>
         </div>
         <div className="flex items-center gap-2 bg-surface p-1.5 rounded-lg border border-outline-variant text-[13px] text-outline font-bold">
-          Tổng số: <span className="text-primary font-extrabold">{PROJECTS_LIST.length}</span> Dự án
+          Tổng số: <span className="text-primary font-extrabold">{sourceProjects.length}</span> Dự án
         </div>
       </div>
 

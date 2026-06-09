@@ -1,16 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
+import { BimViewerRef } from './components/bim/BimViewer';
+import { supabase } from './lib/supabase';
+import { LoginScreen } from './components/auth/LoginScreen';
+import { getSession, onAuthChange, fetchProfile, signOut, type Profile } from './lib/api/auth';
+import { fetchProjects } from './lib/api/projects';
+import { fetchDocuments } from './lib/api/documents';
+import { fetchClashes, fetchApprovals, fetchActivities } from './lib/api/data';
 import { AppHeader } from './components/layout/AppHeader';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { DocumentsTab } from './components/tabs/DocumentsTab';
 import { ViewerTab } from './components/tabs/ViewerTab';
 import { ScheduleTab } from './components/tabs/ScheduleTab';
+import { FmTab } from './components/tabs/FmTab';
 import { ProjectList, ProjectItem, PROJECTS_LIST } from './components/project/ProjectList';
 import { GeoBimMap } from './components/gis/GeoBimMap';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from './types';
 import { Building2, ArrowRight, Calendar, Sun, Moon } from 'lucide-react';
 
-export type TabContext = 'dashboard' | 'documents' | 'viewer' | 'schedule';
+export type TabContext = 'dashboard' | 'documents' | 'viewer' | 'schedule' | 'fm';
 
 const DEFAULT_DOCUMENTS: DocumentItem[] = [
   {
@@ -129,6 +137,28 @@ const DEFAULT_ACTIVITIES: ActivityItem[] = [
 ];
 
 export default function App() {
+  // ---- Auth ----
+  const [authReady, setAuthReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getSession().then(async (session) => {
+      if (!active) return;
+      setSignedIn(!!session);
+      if (session) setProfile(await fetchProfile(session.user.id));
+      setAuthReady(true);
+    });
+    const unsub = onAuthChange(async (session) => {
+      setSignedIn(!!session);
+      setProfile(session ? await fetchProfile(session.user.id) : null);
+    });
+    return () => { active = false; unsub(); };
+  }, []);
+
+  const handleSignOut = async () => { await signOut(); };
+
   const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings'>('projects');
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [activeTab, setActiveTab] = useState<TabContext>('dashboard');
@@ -156,44 +186,50 @@ export default function App() {
   const [selectedModelUrl, setSelectedModelUrl] = useState<string | null>(null);
   const [viewerProperties, setViewerProperties] = useState<any>(null);
   const [selectedHighlightIds, setSelectedHighlightIds] = useState<number[]>([]);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const viewerRef = useRef<BimViewerRef>(null);
 
-  // Initialize state from local storage or defaults
-  const [documents, setDocuments] = useState<DocumentItem[]>(() => {
-    const saved = localStorage.getItem('cic_cde_documents');
-    return saved ? JSON.parse(saved) : DEFAULT_DOCUMENTS;
-  });
+  // Dữ liệu nạp từ Supabase (thay localStorage). Fallback DEFAULT_* khi lỗi mạng.
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [clashes, setClashes] = useState<ClashItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
 
-  const [approvals, setApprovals] = useState<ApprovalItem[]>(() => {
-    const saved = localStorage.getItem('cic_cde_approvals');
-    return saved ? JSON.parse(saved) : DEFAULT_APPROVALS;
-  });
-
-  const [clashes, setClashes] = useState<ClashItem[]>(() => {
-    const saved = localStorage.getItem('cic_cde_clashes');
-    return saved ? JSON.parse(saved) : DEFAULT_CLASHES;
-  });
-
-  const [activities, setActivities] = useState<ActivityItem[]>(() => {
-    const saved = localStorage.getItem('cic_cde_activities');
-    return saved ? JSON.parse(saved) : DEFAULT_ACTIVITIES;
-  });
-
-  // Save to localStorage when state changes
+  // Nạp danh sách dự án từ Supabase khi khởi động
   useEffect(() => {
-    localStorage.setItem('cic_cde_documents', JSON.stringify(documents));
-  }, [documents]);
+    fetchProjects()
+      .then(setProjects)
+      .catch(err => {
+        console.error('Không tải được danh sách dự án từ Supabase:', err);
+        setProjects(PROJECTS_LIST); // fallback
+      });
+  }, []);
 
+  // Realtime: lắng nghe hoạt động mới của dự án đang mở và cập nhật nhật ký tức thì
   useEffect(() => {
-    localStorage.setItem('cic_cde_approvals', JSON.stringify(approvals));
-  }, [approvals]);
-
-  useEffect(() => {
-    localStorage.setItem('cic_cde_clashes', JSON.stringify(clashes));
-  }, [clashes]);
-
-  useEffect(() => {
-    localStorage.setItem('cic_cde_activities', JSON.stringify(activities));
-  }, [activities]);
+    if (!selectedProject) return;
+    const channel = supabase
+      .channel(`activities-${selectedProject.id}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activities', filter: `project_id=eq.${selectedProject.id}` },
+        (payload) => {
+          const r: any = payload.new;
+          const item: ActivityItem = {
+            id: r.id,
+            user: r.user_name ?? 'Hệ thống',
+            action: r.action ?? '',
+            target: r.target ?? '',
+            time: 'Vừa xong',
+            type: r.activity_type ?? 'system',
+          };
+          // Tránh trùng với bản ghi đã thêm lạc quan vào state
+          setActivities(prev => prev.some(a => a.id === item.id) ? prev : [item, ...prev]);
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedProject]);
 
   const isViewer = activeModule === 'projects' && selectedProject !== null && activeTab === 'viewer';
 
@@ -202,7 +238,7 @@ export default function App() {
     setActiveTab('viewer');
   };
 
-  const handleSelectProject = (proj: ProjectItem) => {
+  const handleSelectProject = async (proj: ProjectItem) => {
     setSelectedProject(proj);
     setActiveTab('dashboard');
     if (proj.id === 'fpt-arch') {
@@ -210,27 +246,71 @@ export default function App() {
     } else {
       setSelectedModelUrl(null);
     }
+
+    // Nạp dữ liệu của dự án từ Supabase
+    setDataLoading(true);
+    try {
+      const [docs, apps, cls, acts] = await Promise.all([
+        fetchDocuments(proj.id),
+        fetchApprovals(proj.id),
+        fetchClashes(proj.id),
+        fetchActivities(proj.id),
+      ]);
+      setDocuments(docs);
+      setApprovals(apps);
+      setClashes(cls);
+      setActivities(acts);
+    } catch (err) {
+      console.error('Không tải được dữ liệu dự án từ Supabase:', err);
+      // Fallback dữ liệu mẫu để app vẫn dùng được khi offline
+      setDocuments(DEFAULT_DOCUMENTS);
+      setApprovals(DEFAULT_APPROVALS);
+      setClashes(DEFAULT_CLASHES);
+      setActivities(DEFAULT_ACTIVITIES);
+    } finally {
+      setDataLoading(false);
+    }
   };
+
+  // Auth gate: chờ kiểm tra phiên, hiện màn đăng nhập nếu chưa đăng nhập
+  if (!authReady) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-surface-container-low">
+        <div className="animate-pulse text-primary font-bold text-lg">CDE CIC…</div>
+      </div>
+    );
+  }
+  if (!signedIn) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="h-screen w-screen flex bg-background text-on-background overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
       {/* Global Sidebar Application Drawer */}
-      <Sidebar 
+      <Sidebar
         activeModule={activeModule}
         setActiveModule={setActiveModule}
-        isCollapsed={isViewer} 
+        isCollapsed={isViewer}
         darkMode={darkMode}
         toggleTheme={toggleTheme}
+        userName={profile?.fullName || 'Người dùng'}
+        userRole={profile?.role || 'Architect'}
+        onSignOut={handleSignOut}
       />
       
       {/* Main Column */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <AppHeader 
+        <AppHeader
           activeModule={activeModule}
           selectedProject={selectedProject}
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
           onBackToProjectList={() => setSelectedProject(null)}
+          activities={activities}
+          globalSearch={globalSearch}
+          setGlobalSearch={setGlobalSearch}
+          onZoomIn={() => viewerRef.current?.zoomIn()}
+          onZoomOut={() => viewerRef.current?.zoomOut()}
         />
         
         {/* Dynamic Route/Tab Content Area */}
@@ -294,7 +374,7 @@ export default function App() {
                     Tiếp cận nhanh Dự án
                   </h3>
                   <div className="space-y-3">
-                    {PROJECTS_LIST.map(proj => (
+                    {projects.map(proj => (
                       <div 
                         key={proj.id}
                         onClick={() => handleSelectProject(proj)}
@@ -423,11 +503,11 @@ export default function App() {
           {activeModule === 'projects' && (
             <>
               {selectedProject === null ? (
-                <ProjectList onSelectProject={handleSelectProject} />
+                <ProjectList onSelectProject={handleSelectProject} projects={projects} />
               ) : (
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {activeTab === 'dashboard' && (
-                    <DashboardTab 
+                    <DashboardTab
                       documents={documents}
                       setDocuments={setDocuments}
                       approvals={approvals}
@@ -436,10 +516,11 @@ export default function App() {
                       setClashes={setClashes}
                       activities={activities}
                       setActivities={setActivities}
+                      projectId={selectedProject.id}
                     />
                   )}
                   {activeTab === 'documents' && (
-                    <DocumentsTab 
+                    <DocumentsTab
                       documents={documents}
                       setDocuments={setDocuments}
                       approvals={approvals}
@@ -447,10 +528,12 @@ export default function App() {
                       activities={activities}
                       setActivities={setActivities}
                       onOpenModel={handleOpenModel}
+                      globalSearch={globalSearch}
+                      projectId={selectedProject.id}
                     />
                   )}
                   {activeTab === 'viewer' && (
-                    <ViewerTab 
+                    <ViewerTab
                       selectedModelUrl={selectedModelUrl}
                       setSelectedModelUrl={setSelectedModelUrl}
                       onModelLoaded={(spatial, props) => {
@@ -458,14 +541,19 @@ export default function App() {
                       }}
                       selectedHighlightIds={selectedHighlightIds}
                       setSelectedHighlightIds={setSelectedHighlightIds}
+                      viewerRef={viewerRef}
+                      projectId={selectedProject.id}
                     />
                   )}
                   {activeTab === 'schedule' && (
-                    <ScheduleTab 
+                    <ScheduleTab
                       viewerProperties={viewerProperties}
                       setSelectedHighlightIds={setSelectedHighlightIds}
                       setActiveTab={setActiveTab}
                     />
+                  )}
+                  {activeTab === 'fm' && (
+                    <FmTab projectId={selectedProject.id} />
                   )}
                 </div>
               )}

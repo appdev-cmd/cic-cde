@@ -1,0 +1,14 @@
+import pg from 'pg';
+import { readFileSync } from 'fs';
+import { config } from 'dotenv';
+config();
+const pw = process.env.SUPABASE_DB_PASSWORD;
+const conn = `postgresql://postgres.shiqfawlgeintqsibqmk:${encodeURIComponent(pw)}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`;
+const sql = readFileSync('supabase/migrations/20260609090000_open_pilot_rls_and_storage.sql', 'utf8');
+const client = new pg.Client({ connectionString: conn, ssl: { rejectUnauthorized: false } });
+await client.connect();
+await client.query(sql);
+console.log('Migration 2 applied OK.');
+const b = await client.query("select id, public from storage.buckets where id='cde-files'");
+console.log('Bucket:', JSON.stringify(b.rows));
+await client.end();

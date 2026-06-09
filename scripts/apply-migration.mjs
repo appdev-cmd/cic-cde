@@ -1,0 +1,18 @@
+import pg from 'pg';
+import { readFileSync } from 'fs';
+import { config } from 'dotenv';
+config();
+const pw = process.env.SUPABASE_DB_PASSWORD;
+const conn = `postgresql://postgres.shiqfawlgeintqsibqmk:${encodeURIComponent(pw)}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`;
+const sql = readFileSync('supabase/migrations/20260609080733_init_cde_tables.sql', 'utf8');
+const client = new pg.Client({ connectionString: conn, ssl: { rejectUnauthorized: false } });
+await client.connect();
+console.log('Connected. Applying migration...');
+await client.query(sql);
+console.log('Migration applied OK.');
+const r = await client.query("select table_name from information_schema.tables where table_schema='public' order by table_name");
+console.log('Tables:', r.rows.map(x=>x.table_name).join(', '));
+const p = await client.query('select count(*) from public.projects');
+const d = await client.query('select count(*) from public.documents');
+console.log('Seed: projects=', p.rows[0].count, 'documents=', d.rows[0].count);
+await client.end();

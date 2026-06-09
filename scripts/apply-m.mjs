@@ -1,0 +1,12 @@
+import pg from 'pg';
+import { readFileSync } from 'fs';
+import { config } from 'dotenv';
+config();
+const pw = process.env.SUPABASE_DB_PASSWORD;
+const conn = `postgresql://postgres.shiqfawlgeintqsibqmk:${encodeURIComponent(pw)}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`;
+const file = process.argv[2];
+const c = new pg.Client({ connectionString: conn, ssl: { rejectUnauthorized: false } });
+await c.connect();
+await c.query(readFileSync(file, 'utf8'));
+console.log('Applied:', file);
+await c.end();

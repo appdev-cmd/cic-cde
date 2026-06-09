@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Filter, ChevronDown, ChevronRight, Folder, FolderOpen, Box, 
   Scissors, Ruler, MessageSquare, EyeOff, X, Copy, RefreshCw, Upload,
-  Eye, Ghost, AlertCircle, Plus, ClipboardList
+  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download
 } from 'lucide-react';
-import { BimViewer, BimViewerRef } from '../bim/BimViewer';
+import { BimViewer, BimViewerRef, QtoResult } from '../bim/BimViewer';
+import { analyzeElement } from '../../lib/ai/gemini';
+import { exportBcf, importBcf } from '../../lib/bcf/bcf';
+import { fetchBcfTopics, createBcfTopic } from '../../lib/api/data';
 
 interface ViewerTabProps {
   selectedModelUrl: string | null;
@@ -12,6 +15,8 @@ interface ViewerTabProps {
   onModelLoaded?: (spatial: any, props: any) => void;
   selectedHighlightIds: number[];
   setSelectedHighlightIds: (ids: number[]) => void;
+  viewerRef?: React.RefObject<BimViewerRef | null>;
+  projectId?: string;
 }
 
 interface BcfIssue {
@@ -31,9 +36,12 @@ export function ViewerTab({
   setSelectedModelUrl,
   onModelLoaded,
   selectedHighlightIds,
-  setSelectedHighlightIds
+  setSelectedHighlightIds,
+  viewerRef: externalViewerRef,
+  projectId
 }: ViewerTabProps) {
-  const viewerRef = useRef<BimViewerRef>(null);
+  const localViewerRef = useRef<BimViewerRef>(null);
+  const viewerRef = externalViewerRef ?? localViewerRef;
   
   // State variables for BIM dynamic data
   const [spatialTree, setSpatialTree] = useState<any>(null);
@@ -95,6 +103,66 @@ export function ViewerTab({
   const [clippingActive, setClippingActive] = useState(false);
   const [measurementActive, setMeasurementActive] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // AI analysis state for the selected element
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // QTO (Quantity Take-Off) state
+  const [qtoOpen, setQtoOpen] = useState(false);
+  const [qtoLoading, setQtoLoading] = useState(false);
+  const [qtoResult, setQtoResult] = useState<QtoResult | null>(null);
+
+  const handleOpenQto = async () => {
+    setQtoOpen(true);
+    setQtoLoading(true);
+    setQtoResult(null);
+    try {
+      const result = await viewerRef.current?.getQuantityTakeoff();
+      setQtoResult(result ?? null);
+    } catch (err) {
+      console.error(err);
+      setQtoResult(null);
+    } finally {
+      setQtoLoading(false);
+    }
+  };
+
+  const handleExportQtoCsv = () => {
+    if (!qtoResult) return;
+    const header = 'Loai cau kien (IFC),So luong,Dien tich (m2),The tich (m3),Chieu dai (m)';
+    const lines = qtoResult.rows.map(r =>
+      `${r.category},${r.count},${r.area.toFixed(2)},${r.volume.toFixed(2)},${r.length.toFixed(2)}`
+    );
+    const csv = [header, ...lines].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `QTO_BouocKhoiLuong_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleAnalyzeAI = async () => {
+    if (!selectedElement) return;
+    setAiLoading(true);
+    setAiAnalysis(null);
+    try {
+      const result = await analyzeElement(selectedElement);
+      setAiAnalysis(result);
+    } catch (err) {
+      setAiAnalysis('Không thực hiện được phân tích AI: ' + (err as Error).message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Reset AI analysis whenever the selected element changes
+  useEffect(() => {
+    setAiAnalysis(null);
+    setAiLoading(false);
+  }, [selectedElement]);
 
   // Load sample IFC file
   const handleLoadSample = async () => {
@@ -196,6 +264,90 @@ export function ViewerTab({
     setNewBcfTitle('');
     setNewBcfDesc('');
     setIsCreatingBcf(false);
+
+    // Persist to Supabase
+    if (projectId) {
+      createBcfTopic(projectId, {
+        title: newIssue.title,
+        description: newIssue.description,
+        status: newIssue.status,
+        priority: newIssue.priority,
+        assignedTo: newIssue.assignedTo,
+        linkedElementGuid: newIssue.linkedElementGuid,
+        linkedElementExpressId: newIssue.linkedElementExpressId,
+      });
+    }
+  };
+
+  // Nạp sự vụ BCF từ Supabase theo dự án
+  useEffect(() => {
+    if (!projectId) return;
+    fetchBcfTopics(projectId)
+      .then(rows => {
+        if (rows.length === 0) return; // giữ mẫu mặc định nếu DB trống
+        setBcfIssues(rows.map(r => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          status: (r.status as BcfIssue['status']) || 'Open',
+          priority: (r.priority as BcfIssue['priority']) || 'Medium',
+          assignedTo: r.assignedTo,
+          linkedElementGuid: r.linkedElementGuid,
+          linkedElementExpressId: r.linkedElementExpressId,
+          createdDate: r.createdDate,
+        })));
+      })
+      .catch(err => console.error('Không tải được BCF:', err));
+  }, [projectId]);
+
+  const handleExportBcf = async () => {
+    if (bcfIssues.length === 0) return;
+    try {
+      await exportBcf(bcfIssues);
+    } catch (err) {
+      alert('Không xuất được file BCF: ' + (err as Error).message);
+    }
+  };
+
+  const handleImportBcf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = await importBcf(file);
+      if (imported.length === 0) {
+        alert('Không tìm thấy sự vụ BCF nào trong file.');
+        return;
+      }
+      // Gộp, bỏ trùng theo id
+      setBcfIssues(prev => {
+        const existing = new Set(prev.map(i => i.id));
+        const merged = [...prev];
+        for (const iss of imported) {
+          if (!existing.has(iss.id)) merged.push(iss as BcfIssue);
+        }
+        return merged;
+      });
+
+      // Persist imported topics vào Supabase
+      if (projectId) {
+        for (const iss of imported) {
+          createBcfTopic(projectId, {
+            title: iss.title,
+            description: iss.description,
+            status: iss.status,
+            priority: iss.priority,
+            assignedTo: iss.assignedTo,
+            linkedElementGuid: iss.linkedElementGuid,
+            linkedElementExpressId: iss.linkedElementExpressId,
+          });
+        }
+      }
+      alert(`Đã nhập ${imported.length} sự vụ BCF từ "${file.name}".`);
+    } catch (err) {
+      alert('Không đọc được file BCF: ' + (err as Error).message);
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const handleSelectBcfIssue = (issue: BcfIssue) => {
@@ -369,11 +521,17 @@ export function ViewerTab({
               onClick={handleToggleMeasurement}
             />
             <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
-            <ToolButton 
-              icon={<MessageSquare size={20} />} 
-              label="Tạo Sự vụ BCF" 
+            <ToolButton
+              icon={<MessageSquare size={20} />}
+              label="Tạo Sự vụ BCF"
               active={rightPanelTab === 'bcf'}
               onClick={() => setRightPanelTab(rightPanelTab === 'bcf' ? 'properties' : 'bcf')}
+            />
+            <ToolButton
+              icon={<ClipboardList size={20} />}
+              label="Bóc tách khối lượng (QTO)"
+              active={qtoOpen}
+              onClick={handleOpenQto}
             />
             <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
             <ToolButton 
@@ -524,11 +682,35 @@ export function ViewerTab({
              </div>
 
              {/* AI Action Area */}
-             <div className="p-5 border-t border-outline-variant bg-surface-container-lowest shrink-0">
-                <button className="w-full bg-surface-container border border-tertiary-container/40 text-tertiary-container hover:text-tertiary py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-tertiary-fixed/30 transition-colors font-semibold text-[13px] shadow-sm cursor-pointer">
-                   <span className="text-tertiary font-bold animate-pulse">*</span>
-                   Phân tích với AI
+             <div className="p-5 border-t border-outline-variant bg-surface-container-lowest shrink-0 space-y-3">
+                <button
+                   onClick={handleAnalyzeAI}
+                   disabled={!selectedElement || aiLoading}
+                   className="w-full bg-surface-container border border-tertiary-container/40 text-tertiary-container hover:text-tertiary py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-tertiary-fixed/30 transition-colors font-semibold text-[13px] shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                   {aiLoading ? (
+                     <>
+                       <RefreshCw size={14} className="animate-spin" />
+                       Đang phân tích...
+                     </>
+                   ) : (
+                     <>
+                       <span className="text-tertiary font-bold animate-pulse">*</span>
+                       Phân tích với AI
+                     </>
+                   )}
                 </button>
+                {aiAnalysis && (
+                  <div className="bg-tertiary-container/10 border border-tertiary-container/30 rounded-lg p-3 max-h-48 overflow-y-auto custom-scrollbar">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Phân tích AI</span>
+                      <button onClick={() => setAiAnalysis(null)} className="text-on-surface-variant hover:text-error transition-colors" title="Đóng">
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <p className="text-[12px] leading-relaxed text-on-surface whitespace-pre-wrap">{aiAnalysis}</p>
+                  </div>
+                )}
              </div>
            </>
          ) : (
@@ -537,12 +719,29 @@ export function ViewerTab({
              <div className="space-y-4">
                <div className="flex justify-between items-center border-b border-outline-variant/30 pb-2">
                  <span className="text-[11px] font-bold text-outline uppercase tracking-wider">Danh sách sự vụ ({bcfIssues.length})</span>
-                 <button 
-                   onClick={() => setIsCreatingBcf(true)}
-                   className="text-primary hover:text-primary-container p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer"
-                 >
-                   <Plus size={12} /> Tạo mới
-                 </button>
+                 <div className="flex items-center gap-1">
+                   <label
+                     className="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer"
+                     title="Nhập file .bcfzip từ Revit/Navisworks"
+                   >
+                     <Download size={12} /> Nhập
+                     <input type="file" accept=".bcfzip,.zip" onChange={handleImportBcf} className="hidden" />
+                   </label>
+                   <button
+                     onClick={handleExportBcf}
+                     disabled={bcfIssues.length === 0}
+                     className="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                     title="Xuất tất cả sự vụ ra file .bcfzip"
+                   >
+                     <Upload size={12} /> Xuất
+                   </button>
+                   <button
+                     onClick={() => setIsCreatingBcf(true)}
+                     className="text-primary hover:text-primary-container p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer"
+                   >
+                     <Plus size={12} /> Tạo mới
+                   </button>
+                 </div>
                </div>
 
                {isCreatingBcf ? (
@@ -666,6 +865,99 @@ export function ViewerTab({
            </div>
          )}
       </aside>
+
+      {/* QTO Modal */}
+      {qtoOpen && (
+        <div
+          className="absolute inset-0 bg-inverse-on-surface/40 backdrop-blur-[2px] flex items-center justify-center z-[100] animate-in fade-in duration-200 p-6"
+          onClick={() => setQtoOpen(false)}
+        >
+          <div
+            className="bg-surface-container-lowest w-full max-w-3xl max-h-[80vh] rounded-2xl shadow-2xl border border-outline-variant flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <ClipboardList size={18} className="text-primary" />
+                <h3 className="font-bold text-[15px] text-on-surface">Bảng Bóc tách Khối lượng (QTO)</h3>
+              </div>
+              <button
+                onClick={() => setQtoOpen(false)}
+                className="p-1 text-on-surface-variant hover:bg-surface-container rounded-full transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+              {qtoLoading ? (
+                <div className="h-40 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
+                  <RefreshCw size={28} className="animate-spin text-primary" />
+                  <span className="text-sm font-medium">Đang trích xuất khối lượng từ mô hình IFC...</span>
+                </div>
+              ) : !qtoResult || qtoResult.rows.length === 0 ? (
+                <div className="h-40 flex flex-col items-center justify-center gap-2 text-center text-on-surface-variant px-6">
+                  <AlertCircle size={28} className="text-outline/50" />
+                  <p className="text-sm font-medium">Chưa nạp mô hình hoặc mô hình không chứa dữ liệu khối lượng (Qto_*BaseQuantities).</p>
+                  <p className="text-[11px] text-outline">Hãy nạp một mô hình IFC có bộ thuộc tính khối lượng để bóc tách.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-[11px] text-on-surface-variant font-medium">
+                      Tổng <span className="font-bold text-on-surface">{qtoResult.totalElements}</span> cấu kiện,
+                      trong đó <span className="font-bold text-primary">{qtoResult.elementsWithQuantities}</span> có dữ liệu khối lượng.
+                    </div>
+                    <button
+                      onClick={handleExportQtoCsv}
+                      className="flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm"
+                    >
+                      <Upload size={13} /> Xuất CSV
+                    </button>
+                  </div>
+                  <table className="w-full text-[12.5px] border-collapse">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-outline border-b border-outline-variant">
+                        <th className="text-left font-bold py-2 px-2">Loại cấu kiện (IFC)</th>
+                        <th className="text-right font-bold py-2 px-2">Số lượng</th>
+                        <th className="text-right font-bold py-2 px-2">Diện tích (m²)</th>
+                        <th className="text-right font-bold py-2 px-2">Thể tích (m³)</th>
+                        <th className="text-right font-bold py-2 px-2">Chiều dài (m)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {qtoResult.rows.map((r) => (
+                        <tr key={r.category} className="border-b border-outline-variant/30 hover:bg-surface-container/40 transition-colors">
+                          <td className="py-2 px-2 font-semibold text-on-surface">{r.category}</td>
+                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.count}</td>
+                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.area > 0 ? r.area.toFixed(2) : '—'}</td>
+                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.volume > 0 ? r.volume.toFixed(2) : '—'}</td>
+                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.length > 0 ? r.length.toFixed(2) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-outline-variant font-bold text-on-surface">
+                        <td className="py-2 px-2">TỔNG CỘNG</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.count, 0)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.area, 0).toFixed(2)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.volume, 0).toFixed(2)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.length, 0).toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                  <p className="text-[10.5px] text-outline mt-4 leading-relaxed">
+                    * Khối lượng được trích trực tiếp từ bộ thuộc tính <code className="font-mono">Qto_*BaseQuantities</code> trong tệp IFC.
+                    Đây là nền tảng cho dự toán 5D (gắn đơn giá định mức Bộ Xây dựng) ở giai đoạn sau.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Copy Toast Alert */}
       {copySuccess && (

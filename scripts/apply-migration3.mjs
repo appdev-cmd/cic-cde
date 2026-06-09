@@ -1,0 +1,14 @@
+import pg from 'pg';
+import { readFileSync } from 'fs';
+import { config } from 'dotenv';
+config();
+const pw = process.env.SUPABASE_DB_PASSWORD;
+const conn = `postgresql://postgres.shiqfawlgeintqsibqmk:${encodeURIComponent(pw)}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`;
+const sql = readFileSync('supabase/migrations/20260609100000_approval_doccode_and_fm_seed.sql', 'utf8');
+const c = new pg.Client({ connectionString: conn, ssl: { rejectUnauthorized: false } });
+await c.connect();
+await c.query(sql);
+const a = await c.query('select count(*) from public.assets');
+const t = await c.query('select count(*) from public.maintenance_tickets');
+console.log('Migration 3 OK. assets=', a.rows[0].count, 'tickets=', t.rows[0].count);
+await c.end();

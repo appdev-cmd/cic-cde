@@ -2,9 +2,6 @@
 
 This file maps product behavior to proof.
 
-No product behavior has been defined or implemented yet. Do not mark a row
-implemented until tests or validation evidence exist.
-
 ## Status Values
 
 | Status | Meaning |
@@ -17,9 +14,24 @@ implemented until tests or validation evidence exist.
 
 ## Matrix
 
+### Backend Stories
+
 | Story | Contract | Unit | Integration | E2E | Platform | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| TBD | Add rows when story packets are created | no | no | no | no | planned | none |
+| US-001 | API Gateway & VNeID SSO | no | no | no | no | planned | none |
+| US-002 | ISO 19650 Document Services | no | no | no | no | planned | none |
+| US-003 | BIM Viewer Integration | no | no | no | no | planned | none |
+| US-004 | GeoBIM/GIS Dashboard | no | no | no | no | planned | none |
+| US-005 | Cost & Schedule 5D | no | no | no | no | planned | none |
+
+### Frontend Stories
+
+| Story | Contract | Unit | Integration | E2E | Platform | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| US-FE-001 | ThatOpen BIM Viewer | no | no | no | no | in_progress | Prototype with IFC loading and element selection |
+| US-FE-002 | Documents Explorer | no | no | no | no | in_progress | Prototype with ISO 19650 status workflow |
+| US-FE-003 | Cesium/GeoBIM Dashboard | no | no | no | no | in_progress | Prototype with map markers |
+| US-FE-004 | 4D Gantt Chart | no | no | no | no | in_progress | Prototype with BIM element linking |
 
 ## Evidence Rules
 
@@ -31,3 +43,5 @@ implemented until tests or validation evidence exist.
   behavior that cannot be proven in lower layers.
 - A story can be implemented without every proof column if the story packet
   explains why.
+- Frontend prototype features are marked `in_progress` until test coverage
+  exists.
