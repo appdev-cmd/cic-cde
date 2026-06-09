@@ -4,7 +4,7 @@ import {
   Scissors, Ruler, MessageSquare, EyeOff, X, Copy, RefreshCw, Upload,
   Eye, Ghost, AlertCircle, Plus, ClipboardList, Download
 } from 'lucide-react';
-import { BimViewer, BimViewerRef, QtoResult } from '../bim/BimViewer';
+import { BimViewer, BimViewerRef, QtoResult, LoadedModelInfo } from '../bim/BimViewer';
 import { analyzeElement } from '../../lib/ai/gemini';
 import { exportBcf, importBcf } from '../../lib/bcf/bcf';
 import { fetchBcfTopics, createBcfTopic } from '../../lib/api/data';
@@ -82,6 +82,24 @@ export function ViewerTab({
   const [newBcfDesc, setNewBcfDesc] = useState('');
   const [newBcfPriority, setNewBcfPriority] = useState<'High' | 'Medium' | 'Low'>('High');
   const [newBcfAssignee, setNewBcfAssignee] = useState('KS. Nguyễn Văn Hải');
+
+  // Multi-model management
+  const [loadedModels, setLoadedModels] = useState<LoadedModelInfo[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !viewerRef.current) return;
+    e.target.value = '';
+    await viewerRef.current.loadFile(file);
+    setLoadedModels(viewerRef.current.getLoadedModels());
+  };
+
+  const handleRemoveModel = (modelId: string) => {
+    if (!viewerRef.current) return;
+    viewerRef.current.removeModel(modelId);
+    setLoadedModels(viewerRef.current.getLoadedModels());
+  };
 
   // Category visibility states
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set());
@@ -176,6 +194,9 @@ export function ViewerTab({
     setProperties(props);
     setSelectedElement(null);
     setHiddenCategories(new Set());
+    if (viewerRef.current) {
+      setLoadedModels(viewerRef.current.getLoadedModels());
+    }
     if (onModelLoaded) {
       onModelLoaded(spatial, props);
     }
@@ -374,36 +395,73 @@ export function ViewerTab({
       
       {/* Left Spatial Tree / IFC Filter */}
       <aside className="w-[300px] xl:w-[340px] bg-surface-container-lowest border-r border-outline-variant flex flex-col z-20 shrink-0 shadow-sm">
-         <div className="p-3 border-b border-outline-variant flex items-center justify-between gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-            <div className="flex bg-surface-container-low rounded-lg p-0.5 border border-outline-variant/60 w-full">
-              <button 
-                onClick={() => setLeftSidebarTab('spatial')}
-                className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
-                  leftSidebarTab === 'spatial' 
-                    ? 'bg-surface text-primary shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
+         <div className="p-3 border-b border-outline-variant flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex bg-surface-container-low rounded-lg p-0.5 border border-outline-variant/60 flex-1">
+                <button
+                  onClick={() => setLeftSidebarTab('spatial')}
+                  className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
+                    leftSidebarTab === 'spatial'
+                      ? 'bg-surface text-primary shadow-sm'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Không gian
+                </button>
+                <button
+                  onClick={() => setLeftSidebarTab('classes')}
+                  className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
+                    leftSidebarTab === 'classes'
+                      ? 'bg-surface text-primary shadow-sm'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Bộ lọc IFC
+                </button>
+              </div>
+              <button
+                onClick={handleLoadSample}
+                className="text-primary hover:text-primary/80 transition-colors hover:bg-primary-container/10 p-1.5 rounded-md flex items-center gap-1 font-extrabold text-xs shrink-0"
+                title="Tải Mô hình Mẫu"
               >
-                Không gian
-              </button>
-              <button 
-                onClick={() => setLeftSidebarTab('classes')}
-                className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
-                  leftSidebarTab === 'classes' 
-                    ? 'bg-surface text-primary shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Bộ lọc IFC
+                <RefreshCw size={14} /> Mẫu
               </button>
             </div>
-            <button 
-              onClick={handleLoadSample}
-              className="text-primary hover:text-primary/80 transition-colors hover:bg-primary-container/10 p-1.5 rounded-md flex items-center gap-1 font-extrabold text-xs shrink-0"
-              title="Tải Mô hình Mẫu"
-            >
-              <RefreshCw size={14} /> Mẫu
-            </button>
+            {/* Upload & loaded models */}
+            <div className="flex items-center gap-1.5">
+              <label className="flex-1 flex items-center justify-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary font-bold text-[11px] py-1.5 rounded-lg cursor-pointer transition-colors shadow-sm text-center">
+                <Upload size={13} /> Tải mô hình IFC
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".ifc"
+                  onChange={handleUploadModel}
+                  className="hidden"
+                />
+              </label>
+              {loadedModels.length > 0 && (
+                <span className="text-[10px] font-bold bg-primary-container/20 text-primary px-2 py-1 rounded-md shrink-0">
+                  {loadedModels.length} mô hình
+                </span>
+              )}
+            </div>
+            {/* Loaded models list */}
+            {loadedModels.length > 1 && (
+              <div className="space-y-1">
+                {loadedModels.map(m => (
+                  <div key={m.id} className="flex items-center justify-between bg-surface-container-low rounded-md px-2 py-1 border border-outline-variant/30 group">
+                    <span className="text-[10.5px] font-semibold text-on-surface truncate flex-1 mr-2">{m.name}</span>
+                    <button
+                      onClick={() => handleRemoveModel(m.id)}
+                      className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all p-0.5 rounded"
+                      title="Gỡ mô hình"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
          </div>
 
          {/* Left Sidebar Body */}

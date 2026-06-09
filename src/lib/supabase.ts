@@ -9,4 +9,30 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Custom storage wrapper to dynamically support the "Remember Me" option.
+// When remember me is disabled, session info is stored in sessionStorage (cleared when browser closes).
+const customStorage = {
+  getItem: (key: string): string | null => {
+    const remember = localStorage.getItem('cic_cde_remember_me') !== 'false';
+    const storage = remember ? localStorage : sessionStorage;
+    return storage.getItem(key);
+  },
+  setItem: (key: string, value: string): void => {
+    const remember = localStorage.getItem('cic_cde_remember_me') !== 'false';
+    const storage = remember ? localStorage : sessionStorage;
+    storage.setItem(key, value);
+  },
+  removeItem: (key: string): void => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  }
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    storage: customStorage,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  }
+});

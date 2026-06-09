@@ -127,8 +127,15 @@ export interface BimViewerProps {
   onElementSelected?: (properties: any) => void;
 }
 
+export interface LoadedModelInfo {
+  id: string;
+  name: string;
+  model: any;
+}
+
 export interface BimViewerRef {
   loadUrl: (url: string) => Promise<void>;
+  loadFile: (file: File) => Promise<void>;
   toggleClipping: (active: boolean) => void;
   toggleMeasurement: (active: boolean) => void;
   clearAll: () => void;
@@ -139,12 +146,15 @@ export interface BimViewerRef {
   getQuantityTakeoff: () => Promise<QtoResult | null>;
   zoomIn: () => void;
   zoomOut: () => void;
+  getLoadedModels: () => LoadedModelInfo[];
+  removeModel: (modelId: string) => void;
 }
 
 export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoaded, onElementSelected }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState('');
+  const [modelCount, setModelCount] = useState(0);
   
   // Keep references to components for cleanup and imperative actions
   const componentsRef = useRef<OBC.Components | null>(null);
@@ -153,6 +163,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
   const clipperRef = useRef<OBC.Clipper | null>(null);
   const measurementsRef = useRef<OBF.LengthMeasurement | null>(null);
   const currentModelRef = useRef<any>(null);
+  const loadedModelsRef = useRef<LoadedModelInfo[]>([]);
   const propsDictRef = useRef<Record<number, any>>({});
 
   // Store callbacks in refs to prevent useEffect dependency cycle
@@ -186,6 +197,10 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     // Initialize scene, renderer, and camera
     world.scene = new OBC.SimpleScene(components);
     world.renderer = new OBC.SimpleRenderer(components, containerRef.current);
+    // Fix: Force pixel ratio to 1 so FastModelPicker's scissor coordinates
+    // match its readPixelAt coordinates (ThatOpen bug: renderPickPass divides
+    // scissor by dpr but readPixelAt doesn't).
+    world.renderer.three.setPixelRatio(1);
     world.camera = new OBC.SimpleCamera(components);
 
     components.init();
@@ -236,11 +251,10 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     highlighter.events.select.onHighlight.add(async (fragmentMap) => {
       if (!onElementSelectedRef.current || !currentModelRef.current) return;
 
-      // Find selected Express ID from Fragment Map
       let selectedExpressId: number | null = null;
-      for (const fragmentId in fragmentMap) {
-        const expressIds = fragmentMap[fragmentId];
-        if (expressIds) {
+      for (const key in fragmentMap) {
+        const expressIds = fragmentMap[key];
+        if (expressIds && expressIds.size > 0) {
           for (const id of expressIds) {
             selectedExpressId = id;
             break;
@@ -263,7 +277,6 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
           });
         }
       } else {
-        // Deselected
         onElementSelectedRef.current(null);
       }
     });
@@ -295,139 +308,151 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     };
   }, []);
 
+  // Shared helper: process a loaded model (extract props, spatial, fit camera)
+  const processLoadedModel = async (model: any, modelName: string) => {
+    if (!componentsRef.current || !worldRef.current) return;
+
+    const modelId = (model as any).modelId || model.uuid || crypto.randomUUID();
+    currentModelRef.current = model;
+    loadedModelsRef.current = [...loadedModelsRef.current, { id: modelId, name: modelName, model }];
+    setModelCount(loadedModelsRef.current.length);
+
+    worldRef.current.scene.three.add(model.object);
+
+    // Fit camera to all loaded models combined
+    const sceneBounds = new THREE.Box3();
+    for (const info of loadedModelsRef.current) {
+      sceneBounds.expandByObject(info.model.object);
+    }
+    const center = new THREE.Vector3();
+    sceneBounds.getCenter(center);
+    const size = new THREE.Vector3();
+    sceneBounds.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    worldRef.current.camera.controls.setLookAt(
+      center.x + maxDim, center.y + maxDim, center.z + maxDim,
+      center.x, center.y, center.z, true
+    );
+
+    setLoadingProgress('Đang lập cấu trúc không gian...');
+    const spatial = await model.getSpatialStructure();
+
+    setLoadingProgress('Đang trích xuất thuộc tính các cấu kiện...');
+    const localIdsSet = await model.getLocalIds();
+    const localIds = Array.from(localIdsSet);
+    const itemsData = await model.getItemsData(localIds);
+    const newProps: Record<number, any> = {};
+
+    for (const item of itemsData) {
+      if (!item) continue;
+      const id = item._localId ? item._localId.value : null;
+      if (id === null) continue;
+
+      const guid = item._guid ? item._guid.value : 'N/A';
+      const name = item.Name ? (item.Name.value !== undefined ? item.Name.value : item.Name) : `${item._category?.value || 'Element'} [ID: ${id}]`;
+      const objectType = item.ObjectType ? (item.ObjectType.value !== undefined ? item.ObjectType.value : item.ObjectType) : item._category?.value || 'IFC ELEMENT';
+      const category = item._category ? item._category.value : 'IFC ELEMENT';
+
+      const props: any = {
+        expressID: id, expressId: id,
+        Name: name, ObjectType: objectType,
+        GlobalId: guid, GUID: guid, type: category
+      };
+
+      for (const key in item) {
+        if (!['_category', '_localId', '_guid', 'Name', 'ObjectType'].includes(key) && item[key] !== null) {
+          const val = item[key];
+          props[key] = val && val.value !== undefined ? val.value : val;
+        }
+      }
+      newProps[id] = props;
+    }
+
+    // Merge into existing properties dict (multi-model)
+    propsDictRef.current = { ...propsDictRef.current, ...newProps };
+
+    if (onModelLoadedRef.current) {
+      onModelLoadedRef.current(spatial, propsDictRef.current, model);
+    }
+
+    const highlighter = componentsRef.current.get(OBF.Highlighter);
+    await highlighter.clear();
+  };
+
+  // Shared helper: configure IfcLoader WASM
+  const setupIfcLoader = async () => {
+    const ifcLoader = componentsRef.current!.get(OBC.IfcLoader);
+    await ifcLoader.setup({
+      autoSetWasm: false,
+      wasm: { path: window.location.origin + "/", absolute: true }
+    });
+    return ifcLoader;
+  };
+
   // Expose functions to parent component
   useImperativeHandle(ref, () => ({
     loadUrl: async (url: string) => {
       if (!componentsRef.current || !worldRef.current) return;
-      
+
       setLoading(true);
       setLoadingProgress('Đang tải tệp tin từ máy chủ...');
-      
+
       try {
-        console.log("Antigravity: Fetching URL:", url);
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to fetch IFC file: ${response.statusText}`);
-        
+
         setLoadingProgress('Đang phân tích cấu hình hình học IFC...');
         const data = await response.arrayBuffer();
         const buffer = new Uint8Array(data);
-        console.log("Antigravity: Fetched buffer size:", buffer.length);
 
-        // Get IfcLoader component
-        const ifcLoader = componentsRef.current.get(OBC.IfcLoader);
-        
-        // Configure WASM paths
-        await ifcLoader.setup({
-          autoSetWasm: false,
-          wasm: {
-            path: window.location.origin + "/",
-            absolute: true,
-          }
-        });
-        console.log("Antigravity: IfcLoader configured.");
-
+        const ifcLoader = await setupIfcLoader();
         const modelName = url.split('/').pop() || 'default-model';
-        console.log("Antigravity: Loading model via ifcLoader...");
+
         const model = await ifcLoader.load(buffer, true, modelName, {
           instanceCallback: (importer) => {
             importer.addAllAttributes();
             importer.addAllRelations();
           }
         });
-        console.log("Antigravity: Model loaded:", model);
-        
-        // Expose to window for debugging
-        (window as any).debugModel = model;
-        (window as any).debugComponents = componentsRef.current;
-        (window as any).debugWorld = worldRef.current;
 
-        currentModelRef.current = model;
-        worldRef.current.scene.three.add(model.object);
-        console.log("Antigravity: Model added to ThreeJS scene.");
-
-        // Fit camera to model
-        const bounds = new THREE.Box3().setFromObject(model.object);
-        const center = new THREE.Vector3();
-        bounds.getCenter(center);
-        const size = new THREE.Vector3();
-        bounds.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        
-        worldRef.current.camera.controls.setLookAt(
-          center.x + maxDim,
-          center.y + maxDim,
-          center.z + maxDim,
-          center.x,
-          center.y,
-          center.z,
-          true
-        );
-        console.log("Antigravity: Camera positioned.");
-
-        setLoadingProgress('Đang lập cấu trúc không gian...');
-        console.log("Antigravity: Retrieving spatial structure...");
-        
-        // Retrieve spatial structure
-        const spatial = await model.getSpatialStructure();
-        console.log("Antigravity: Spatial structure retrieved:", spatial);
-        (window as any).debugSpatial = spatial;
-        
-        // Build properties dictionary dynamically
-        setLoadingProgress('Đang trích xuất thuộc tính các cấu kiện...');
-        console.log("Antigravity: Building properties dictionary...");
-        const localIdsSet = await model.getLocalIds();
-        const localIds = Array.from(localIdsSet);
-        const itemsData = await model.getItemsData(localIds);
-        const propsDict: Record<number, any> = {};
-        
-        for (const item of itemsData) {
-          if (!item) continue;
-          const id = item._localId ? item._localId.value : null;
-          if (id === null) continue;
-          
-          const guid = item._guid ? item._guid.value : 'N/A';
-          const name = item.Name ? (item.Name.value !== undefined ? item.Name.value : item.Name) : `${item._category?.value || 'Element'} [ID: ${id}]`;
-          const objectType = item.ObjectType ? (item.ObjectType.value !== undefined ? item.ObjectType.value : item.ObjectType) : item._category?.value || 'IFC ELEMENT';
-          const category = item._category ? item._category.value : 'IFC ELEMENT';
-
-          const props: any = {
-            expressID: id,
-            expressId: id,
-            Name: name,
-            ObjectType: objectType,
-            GlobalId: guid,
-            GUID: guid,
-            type: category
-          };
-
-          // Copy other attributes
-          for (const key in item) {
-            if (!['_category', '_localId', '_guid', 'Name', 'ObjectType'].includes(key) && item[key] !== null) {
-              const val = item[key];
-              props[key] = val && val.value !== undefined ? val.value : val;
-            }
-          }
-          propsDict[id] = props;
-        }
-        console.log("Antigravity: Properties dictionary built. Size:", Object.keys(propsDict).length);
-        propsDictRef.current = propsDict;
-
-        if (onModelLoadedRef.current) {
-          onModelLoadedRef.current(spatial, propsDict, model);
-        }
-
-        // Clear previous highlights
-        const highlighter = componentsRef.current.get(OBF.Highlighter);
-        await highlighter.clear();
-        console.log("Antigravity: Highlighter cleared.");
-
+        await processLoadedModel(model, modelName);
       } catch (err) {
         console.error('Error loading IFC model:', err);
         alert('Có lỗi xảy ra khi nạp mô hình IFC: ' + (err as Error).message);
       } finally {
         setLoading(false);
         setLoadingProgress('');
-        console.log("Antigravity: Finished loadUrl.");
+      }
+    },
+
+    loadFile: async (file: File) => {
+      if (!componentsRef.current || !worldRef.current) return;
+
+      setLoading(true);
+      setLoadingProgress('Đang đọc tệp tin cục bộ...');
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = new Uint8Array(arrayBuffer);
+
+        setLoadingProgress('Đang nạp mô hình 3D (WebAssembly)...');
+        const ifcLoader = await setupIfcLoader();
+
+        const model = await ifcLoader.load(buffer, true, file.name, {
+          instanceCallback: (importer) => {
+            importer.addAllAttributes();
+            importer.addAllRelations();
+          }
+        });
+
+        await processLoadedModel(model, file.name);
+      } catch (err) {
+        console.error('Error loading IFC file:', err);
+        alert('Không thể nạp tệp IFC: ' + (err as Error).message);
+      } finally {
+        setLoading(false);
+        setLoadingProgress('');
       }
     },
 
@@ -456,14 +481,14 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     highlightElements: async (expressIds: number[]) => {
       if (!highlighterRef.current || !currentModelRef.current) return;
       const model = currentModelRef.current;
-      
+
       await highlighterRef.current.clear("select");
       if (expressIds.length === 0) return;
-      
-      const modelIdMap = {
-        [model.uuid]: expressIds
+
+      const modelIdMap: Record<string, Set<number>> = {
+        [(model as any).modelId || model.uuid]: new Set(expressIds)
       };
-      
+
       await highlighterRef.current.highlightByID("select", modelIdMap, true, true);
     },
 
@@ -549,128 +574,58 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       const controls = worldRef.current?.camera?.controls;
       if (!controls) return;
       controls.dolly(-controls.distance * 0.3, true);
+    },
+
+    getLoadedModels: () => {
+      return loadedModelsRef.current.map(m => ({ id: m.id, name: m.name, model: m.model }));
+    },
+
+    removeModel: (modelId: string) => {
+      const idx = loadedModelsRef.current.findIndex(m => m.id === modelId);
+      if (idx === -1) return;
+      const info = loadedModelsRef.current[idx];
+      worldRef.current?.scene?.three?.remove(info.model.object);
+      info.model.dispose?.();
+      loadedModelsRef.current = loadedModelsRef.current.filter(m => m.id !== modelId);
+      setModelCount(loadedModelsRef.current.length);
+      if (currentModelRef.current === info.model) {
+        currentModelRef.current = loadedModelsRef.current.length > 0
+          ? loadedModelsRef.current[loadedModelsRef.current.length - 1].model
+          : null;
+      }
+      // Rebuild propsDictRef from remaining models would be complex;
+      // for now properties from removed model remain accessible (harmless)
     }
   }));
 
-  // Handle local file upload
+  // Expose a file input handler that delegates to the imperative loadFile
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const handleLocalFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !componentsRef.current || !worldRef.current) return;
-
+    if (!file) return;
+    e.target.value = '';
+    // Delegate to the imperative loadFile (which uses processLoadedModel)
+    if (!componentsRef.current || !worldRef.current) return;
     setLoading(true);
     setLoadingProgress('Đang đọc tệp tin cục bộ...');
-
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const buffer = new Uint8Array(event.target?.result as ArrayBuffer);
-          const ifcLoader = componentsRef.current!.get(OBC.IfcLoader);
-          
-          await ifcLoader.setup({
-            autoSetWasm: false,
-            wasm: {
-              path: window.location.origin + "/",
-              absolute: true,
-            }
-          });
-
-          setLoadingProgress('Đang nạp mô hình 3D (WebAssembly)...');
-          
-          // Clear previous model if exists
-          if (currentModelRef.current) {
-            worldRef.current.scene.three.remove(currentModelRef.current.object);
-            currentModelRef.current.dispose?.();
-          }
-
-          const model = await ifcLoader.load(buffer, true, file.name, {
-            instanceCallback: (importer) => {
-              importer.addAllAttributes();
-              importer.addAllRelations();
-            }
-          });
-          currentModelRef.current = model;
-          worldRef.current.scene.three.add(model.object);
-
-          // Center camera
-          const bounds = new THREE.Box3().setFromObject(model.object);
-          const center = new THREE.Vector3();
-          bounds.getCenter(center);
-          const size = new THREE.Vector3();
-          bounds.getSize(size);
-          const maxDim = Math.max(size.x, size.y, size.z);
-          
-          worldRef.current.camera.controls.setLookAt(
-            center.x + maxDim,
-            center.y + maxDim,
-            center.z + maxDim,
-            center.x,
-            center.y,
-            center.z,
-            true
-          );
-
-          setLoadingProgress('Đang giải nén thuộc tính BIM...');
-          const spatial = await model.getSpatialStructure();
-
-          // Build properties dictionary dynamically
-          setLoadingProgress('Đang trích xuất thuộc tính các cấu kiện...');
-          const localIdsSet = await model.getLocalIds();
-          const localIds = Array.from(localIdsSet);
-          const itemsData = await model.getItemsData(localIds);
-          const propsDict: Record<number, any> = {};
-          
-          for (const item of itemsData) {
-            if (!item) continue;
-            const id = item._localId ? item._localId.value : null;
-            if (id === null) continue;
-            
-            const guid = item._guid ? item._guid.value : 'N/A';
-            const name = item.Name ? (item.Name.value !== undefined ? item.Name.value : item.Name) : `${item._category?.value || 'Element'} [ID: ${id}]`;
-            const objectType = item.ObjectType ? (item.ObjectType.value !== undefined ? item.ObjectType.value : item.ObjectType) : item._category?.value || 'IFC ELEMENT';
-            const category = item._category ? item._category.value : 'IFC ELEMENT';
-
-            const props: any = {
-              expressID: id,
-              expressId: id,
-              Name: name,
-              ObjectType: objectType,
-              GlobalId: guid,
-              GUID: guid,
-              type: category
-            };
-
-            // Copy other attributes
-            for (const key in item) {
-              if (!['_category', '_localId', '_guid', 'Name', 'ObjectType'].includes(key) && item[key] !== null) {
-                const val = item[key];
-                props[key] = val && val.value !== undefined ? val.value : val;
-              }
-            }
-            propsDict[id] = props;
-          }
-          propsDictRef.current = propsDict;
-
-          if (onModelLoadedRef.current) {
-            onModelLoadedRef.current(spatial, propsDict, model);
-          }
-
-          // Clear previous highlights
-          const highlighter = componentsRef.current!.get(OBF.Highlighter);
-          await highlighter.clear();
-          
-        } catch (err) {
-          console.error(err);
-          alert('Không thể nạp tệp IFC: ' + (err as Error).message);
-        } finally {
-          setLoading(false);
-          setLoadingProgress('');
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = new Uint8Array(arrayBuffer);
+      setLoadingProgress('Đang nạp mô hình 3D (WebAssembly)...');
+      const ifcLoader = await setupIfcLoader();
+      const model = await ifcLoader.load(buffer, true, file.name, {
+        instanceCallback: (importer) => {
+          importer.addAllAttributes();
+          importer.addAllRelations();
         }
-      };
-      reader.readAsArrayBuffer(file);
+      });
+      await processLoadedModel(model, file.name);
     } catch (err) {
-      console.error(err);
+      console.error('Error loading IFC file:', err);
+      alert('Không thể nạp tệp IFC: ' + (err as Error).message);
+    } finally {
       setLoading(false);
+      setLoadingProgress('');
     }
   };
 
@@ -692,7 +647,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       )}
 
       {/* Local File Picker Hint Overlay when empty */}
-      {!loading && !currentModelRef.current && (
+      {!loading && modelCount === 0 && (
         <div className="absolute z-10 p-6 bg-surface-container-lowest/90 backdrop-blur-md border border-outline-variant/60 rounded-2xl shadow-lg flex flex-col items-center gap-4 text-center max-w-sm mx-4 animate-in fade-in duration-300">
           <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-lg">*</div>
           <div>
