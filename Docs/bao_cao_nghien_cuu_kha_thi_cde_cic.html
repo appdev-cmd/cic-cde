@@ -669,6 +669,221 @@
       display: block;
     }
 
+    /* Chapter 6 Financial Dashboard */
+    .fin-kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .fin-kpi-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 10px 8px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .fin-kpi-card:hover {
+      border-color: var(--accent-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .fin-kpi-label {
+      font-size: 0.58rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+    .fin-kpi-value {
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+    .fin-kpi-sub {
+      font-size: 0.55rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .fin-chart-wrap {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .fin-chart-title {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .fin-chart-canvas {
+      position: relative;
+      width: 100%;
+    }
+    .fin-revenue-channel {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 7px 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+    }
+    .fin-revenue-channel:hover {
+      border-color: var(--accent-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .fin-channel-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      font-weight: 800;
+    }
+    .fin-channel-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .fin-channel-name {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 1px;
+    }
+    .fin-channel-desc {
+      font-size: 0.55rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+    .fin-scenario-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s;
+    }
+    .fin-scenario-card:hover {
+      border-color: var(--accent-primary);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .fin-scenario-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .fin-scenario-info { flex: 1; }
+    .fin-scenario-name {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .fin-scenario-detail {
+      font-size: 0.55rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+    .fin-phase-timeline {
+      position: relative;
+      padding-left: 14px;
+    }
+    .fin-phase-timeline::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent-primary), var(--accent-secondary), var(--accent-success));
+      opacity: 0.4;
+    }
+    .fin-phase-item {
+      position: relative;
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .fin-phase-item:hover {
+      border-color: var(--accent-primary);
+    }
+    .fin-phase-item::before {
+      content: '';
+      position: absolute;
+      left: -14px;
+      top: 14px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .fin-phase-item:nth-child(1)::before { background: var(--accent-primary); box-shadow: 0 0 6px var(--accent-primary); }
+    .fin-phase-item:nth-child(2)::before { background: var(--accent-secondary); box-shadow: 0 0 6px var(--accent-secondary); }
+    .fin-phase-item:nth-child(3)::before { background: var(--accent-success); box-shadow: 0 0 6px var(--accent-success); }
+    .fin-phase-name {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .fin-phase-desc {
+      font-size: 0.55rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+    .fin-gantt-mini {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .fin-gantt-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .fin-gantt-label {
+      font-size: 0.5rem;
+      color: var(--text-muted);
+      width: 48px;
+      flex-shrink: 0;
+      text-align: right;
+      line-height: 1.1;
+    }
+    .fin-gantt-track {
+      flex: 1;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .fin-gantt-bar {
+      position: absolute;
+      top: 1px;
+      height: 8px;
+      border-radius: 3px;
+      opacity: 0.85;
+    }
+
     /* Gantt chart timeline */
     .gantt-chart {
       background: rgba(255, 255, 255, 0.02);
@@ -4851,6 +5066,1510 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               </div>
             </div>
           `;
+          return;
+        }
+
+        // ========== CHƯƠNG 6: Mô hình Kinh doanh & Tài chính ==========
+
+        // 6.1 Mô hình Kinh doanh & Chiến lược Định giá
+        if (slideTitle.includes('6.1') && slideTitle.includes('Kinh doanh')) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-chart-title"><i data-lucide="layers" style="width:13px;height:13px;color:var(--accent-primary);"></i> 5 KÊNH DOANH THU CHÍNH</div>
+              <div class="fin-revenue-channel">
+                <div class="fin-channel-icon" style="background:rgba(59,130,246,0.15);color:var(--accent-primary);">S</div>
+                <div class="fin-channel-info">
+                  <div class="fin-channel-name">SaaS Cloud</div>
+                  <div class="fin-channel-desc">0,4 → 0,6 tr/user/tháng. Tăng trưởng từ 250 → 10.750 users TB</div>
+                </div>
+              </div>
+              <div class="fin-revenue-channel">
+                <div class="fin-channel-icon" style="background:rgba(16,185,129,0.15);color:var(--accent-success);">P</div>
+                <div class="fin-channel-info">
+                  <div class="fin-channel-name">On-Premise PMU</div>
+                  <div class="fin-channel-desc">2,0 → 3,0 tỷ/HĐ. Bàn giao trọn gói cho Ban QLDA đầu tư công</div>
+                </div>
+              </div>
+              <div class="fin-revenue-channel">
+                <div class="fin-channel-icon" style="background:rgba(20,184,166,0.15);color:var(--accent-secondary);">X</div>
+                <div class="fin-channel-info">
+                  <div class="fin-channel-name">On-Premise Sở XD</div>
+                  <div class="fin-channel-desc">1,8 → 2,5 tỷ/HĐ. Số hóa thẩm định, cấp phép xây dựng</div>
+                </div>
+              </div>
+              <div class="fin-revenue-channel">
+                <div class="fin-channel-icon" style="background:rgba(245,158,11,0.15);color:var(--accent-warning);">D</div>
+                <div class="fin-channel-info">
+                  <div class="fin-channel-name">On-Premise Doanh nghiệp</div>
+                  <div class="fin-channel-desc">3,0 → 4,2 tỷ/HĐ. Tập đoàn xây dựng lớn, bảo mật cao</div>
+                </div>
+              </div>
+              <div class="fin-revenue-channel">
+                <div class="fin-channel-icon" style="background:rgba(239,68,68,0.15);color:var(--accent-danger);">A</div>
+                <div class="fin-channel-info">
+                  <div class="fin-channel-name">Bảo trì AMC (15%)</div>
+                  <div class="fin-channel-desc">Thu phí 15% giá trị HĐ On-Prem hàng năm, tạo recurring revenue</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="pie-chart" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Cơ cấu Doanh thu Tổng 5 năm (~274 tỷ)</div>
+                <div class="fin-chart-canvas" style="height:150px;"><canvas id="ch6-revenue-mix"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch6-revenue-mix').getContext('2d'), {
+              type: 'doughnut',
+              data: {
+                labels: ['SaaS (119 tỷ)', 'PMU (78 tỷ)', 'Sở XD (30 tỷ)', 'DN (47 tỷ)'],
+                datasets: [{
+                  data: [118.95, 77.70, 30.30, 47.40],
+                  backgroundColor: ['rgba(59,130,246,0.75)','rgba(16,185,129,0.75)','rgba(20,184,166,0.75)','rgba(245,158,11,0.75)'],
+                  borderColor: ['rgba(59,130,246,1)','rgba(16,185,129,1)','rgba(20,184,166,1)','rgba(245,158,11,1)'],
+                  borderWidth: 1
+                }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '55%',
+                plugins: {
+                  legend: { position: 'right', labels: { color: '#cbd5e1', font: { family: 'Roboto', size: 8 }, boxWidth: 10, padding: 6 } }
+                }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 6.2 Dự toán Chi phí CAPEX & OPEX 5 năm
+        if (slideTitle.includes('6.2') && (slideTitle.includes('Chi phí') || slideTitle.includes('CapEx'))) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-primary);">
+                  <div class="fin-kpi-label">CAPEX</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-primary);">14,5</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ (18 tháng)</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-secondary);">
+                  <div class="fin-kpi-label">OPEX 5 năm</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-secondary);">70,9</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-warning);">
+                  <div class="fin-kpi-label">Tổng đầu tư</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-warning);">85,4</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="pie-chart" style="width:12px;height:12px;color:var(--accent-primary);"></i> Phân bổ CAPEX 14,5 tỷ</div>
+                <div class="fin-chart-canvas" style="height:130px;"><canvas id="ch6-capex-pie"></canvas></div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-secondary);"></i> OPEX theo năm (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:130px;"><canvas id="ch6-opex-bar"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch6-capex-pie').getContext('2d'), {
+              type: 'doughnut',
+              data: {
+                labels: ['Nhân sự R&D (9,5)', 'Thiết bị (0,3)', 'Bản quyền/API (1,0)', 'Marketing (2,0)', 'Tư vấn/Pháp lý (1,7)'],
+                datasets: [{
+                  data: [9.50, 0.30, 1.00, 2.00, 1.70],
+                  backgroundColor: ['rgba(59,130,246,0.75)','rgba(139,92,246,0.75)','rgba(20,184,166,0.75)','rgba(245,158,11,0.75)','rgba(239,68,68,0.75)'],
+                  borderWidth: 1, borderColor: 'rgba(0,0,0,0.3)'
+                }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false, cutout: '50%',
+                plugins: { legend: { position: 'right', labels: { color: '#cbd5e1', font: { family: 'Roboto', size: 7 }, boxWidth: 8, padding: 4 } } }
+              }
+            });
+            new Chart(document.getElementById('ch6-opex-bar').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['2026', '2027', '2028', '2029', '2030'],
+                datasets: [
+                  { label: 'Nhân sự', data: [0, 2.9, 11.1, 14.0, 16.5], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 },
+                  { label: 'Cloud', data: [0.2, 0.6, 2.5, 4.0, 5.8], backgroundColor: 'rgba(20,184,166,0.7)', borderRadius: 3 },
+                  { label: 'Khác', data: [0, 1.4, 3.1, 3.9, 4.9], backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 3 }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } },
+                  y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }
+                },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 6.3 Kế hoạch Tiến độ R&D 18 tháng
+        if (slideTitle.includes('6.3') && slideTitle.includes('Tiến độ')) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-primary);">
+                  <div class="fin-kpi-label">Thời gian R&D</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-primary);">18</div>
+                  <div class="fin-kpi-sub">tháng</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-success);">
+                  <div class="fin-kpi-label">Phân hệ</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-success);">7</div>
+                  <div class="fin-kpi-sub">modules</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-warning);">
+                  <div class="fin-kpi-label">Tổng CAPEX</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-warning);">14,5</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="gantt-chart" style="width:12px;height:12px;color:var(--accent-primary);"></i> Tiến độ R&D theo phân hệ (T1 - T18)</div>
+                <div class="fin-gantt-mini" style="padding: 4px 0;">
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH1 Viewer</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:0%;width:100%;background:var(--accent-primary);"></div></div></div>
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH2 Tài liệu</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:0%;width:77.8%;background:var(--accent-success);"></div></div></div>
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH3 4D/5D</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:22.2%;width:55.6%;background:var(--accent-secondary);"></div></div></div>
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH4a GIS</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:33.3%;width:55.6%;background:rgba(139,92,246,0.85);"></div></div></div>
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH4b FM</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:50%;width:44.4%;background:rgba(236,72,153,0.85);"></div></div></div>
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH5 QCVN</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:0%;width:100%;background:var(--accent-danger);"></div></div></div>
+                  <div class="fin-gantt-row"><div class="fin-gantt-label">PH6 SaaS</div><div class="fin-gantt-track"><div class="fin-gantt-bar" style="left:33.3%;width:66.7%;background:var(--accent-warning);"></div></div></div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="trending-up" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Dòng tiền CAPEX theo tháng (triệu VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:120px;"><canvas id="ch6-capex-monthly"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            const monthlyData = [1366,566,466,466,466,716,1316,816,816,816,816,1116,1016,816,816,816,616,678];
+            const labels = Array.from({length:18}, (_,i) => 'T'+(i+1));
+            new Chart(document.getElementById('ch6-capex-monthly').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'CAPEX/tháng',
+                  data: monthlyData,
+                  backgroundColor: monthlyData.map(v => v > 1000 ? 'rgba(239,68,68,0.7)' : 'rgba(59,130,246,0.6)'),
+                  borderRadius: 2
+                }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 7 } } },
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 7 } } }
+                },
+                plugins: { legend: { display: false } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 6.4 Kế hoạch Doanh thu 5 năm
+        if (slideTitle.includes('6.4') && slideTitle.includes('Doanh thu')) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2, 1fr);">
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-success);">
+                  <div class="fin-kpi-label">Tổng DT 5 năm</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-success);">~274</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-primary);">
+                  <div class="fin-kpi-label">SaaS Users 2030</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-primary);">14K</div>
+                  <div class="fin-kpi-sub">người dùng</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-success);"></i> Doanh thu theo phân khúc (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:160px;"><canvas id="ch6-revenue-stack"></canvas></div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="users" style="width:12px;height:12px;color:var(--accent-primary);"></i> Tăng trưởng SaaS Users</div>
+                <div class="fin-chart-canvas" style="height:120px;"><canvas id="ch6-saas-growth"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch6-revenue-stack').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['2027', '2028', '2029', '2030'],
+                datasets: [
+                  { label: 'SaaS', data: [0.6, 9.45, 31.5, 77.4], backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 3 },
+                  { label: 'PMU', data: [2.0, 11.8, 22.8, 41.1], backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3 },
+                  { label: 'Sở XD', data: [0, 4.0, 9.4, 16.9], backgroundColor: 'rgba(20,184,166,0.75)', borderRadius: 3 },
+                  { label: 'DN', data: [3.0, 7.3, 12.9, 24.2], backgroundColor: 'rgba(245,158,11,0.75)', borderRadius: 3 }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { stacked: true, grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 } } },
+                  y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }
+                },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+              }
+            });
+            new Chart(document.getElementById('ch6-saas-growth').getContext('2d'), {
+              type: 'line',
+              data: {
+                labels: ['2027', '2028', '2029', '2030'],
+                datasets: [{
+                  label: 'SaaS Users (cuối kỳ)',
+                  data: [500, 3000, 7500, 14000],
+                  borderColor: 'rgba(59,130,246,1)',
+                  backgroundColor: 'rgba(59,130,246,0.1)',
+                  borderWidth: 2, tension: 0.3, fill: true,
+                  pointBackgroundColor: 'rgba(59,130,246,1)', pointRadius: 4
+                }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 } } },
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 }, callback: v => v >= 1000 ? (v/1000)+'K' : v } }
+                },
+                plugins: { legend: { display: false } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 6.5 Hiệu quả tài chính (Kịch bản A)
+        if (slideTitle.includes('6.5') && !slideTitle.includes('6.5bis') && slideTitle.includes('tài chính')) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2, 1fr);">
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-success);">
+                  <div class="fin-kpi-label">NPV Dự án</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-success);">+47,5</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ (WACC 12%)</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-primary);">
+                  <div class="fin-kpi-label">IRR Dự án</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-primary);">~46%</div>
+                  <div class="fin-kpi-sub">vượt xa WACC</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-warning);">
+                  <div class="fin-kpi-label">Hoàn vốn</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-warning);font-size:1rem;">Q4/2029</div>
+                  <div class="fin-kpi-sub">~3 năm</div>
+                </div>
+                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-danger);">
+                  <div class="fin-kpi-label">Cash burn max</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-danger);">-14,5</div>
+                  <div class="fin-kpi-sub">tỷ VNĐ (cuối 2027)</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="trending-up" style="width:12px;height:12px;color:var(--accent-success);"></i> Dòng tiền ròng Dự án (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:155px;"><canvas id="ch6-cashflow-project"></canvas></div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="building-2" style="width:12px;height:12px;color:var(--accent-primary);"></i> Dòng tiền ròng CIC (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:130px;"><canvas id="ch6-cashflow-cic"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            const years = ['2026','2027','2028','2029','2030'];
+            const cfProject = [-2.58, -11.93, 0.82, 24.83, 68.56];
+            const cumProject = [-2.58, -14.51, -13.69, 11.14, 79.70];
+            const cfCIC = [-1.87, -8.90, 1.43, 24.83, 68.56];
+            const cumCIC = [-1.87, -10.77, -9.34, 15.45, 84.05];
+            function makeFlowChart(id, cf, cum, label) {
+              new Chart(document.getElementById(id).getContext('2d'), {
+                type: 'bar',
+                data: {
+                  labels: years,
+                  datasets: [
+                    { label: 'Dòng tiền ròng', data: cf, backgroundColor: cf.map(v => v >= 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'), borderRadius: 3 },
+                    { label: 'Tích lũy', data: cum, type: 'line', borderColor: 'rgba(59,130,246,1)', backgroundColor: 'rgba(59,130,246,0.08)', borderWidth: 2, tension: 0.2, fill: true, pointRadius: 3, pointBackgroundColor: 'rgba(59,130,246,1)' }
+                  ]
+                },
+                options: {
+                  responsive: true, maintainAspectRatio: false,
+                  scales: {
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 7 } } }
+                  },
+                  plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 7 }, boxWidth: 8, padding: 4 } } }
+                }
+              });
+            }
+            makeFlowChart('ch6-cashflow-project', cfProject, cumProject, 'Dự án');
+            makeFlowChart('ch6-cashflow-cic', cfCIC, cumCIC, 'CIC');
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 6.5bis Phân tích Nhạy cảm — 3 Kịch bản
+        if (slideTitle.includes('6.5bis') || (slideTitle.includes('Nhạy cảm') && slideTitle.includes('Kịch bản'))) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-chart-title"><i data-lucide="git-branch" style="width:13px;height:13px;color:var(--accent-primary);"></i> 3 KỊCH BẢN TÀI CHÍNH</div>
+              <div class="fin-scenario-card" style="border-left: 3px solid var(--accent-success);">
+                <div class="fin-scenario-dot" style="background:var(--accent-success);box-shadow:0 0 6px var(--accent-success);"></div>
+                <div class="fin-scenario-info">
+                  <div class="fin-scenario-name">A — Lạc quan (20%)</div>
+                  <div class="fin-scenario-detail">NPV +65,2 tỷ · IRR ~58% · Hoàn vốn Q2/2029</div>
+                </div>
+              </div>
+              <div class="fin-scenario-card" style="border-left: 3px solid var(--accent-primary);">
+                <div class="fin-scenario-dot" style="background:var(--accent-primary);box-shadow:0 0 6px var(--accent-primary);"></div>
+                <div class="fin-scenario-info">
+                  <div class="fin-scenario-name">B — Cơ sở (50%) ★ Khuyến nghị</div>
+                  <div class="fin-scenario-detail">NPV +30,1 tỷ · IRR ~35% · Hoàn vốn Q4/2029</div>
+                </div>
+              </div>
+              <div class="fin-scenario-card" style="border-left: 3px solid var(--accent-danger);">
+                <div class="fin-scenario-dot" style="background:var(--accent-danger);box-shadow:0 0 6px var(--accent-danger);"></div>
+                <div class="fin-scenario-info">
+                  <div class="fin-scenario-name">C — Bi quan (30%)</div>
+                  <div class="fin-scenario-detail">NPV -8,5 tỷ · Hoàn vốn sau 2031</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="line-chart" style="width:12px;height:12px;color:var(--accent-primary);"></i> Dòng tiền tích lũy 3 kịch bản</div>
+                <div class="fin-chart-canvas" style="height:150px;"><canvas id="ch6-scenario-lines"></canvas></div>
+              </div>
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-secondary);"></i> So sánh NPV & IRR</div>
+                <div class="fin-chart-canvas" style="height:120px;"><canvas id="ch6-scenario-npv"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            const years = ['2026','2027','2028','2029','2030'];
+            new Chart(document.getElementById('ch6-scenario-lines').getContext('2d'), {
+              type: 'line',
+              data: {
+                labels: years,
+                datasets: [
+                  { label: 'A (Lạc quan)', data: [-2.58,-13.21,-10.40,19.96,104.00], borderColor: 'rgba(16,185,129,1)', backgroundColor: 'rgba(16,185,129,0.05)', borderWidth: 2, tension: 0.3, fill: false, pointRadius: 3 },
+                  { label: 'B (Cơ sở)', data: [-2.58,-11.83,-5.03,12.17,61.17], borderColor: 'rgba(59,130,246,1)', backgroundColor: 'rgba(59,130,246,0.05)', borderWidth: 2.5, tension: 0.3, fill: false, pointRadius: 3, borderDash: [] },
+                  { label: 'C (Bi quan)', data: [-2.58,-10.90,-14.52,-17.02,-4.28], borderColor: 'rgba(239,68,68,1)', backgroundColor: 'rgba(239,68,68,0.05)', borderWidth: 2, tension: 0.3, fill: false, pointRadius: 3, borderDash: [4,3] }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 7 } } }
+                },
+                plugins: {
+                  legend: { labels: { color: '#cbd5e1', font: { size: 7 }, boxWidth: 10, padding: 5 } },
+                  annotation: { annotations: { zeroline: { type: 'line', yMin: 0, yMax: 0, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderDash: [3,3] } } }
+                }
+              }
+            });
+            const scLabels = ['A (Lạc quan)', 'B (Cơ sở)', 'C (Bi quan)'];
+            new Chart(document.getElementById('ch6-scenario-npv').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: scLabels,
+                datasets: [
+                  { label: 'NPV (tỷ VNĐ)', data: [65.19, 30.12, -8.45], backgroundColor: ['rgba(16,185,129,0.7)','rgba(59,130,246,0.7)','rgba(239,68,68,0.7)'], borderRadius: 4 },
+                  { label: 'IRR (%)', data: [58, 35, 0], type: 'line', borderColor: 'rgba(245,158,11,1)', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 4, pointBackgroundColor: 'rgba(245,158,11,1)', yAxisID: 'y1' }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
+                  y: { position: 'left', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 7 } } },
+                  y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#f59e0b', font: { size: 7 }, callback: v => v + '%' }, min: -10, max: 70 }
+                },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 7 }, boxWidth: 8, padding: 4 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 6.6 Lộ trình triển khai tổng thể
+        if (slideTitle.includes('6.6') && slideTitle.includes('Lộ trình')) {
+          ph.innerHTML = `
+            <div style="padding-top: 4px;">
+              <div class="fin-chart-title"><i data-lucide="route" style="width:13px;height:13px;color:var(--accent-primary);"></i> LỘ TRÌNH 3 GIAI ĐOẠN</div>
+              <div class="fin-phase-timeline">
+                <div class="fin-phase-item">
+                  <div class="fin-phase-name">Giai đoạn 1 — T1-6 (Q3/2026 → Q1/2027)</div>
+                  <div class="fin-phase-desc" style="margin-bottom:4px;">Phát triển Phân hệ cốt lõi 1, 2, 3: Quản lý tài liệu ISO 19650, BIM Viewer 3D, Engine đồ họa OpenBIM.</div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <span style="font-size:0.5rem;padding:2px 6px;background:rgba(59,130,246,0.15);color:var(--accent-primary);border-radius:4px;">Pilot + SaaS</span>
+                    <span style="font-size:0.5rem;padding:2px 6px;background:rgba(16,185,129,0.15);color:var(--accent-success);border-radius:4px;">2 HĐ On-Prem</span>
+                  </div>
+                </div>
+                <div class="fin-phase-item">
+                  <div class="fin-phase-name">Giai đoạn 2 — T7-18 (Q2/2027 → Q1/2028)</div>
+                  <div class="fin-phase-desc" style="margin-bottom:4px;">Phân hệ nâng cao: 5D/QTO, GeoBIM/GIS (3D Tiles), FM/CMMS, An ninh QCVN 12, SSO VNeID.</div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <span style="font-size:0.5rem;padding:2px 6px;background:rgba(20,184,166,0.15);color:var(--accent-secondary);border-radius:4px;">GIS 3 phases</span>
+                    <span style="font-size:0.5rem;padding:2px 6px;background:rgba(245,158,11,0.15);color:var(--accent-warning);border-radius:4px;">Thương mại đầy đủ</span>
+                  </div>
+                </div>
+                <div class="fin-phase-item">
+                  <div class="fin-phase-name">Giai đoạn 3 — T19-60 (Q2/2028 → 2030)</div>
+                  <div class="fin-phase-desc" style="margin-bottom:4px;">Vận hành thương mại rộng rãi toàn quốc, mở rộng 14K+ SaaS users, 26 PMU, 12 Sở XD.</div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <span style="font-size:0.5rem;padding:2px 6px;background:rgba(16,185,129,0.15);color:var(--accent-success);border-radius:4px;">DT ~274 tỷ</span>
+                    <span style="font-size:0.5rem;padding:2px 6px;background:rgba(239,68,68,0.15);color:var(--accent-danger);border-radius:4px;">Hoàn vốn Q4/2029</span>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-success);"></i> Tổng quan tài chính 5 năm (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:140px;"><canvas id="ch6-roadmap-overview"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch6-roadmap-overview').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['2026','2027','2028','2029','2030'],
+                datasets: [
+                  { label: 'Doanh thu', data: [0, 5.6, 32.55, 76.6, 159.6], backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 3 },
+                  { label: 'Chi phí', data: [-2.58, -15.01, -18.71, -21.9, -27.2], backgroundColor: 'rgba(239,68,68,0.5)', borderRadius: 3 }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 } } },
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }
+                },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // ========== CHƯƠNG 3: Kiến trúc Kỹ thuật (bổ sung) ==========
+
+        // 3.1 Polyglot Architecture
+        if (slideTitle.includes('3.1') && slideTitle.includes('Ngôn ngữ')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(3,1fr);">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-primary);">Go</div><div class="fin-kpi-label">API Gateway</div><div class="fin-kpi-sub">Concurrency cao</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-warning);">Python</div><div class="fin-kpi-label">BIM/AI Engine</div><div class="fin-kpi-sub">IfcOpenShell + ML</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-success);">TypeScript</div><div class="fin-kpi-label">Frontend</div><div class="fin-kpi-sub">React + WebGL</div></div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="radar" style="width:12px;height:12px;color:var(--accent-secondary);"></i> So sánh năng lực ngôn ngữ</div>
+                <div class="fin-chart-canvas" style="height:160px;"><canvas id="ch3-lang-radar"></canvas></div>
+              </div>
+              <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border-color);border-radius:8px;padding:8px;">
+                  <div style="font-size:0.6rem;font-weight:600;color:var(--accent-primary);display:flex;align-items:center;gap:4px;"><i data-lucide="zap" style="width:10px;height:10px;"></i> gRPC Internal</div>
+                  <div style="font-size:0.55rem;color:var(--text-muted);">Giao tiếp Go ↔ Python qua protobuf, latency < 5ms</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border-color);border-radius:8px;padding:8px;">
+                  <div style="font-size:0.6rem;font-weight:600;color:var(--accent-success);display:flex;align-items:center;gap:4px;"><i data-lucide="globe" style="width:10px;height:10px;"></i> REST External</div>
+                  <div style="font-size:0.55rem;color:var(--text-muted);">API Gateway Go phục vụ client với rate limiting</div>
+                </div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch3-lang-radar').getContext('2d'), {
+              type: 'radar',
+              data: {
+                labels: ['Hiệu năng I/O', 'Hệ sinh thái AI', 'Type Safety', 'Concurrency', 'DevEx Frontend', 'BIM Libraries'],
+                datasets: [
+                  { label: 'Go', data: [95, 30, 85, 98, 20, 10], borderColor: 'rgba(59,130,246,0.8)', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 2 },
+                  { label: 'Python', data: [40, 98, 50, 45, 15, 95], borderColor: 'rgba(245,158,11,0.8)', backgroundColor: 'rgba(245,158,11,0.1)', pointRadius: 2 },
+                  { label: 'TypeScript', data: [60, 40, 90, 50, 98, 30], borderColor: 'rgba(16,185,129,0.8)', backgroundColor: 'rgba(16,185,129,0.1)', pointRadius: 2 }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { r: { grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#9ca3af', font: { size: 8 } }, ticks: { display: false }, suggestedMin: 0, suggestedMax: 100 } },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 3.3 3D BIM Engine
+        if (slideTitle.includes('3.3') && slideTitle.includes('BIM Engine')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr);">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-primary);font-size:0.9rem;">ThatOpen</div><div class="fin-kpi-label">Frontend Engine</div><div class="fin-kpi-sub">WebGL + WASM</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-warning);font-size:0.9rem;">IfcOpenShell</div><div class="fin-kpi-label">Backend Parser</div><div class="fin-kpi-sub">Python + C++</div></div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="git-branch" style="width:12px;height:12px;color:var(--accent-primary);"></i> Pipeline xử lý IFC</div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-primary);color:#fff;font-size:0.55rem;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">1</div>
+                    <div style="flex:1;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;padding:4px 8px;font-size:0.58rem;color:var(--text-primary);">Upload IFC → IfcOpenShell parse geometry</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-secondary);color:#fff;font-size:0.55rem;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">2</div>
+                    <div style="flex:1;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:6px;padding:4px 8px;font-size:0.58rem;color:var(--text-primary);">Convert → .frag streaming format (80% nhỏ hơn)</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-success);color:#fff;font-size:0.55rem;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">3</div>
+                    <div style="flex:1;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:4px 8px;font-size:0.58rem;color:var(--text-primary);">Stream tiles → WebGL render progressive</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-warning);color:#fff;font-size:0.55rem;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">4</div>
+                    <div style="flex:1;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:4px 8px;font-size:0.58rem;color:var(--text-primary);">Client: ThatOpen Engine render + camera controls</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-success);"></i> Benchmark hiệu năng</div>
+                <div class="fin-chart-canvas" style="height:100px;"><canvas id="ch3-bim-bench"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch3-bim-bench').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['Load 500MB IFC', 'First Paint', 'Memory (GB)', 'FPS (orbit)'],
+                datasets: [
+                  { label: 'ThatOpen+Frag', data: [8, 2.5, 1.2, 60], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 },
+                  { label: 'Naive IFC.js', data: [45, 15, 4.5, 25], backgroundColor: 'rgba(239,68,68,0.4)', borderRadius: 3 }
+                ]
+              },
+              options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } } },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 3.4 Cloud & DR
+        if (slideTitle.includes('3.4') && slideTitle.includes('Cloud')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr);">
+                <div class="fin-kpi-card" style="border-color:rgba(59,130,246,0.3);">
+                  <div style="font-size:0.55rem;color:var(--accent-primary);font-weight:700;">☁️ PRIMARY</div>
+                  <div class="fin-kpi-value" style="font-size:0.85rem;">Viettel Cloud</div>
+                  <div class="fin-kpi-sub">DC Hòa Lạc - Tier III</div>
+                </div>
+                <div class="fin-kpi-card" style="border-color:rgba(245,158,11,0.3);">
+                  <div style="font-size:0.55rem;color:var(--accent-warning);font-weight:700;">🔄 DR BACKUP</div>
+                  <div class="fin-kpi-value" style="font-size:0.85rem;">VNPT Cloud</div>
+                  <div class="fin-kpi-sub">DC TP.HCM - Tier III</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="server" style="width:12px;height:12px;color:var(--accent-primary);"></i> Kiến trúc hạ tầng</div>
+                <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-top:6px;">
+                  <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:6px;padding:6px 8px;display:flex;align-items:center;gap:8px;">
+                    <i data-lucide="shield" style="width:14px;height:14px;color:var(--accent-primary);"></i>
+                    <div><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">WAF + DDoS Protection</div><div style="font-size:0.5rem;color:var(--text-muted);">Lớp bảo vệ ngoài cùng</div></div>
+                  </div>
+                  <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:6px;padding:6px 8px;display:flex;align-items:center;gap:8px;">
+                    <i data-lucide="network" style="width:14px;height:14px;color:var(--accent-secondary);"></i>
+                    <div><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">K8s Cluster (3 nodes)</div><div style="font-size:0.5rem;color:var(--text-muted);">Auto-scaling, rolling update</div></div>
+                  </div>
+                  <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;padding:6px 8px;display:flex;align-items:center;gap:8px;">
+                    <i data-lucide="database" style="width:14px;height:14px;color:var(--accent-success);"></i>
+                    <div><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">PostgreSQL HA + MinIO S3</div><div style="font-size:0.5rem;color:var(--text-muted);">Streaming replication, Object storage</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(3,1fr);margin-top:8px;">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.9rem;color:var(--accent-success);">99.9%</div><div class="fin-kpi-label">SLA Uptime</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.9rem;color:var(--accent-primary);">RPO 1h</div><div class="fin-kpi-label">Recovery Point</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.9rem;color:var(--accent-warning);">RTO 4h</div><div class="fin-kpi-label">Recovery Time</div></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 3.5 GIS/GeoBIM
+        if (slideTitle.includes('3.5') && slideTitle.includes('GIS')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr);">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-primary);">3D Tiles</div><div class="fin-kpi-label">OGC Standard</div><div class="fin-kpi-sub">Cesium + Mapbox</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-success);">VN-2000</div><div class="fin-kpi-label">Hệ tọa độ</div><div class="fin-kpi-sub">EPSG:9210</div></div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="map" style="width:12px;height:12px;color:var(--accent-primary);"></i> 5 Use Cases chính</div>
+                <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">
+                  <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(59,130,246,0.06);border-radius:6px;">
+                    <i data-lucide="building" style="width:11px;height:11px;color:var(--accent-primary);"></i>
+                    <span style="font-size:0.58rem;color:var(--text-primary);">Hiển thị BIM model trên bản đồ GIS thực</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(16,185,129,0.06);border-radius:6px;">
+                    <i data-lucide="layers" style="width:11px;height:11px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.58rem;color:var(--text-primary);">Quản lý tiến độ theo vị trí địa lý (4D GIS)</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(139,92,246,0.06);border-radius:6px;">
+                    <i data-lucide="trees" style="width:11px;height:11px;color:var(--accent-secondary);"></i>
+                    <span style="font-size:0.58rem;color:var(--text-primary);">Phân tích môi trường & Green Building</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(245,158,11,0.06);border-radius:6px;">
+                    <i data-lucide="route" style="width:11px;height:11px;color:var(--accent-warning);"></i>
+                    <span style="font-size:0.58rem;color:var(--text-primary);">Logistics & quản lý vận chuyển vật liệu</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(239,68,68,0.06);border-radius:6px;">
+                    <i data-lucide="scan-search" style="width:11px;height:11px;color:var(--accent-danger);"></i>
+                    <span style="font-size:0.58rem;color:var(--text-primary);">Digital Twin thành phố (City Information Model)</span>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="gauge" style="width:12px;height:12px;color:var(--accent-warning);"></i> Hiệu năng streaming</div>
+                <div class="fin-chart-canvas" style="height:80px;"><canvas id="ch3-gis-perf"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch3-gis-perf').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['Load 100 tòa nhà', 'Pan/Zoom FPS', 'Tile cache hit'],
+                datasets: [{ label: '3D Tiles + LOD', data: [3.2, 55, 92], backgroundColor: ['rgba(59,130,246,0.7)','rgba(16,185,129,0.7)','rgba(139,92,246,0.7)'], borderRadius: 3 }]
+              },
+              options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } } },
+                plugins: { legend: { display: false } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 3.6 ISO 19650
+        if (slideTitle.includes('3.6') && slideTitle.includes('ISO 19650')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="file-text" style="width:12px;height:12px;color:var(--accent-primary);"></i> Vòng đời Tài liệu ISO 19650</div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:8px;flex-wrap:wrap;">
+                  <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:6px 10px;text-align:center;">
+                    <div style="font-size:0.7rem;font-weight:700;color:var(--accent-warning);">WIP</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Đang soạn</div>
+                  </div>
+                  <div style="color:var(--text-muted);font-size:0.7rem;">→</div>
+                  <div style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);border-radius:8px;padding:6px 10px;text-align:center;">
+                    <div style="font-size:0.7rem;font-weight:700;color:var(--accent-primary);">SHARED</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Chia sẻ</div>
+                  </div>
+                  <div style="color:var(--text-muted);font-size:0.7rem;">→</div>
+                  <div style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:8px;padding:6px 10px;text-align:center;">
+                    <div style="font-size:0.7rem;font-weight:700;color:var(--accent-success);">PUBLISHED</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Phát hành</div>
+                  </div>
+                  <div style="color:var(--text-muted);font-size:0.7rem;">→</div>
+                  <div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;padding:6px 10px;text-align:center;">
+                    <div style="font-size:0.7rem;font-weight:700;color:var(--accent-danger);">ARCHIVED</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Lưu trữ</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="tag" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Quy tắc đặt tên tài liệu</div>
+                <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:8px;margin-top:6px;font-family:monospace;font-size:0.6rem;color:var(--accent-success);text-align:center;letter-spacing:0.5px;">
+                  [Project]-[Originator]-[Volume]-[Level]-[Type]-[Discipline]-[Number]
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:6px;">
+                  <div style="text-align:center;font-size:0.5rem;color:var(--text-muted);"><span style="display:block;font-weight:600;color:var(--accent-primary);">CIC</span>Project</div>
+                  <div style="text-align:center;font-size:0.5rem;color:var(--text-muted);"><span style="display:block;font-weight:600;color:var(--accent-secondary);">ARC</span>Originator</div>
+                  <div style="text-align:center;font-size:0.5rem;color:var(--text-muted);"><span style="display:block;font-weight:600;color:var(--accent-success);">DR</span>Type</div>
+                  <div style="text-align:center;font-size:0.5rem;color:var(--text-muted);"><span style="display:block;font-weight:600;color:var(--accent-warning);">0001</span>Number</div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-primary);"><i data-lucide="check-circle" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">Phê duyệt đa cấp</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-success);"><i data-lucide="git-merge" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">Version Control</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-warning);"><i data-lucide="search" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">Full-text Search</div></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 3.7 QTO & 5D
+        if (slideTitle.includes('3.7') && (slideTitle.includes('QTO') || slideTitle.includes('5D'))) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(3,1fr);">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-primary);"><i data-lucide="box" style="width:16px;height:16px;"></i></div><div class="fin-kpi-label">IFC Parser</div><div class="fin-kpi-sub">Hình học → QTO</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-warning);"><i data-lucide="database" style="width:16px;height:16px;"></i></div><div class="fin-kpi-label">Định mức BXD</div><div class="fin-kpi-sub">1776/BXD-VP</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-success);"><i data-lucide="calculator" style="width:16px;height:16px;"></i></div><div class="fin-kpi-label">Cost Engine</div><div class="fin-kpi-sub">AI matching</div></div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="workflow" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Pipeline bóc tách tự động</div>
+                <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-primary);color:#fff;font-size:0.5rem;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">1</div>
+                    <div style="flex:1;background:rgba(59,130,246,0.08);border-radius:5px;padding:4px 8px;font-size:0.55rem;color:var(--text-primary);">Parse IFC → trích xuất IfcQuantitySet</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-secondary);color:#fff;font-size:0.5rem;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">2</div>
+                    <div style="flex:1;background:rgba(139,92,246,0.08);border-radius:5px;padding:4px 8px;font-size:0.55rem;color:var(--text-primary);">AI mapping → công tác thi công (NLP matching 94%)</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-success);color:#fff;font-size:0.5rem;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">3</div>
+                    <div style="flex:1;background:rgba(16,185,129,0.08);border-radius:5px;padding:4px 8px;font-size:0.55rem;color:var(--text-primary);">Áp đơn giá định mức → BOQ chi tiết</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-warning);color:#fff;font-size:0.5rem;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">4</div>
+                    <div style="flex:1;background:rgba(245,158,11,0.08);border-radius:5px;padding:4px 8px;font-size:0.55rem;color:var(--text-primary);">Link Gantt 4D → theo dõi cash flow 5D</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="trending-up" style="width:12px;height:12px;color:var(--accent-success);"></i> Độ chính xác AI bóc tách</div>
+                <div class="fin-chart-canvas" style="height:80px;"><canvas id="ch3-qto-acc"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch3-qto-acc').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['Kết cấu', 'Kiến trúc', 'MEP', 'Hoàn thiện'],
+                datasets: [{ data: [96, 94, 88, 91], backgroundColor: ['rgba(59,130,246,0.7)','rgba(139,92,246,0.7)','rgba(245,158,11,0.7)','rgba(16,185,129,0.7)'], borderRadius: 3 }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { min: 80, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 }, callback: v => v+'%' } } },
+                plugins: { legend: { display: false } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 3.8 FM (Facility Management)
+        if (slideTitle.includes('3.8') && slideTitle.includes('FM')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(3,1fr);">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-primary);">COBie</div><div class="fin-kpi-label">Data Standard</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-secondary);">QR Code</div><div class="fin-kpi-label">Asset Tracking</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-success);">IoT</div><div class="fin-kpi-label">Sensors</div></div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="repeat" style="width:12px;height:12px;color:var(--accent-primary);"></i> Quy trình Bảo trì Dự phòng</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+                  <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:6px;padding:6px;text-align:center;">
+                    <i data-lucide="qr-code" style="width:16px;height:16px;color:var(--accent-primary);display:block;margin:0 auto 3px;"></i>
+                    <div style="font-size:0.55rem;font-weight:600;color:var(--text-primary);">Scan QR</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Nhận diện thiết bị</div>
+                  </div>
+                  <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:6px;padding:6px;text-align:center;">
+                    <i data-lucide="clipboard-list" style="width:16px;height:16px;color:var(--accent-secondary);display:block;margin:0 auto 3px;"></i>
+                    <div style="font-size:0.55rem;font-weight:600;color:var(--text-primary);">Work Order</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Tạo lệnh bảo trì</div>
+                  </div>
+                  <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;padding:6px;text-align:center;">
+                    <i data-lucide="wrench" style="width:16px;height:16px;color:var(--accent-success);display:block;margin:0 auto 3px;"></i>
+                    <div style="font-size:0.55rem;font-weight:600;color:var(--text-primary);">Thực hiện</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Checklist + ảnh</div>
+                  </div>
+                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;padding:6px;text-align:center;">
+                    <i data-lucide="bar-chart-2" style="width:16px;height:16px;color:var(--accent-warning);display:block;margin:0 auto 3px;"></i>
+                    <div style="font-size:0.55rem;font-weight:600;color:var(--text-primary);">Analytics</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">MTBF/MTTR report</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border-color);border-radius:8px;padding:8px;">
+                <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);margin-bottom:4px;"><i data-lucide="link" style="width:10px;height:10px;color:var(--accent-primary);"></i> BIM ↔ FM Integration</div>
+                <div style="font-size:0.52rem;color:var(--text-muted);">Từ model IFC → tự động tạo Asset Register với đầy đủ thông tin COBie (Type, Space, System, Component)</div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 3.9 Security QCVN 12
+        if (slideTitle.includes('3.9') && slideTitle.includes('An ninh')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="shield-check" style="width:12px;height:12px;color:var(--accent-danger);"></i> Kiến trúc bảo mật 3 lớp</div>
+                <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">
+                  <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;">
+                    <div style="font-size:0.65rem;font-weight:700;color:var(--accent-danger);">DMZ</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);">WAF + Reverse Proxy + Rate Limiting</div>
+                  </div>
+                  <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;margin-left:12px;">
+                    <div style="font-size:0.65rem;font-weight:700;color:var(--accent-warning);">APP</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);">Keycloak SSO + VNeID + mTLS internal</div>
+                  </div>
+                  <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;margin-left:24px;">
+                    <div style="font-size:0.65rem;font-weight:700;color:var(--accent-success);">DATA</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);">AES-256 at rest + TLS 1.3 in transit + WORM audit</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr);margin-top:8px;">
+                <div class="fin-kpi-card" style="border-color:rgba(59,130,246,0.3);">
+                  <div style="font-size:0.55rem;color:var(--accent-primary);font-weight:600;">SSO VNeID</div>
+                  <div style="font-size:0.5rem;color:var(--text-muted);margin-top:2px;">Xác thực quốc gia, không mật khẩu</div>
+                </div>
+                <div class="fin-kpi-card" style="border-color:rgba(239,68,68,0.3);">
+                  <div style="font-size:0.55rem;color:var(--accent-danger);font-weight:600;">WORM Audit</div>
+                  <div style="font-size:0.5rem;color:var(--text-muted);margin-top:2px;">Nhật ký bất biến 5 năm</div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="list-checks" style="width:12px;height:12px;color:var(--accent-success);"></i> 5 bước chứng nhận QCVN 12</div>
+                <div style="display:flex;gap:3px;margin-top:6px;">
+                  <div style="flex:1;text-align:center;padding:4px 2px;background:rgba(59,130,246,0.1);border-radius:4px;"><div style="font-size:0.65rem;font-weight:700;color:var(--accent-primary);">1</div><div style="font-size:0.45rem;color:var(--text-muted);">Xác định cấp độ</div></div>
+                  <div style="flex:1;text-align:center;padding:4px 2px;background:rgba(139,92,246,0.1);border-radius:4px;"><div style="font-size:0.65rem;font-weight:700;color:var(--accent-secondary);">2</div><div style="font-size:0.45rem;color:var(--text-muted);">Thiết kế PA</div></div>
+                  <div style="flex:1;text-align:center;padding:4px 2px;background:rgba(245,158,11,0.1);border-radius:4px;"><div style="font-size:0.65rem;font-weight:700;color:var(--accent-warning);">3</div><div style="font-size:0.45rem;color:var(--text-muted);">Triển khai</div></div>
+                  <div style="flex:1;text-align:center;padding:4px 2px;background:rgba(16,185,129,0.1);border-radius:4px;"><div style="font-size:0.65rem;font-weight:700;color:var(--accent-success);">4</div><div style="font-size:0.45rem;color:var(--text-muted);">Đánh giá</div></div>
+                  <div style="flex:1;text-align:center;padding:4px 2px;background:rgba(239,68,68,0.1);border-radius:4px;"><div style="font-size:0.65rem;font-weight:700;color:var(--accent-danger);">5</div><div style="font-size:0.45rem;color:var(--text-muted);">Cấp CN</div></div>
+                </div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // ========== CHƯƠNG 4: Pháp lý & Tuân thủ ==========
+
+        // 4.1 QCVN 12 certification
+        if (slideTitle.includes('4.1') && slideTitle.includes('QCVN')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="award" style="width:12px;height:12px;color:var(--accent-primary);"></i> Lộ trình chứng nhận QCVN 12:2026/BCA</div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;background:rgba(59,130,246,0.15);border:2px solid var(--accent-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-primary);">1</div>
+                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Xác định & Phê duyệt Cấp độ</div><div style="font-size:0.48rem;color:var(--text-muted);">T7/2026 • Cấp 3 (dữ liệu quan trọng)</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;background:rgba(139,92,246,0.15);border:2px solid var(--accent-secondary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-secondary);">2</div>
+                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Xây dựng Hồ sơ ĐBBM</div><div style="font-size:0.48rem;color:var(--text-muted);">T8–T10/2026 • 12 tài liệu bắt buộc</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;background:rgba(245,158,11,0.15);border:2px solid var(--accent-warning);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-warning);">3</div>
+                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Triển khai biện pháp kỹ thuật</div><div style="font-size:0.48rem;color:var(--text-muted);">T9–T12/2026 • SOC + SIEM + PKI</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;background:rgba(16,185,129,0.15);border:2px solid var(--accent-success);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-success);">4</div>
+                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Đánh giá & Kiểm thử xâm nhập</div><div style="font-size:0.48rem;color:var(--text-muted);">T1/2027 • Pentest + VA scan</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;background:rgba(239,68,68,0.15);border:2px solid var(--accent-danger);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-danger);">5</div>
+                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Nộp hồ sơ & Cấp Giấy chứng nhận</div><div style="font-size:0.48rem;color:var(--text-muted);">T2/2027 • Bộ Công an cấp</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-warning);">8 tháng</div><div class="fin-kpi-label">Tổng thời gian</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-primary);">Cấp 3</div><div class="fin-kpi-label">Mức bảo mật</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.85rem;color:var(--accent-danger);">12 docs</div><div class="fin-kpi-label">Hồ sơ ĐBBM</div></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 4.2 Cấp độ 3
+        if (slideTitle.includes('4.2') && slideTitle.includes('Cấp độ 3')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="file-lock" style="width:12px;height:12px;color:var(--accent-danger);"></i> Hồ sơ ĐBBM Cấp 3 — 12 tài liệu bắt buộc</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;">
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Chính sách ATTT</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Quy trình ứng cứu</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Đánh giá rủi ro</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Kiểm soát truy cập</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Quản lý sự cố</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Backup & Recovery</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Mã hóa dữ liệu</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Giám sát ATTT</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Quản lý tài sản</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Kiểm thử xâm nhập</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Đào tạo nhân viên</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:rgba(16,185,129,0.06);border-radius:4px;">
+                    <i data-lucide="check-square" style="width:9px;height:9px;color:var(--accent-success);"></i>
+                    <span style="font-size:0.5rem;color:var(--text-primary);">Kế hoạch liên tục</span>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:8px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:8px;">
+                <div style="font-size:0.6rem;font-weight:600;color:var(--accent-danger);display:flex;align-items:center;gap:4px;"><i data-lucide="alert-triangle" style="width:11px;height:11px;"></i> Yêu cầu đặc biệt Cấp 3</div>
+                <div style="font-size:0.5rem;color:var(--text-muted);margin-top:3px;">Phải có SOC 24/7 giám sát, Pentest hàng năm bởi bên thứ 3, SIEM với lưu trữ log ≥ 3 năm</div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 4.3 AGPLv3
+        if (slideTitle.includes('4.3') && slideTitle.includes('AGPL')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="scale" style="width:12px;height:12px;color:var(--accent-warning);"></i> Chiến lược cách ly AGPLv3</div>
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+                  <div style="display:flex;align-items:stretch;gap:6px;">
+                    <div style="flex:1;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;text-align:center;">
+                      <i data-lucide="lock" style="width:16px;height:16px;color:var(--accent-primary);display:block;margin:0 auto 4px;"></i>
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-primary);">Proprietary Core</div>
+                      <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Business logic, UI, API Gateway — sở hữu CIC 100%</div>
+                    </div>
+                    <div style="display:flex;align-items:center;font-size:0.7rem;color:var(--text-muted);">|</div>
+                    <div style="flex:1;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px;text-align:center;">
+                      <i data-lucide="unlock" style="width:16px;height:16px;color:var(--accent-success);display:block;margin:0 auto 4px;"></i>
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-success);">AGPL Module</div>
+                      <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">IfcOpenShell, web-ifc — container riêng, gRPC interface</div>
+                    </div>
+                  </div>
+                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:6px 8px;display:flex;align-items:center;gap:6px;">
+                    <i data-lucide="git-fork" style="width:12px;height:12px;color:var(--accent-warning);"></i>
+                    <div style="font-size:0.52rem;color:var(--text-primary);"><strong>Process Boundary:</strong> AGPL code chạy container riêng → không "lây" sang proprietary code</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-success);">✓ Safe</div><div class="fin-kpi-label">SaaS Delivery</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-success);">✓ gRPC</div><div class="fin-kpi-label">Process Isolation</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-success);">✓ Docker</div><div class="fin-kpi-label">Container Boundary</div></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 4.4 AI IP
+        if (slideTitle.includes('4.4') && slideTitle.includes('AI')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="brain" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Quy trình xử lý IP mã nguồn AI-generated</div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-primary);color:#fff;font-size:0.5rem;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">1</div>
+                    <div style="flex:1;background:rgba(59,130,246,0.08);border-radius:5px;padding:5px 8px;"><div style="font-size:0.55rem;color:var(--text-primary);font-weight:600;">AI Generate</div><div style="font-size:0.48rem;color:var(--text-muted);">Copilot/Claude tạo code</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-secondary);color:#fff;font-size:0.5rem;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">2</div>
+                    <div style="flex:1;background:rgba(139,92,246,0.08);border-radius:5px;padding:5px 8px;"><div style="font-size:0.55rem;color:var(--text-primary);font-weight:600;">License Scan</div><div style="font-size:0.48rem;color:var(--text-muted);">FOSSA/Snyk quét tương đồng OSS</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-warning);color:#fff;font-size:0.5rem;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">3</div>
+                    <div style="flex:1;background:rgba(245,158,11,0.08);border-radius:5px;padding:5px 8px;"><div style="font-size:0.55rem;color:var(--text-primary);font-weight:600;">Human Review</div><div style="font-size:0.48rem;color:var(--text-muted);">Dev review + refactor đủ khác biệt</div></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="background:var(--accent-success);color:#fff;font-size:0.5rem;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;">4</div>
+                    <div style="flex:1;background:rgba(16,185,129,0.08);border-radius:5px;padding:5px 8px;"><div style="font-size:0.55rem;color:var(--text-primary);font-weight:600;">Commit & Claim IP</div><div style="font-size:0.48rem;color:var(--text-muted);">Ghi nhận author, CIC sở hữu derivative work</div></div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:8px;background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px;">
+                <div style="font-size:0.55rem;font-weight:600;color:var(--accent-primary);"><i data-lucide="info" style="width:10px;height:10px;"></i> Nguyên tắc</div>
+                <div style="font-size:0.5rem;color:var(--text-muted);margin-top:2px;">Theo NĐ 13/2023/NĐ-CP: Output AI không được bảo hộ tự động — cần "substantial human contribution" để claim copyright</div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 4.5 GIS legal
+        if (slideTitle.includes('4.5') && slideTitle.includes('GIS')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="map-pin" style="width:12px;height:12px;color:var(--accent-primary);"></i> Tuân thủ pháp lý GIS/GeoBIM</div>
+                <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-top:6px;">
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:6px;">
+                    <div style="min-width:50px;font-size:0.55rem;font-weight:700;color:var(--accent-primary);">VN-2000</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Hệ tọa độ quốc gia bắt buộc (NĐ 27/2019)</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:6px;">
+                    <div style="min-width:50px;font-size:0.55rem;font-weight:700;color:var(--accent-success);">Vmap</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Bản đồ nền quốc gia (Bộ TN&MT cung cấp)</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:6px;">
+                    <div style="min-width:50px;font-size:0.55rem;font-weight:700;color:var(--accent-warning);">TT24</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Mã định danh công trình xây dựng</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:6px;">
+                    <div style="min-width:50px;font-size:0.55rem;font-weight:700;color:var(--accent-danger);">Dual-Map</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Online dùng Vmap, Offline dùng OSM (tránh phụ thuộc Google)</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(2,1fr);margin-top:8px;">
+                <div class="fin-kpi-card" style="border-color:rgba(239,68,68,0.3);">
+                  <div style="font-size:0.55rem;color:var(--accent-danger);font-weight:600;"><i data-lucide="alert-circle" style="width:10px;height:10px;"></i> Cấm</div>
+                  <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Lưu trữ dữ liệu bản đồ ngoài VN. Hiển thị biên giới sai lệch.</div>
+                </div>
+                <div class="fin-kpi-card" style="border-color:rgba(16,185,129,0.3);">
+                  <div style="font-size:0.55rem;color:var(--accent-success);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i> Bắt buộc</div>
+                  <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Server đặt tại VN. Dữ liệu mã hóa AES-256. Backup Viettel DC.</div>
+                </div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // ========== CHƯƠNG 5: Nhân sự ==========
+
+        // 5.1 AI tools context
+        if (slideTitle.includes('5.1') && slideTitle.includes('AI')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="sparkles" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Năng lực AI Coding 2026</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+                  <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="font-size:1rem;margin-bottom:2px;">🤖</div>
+                    <div style="font-size:0.58rem;font-weight:600;color:var(--accent-primary);">Claude Code</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Agentic coding, multi-file edit</div>
+                  </div>
+                  <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="font-size:1rem;margin-bottom:2px;">✨</div>
+                    <div style="font-size:0.58rem;font-weight:600;color:var(--accent-success);">GitHub Copilot</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">Autocomplete, test generation</div>
+                  </div>
+                  <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="font-size:1rem;margin-bottom:2px;">🔍</div>
+                    <div style="font-size:0.58rem;font-weight:600;color:var(--accent-secondary);">Cursor / Windsurf</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">IDE-native agent, codebase-aware</div>
+                  </div>
+                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="font-size:1rem;margin-bottom:2px;">⚡</div>
+                    <div style="font-size:0.58rem;font-weight:600;color:var(--accent-warning);">Gemini 2.5</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);">1M context, code understanding</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="trending-up" style="width:12px;height:12px;color:var(--accent-success);"></i> Productivity Multiplier</div>
+                <div class="fin-chart-canvas" style="height:90px;"><canvas id="ch5-ai-prod"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch5-ai-prod').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['Boilerplate', 'Unit Tests', 'Bug Fix', 'Architecture', 'Review'],
+                datasets: [{ label: 'Tăng tốc (x lần)', data: [5, 4, 3, 1.5, 2], backgroundColor: ['rgba(59,130,246,0.7)','rgba(16,185,129,0.7)','rgba(139,92,246,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.5)'], borderRadius: 3 }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } }, beginAtZero: true } },
+                plugins: { legend: { display: false } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 5.2 HR options comparison
+        if (slideTitle.includes('5.2') && slideTitle.includes('phương án')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="users" style="width:12px;height:12px;color:var(--accent-primary);"></i> So sánh 3 phương án nhân sự</div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
+                  <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-danger);">A. Thuê ngoài 100%</div>
+                      <div style="font-size:0.55rem;color:var(--text-muted);">❌ Không chọn</div>
+                    </div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Nhanh nhưng không giữ IP, phụ thuộc vendor, chi phí dài hạn cao</div>
+                  </div>
+                  <div style="background:rgba(16,185,129,0.12);border:2px solid rgba(16,185,129,0.5);border-radius:8px;padding:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-success);">B. Hybrid 10 người + AI</div>
+                      <div style="font-size:0.55rem;color:var(--accent-success);font-weight:600;">✓ ĐỀ XUẤT</div>
+                    </div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Core team nhỏ + AI tools → năng suất tương đương 25-30 dev truyền thống</div>
+                  </div>
+                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-warning);">C. Full team 25 người</div>
+                      <div style="font-size:0.55rem;color:var(--text-muted);">⚠️ Chi phí cao</div>
+                    </div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Truyền thống, kiểm soát tốt nhưng OPEX 8-10 tỷ/năm, khó tuyển đủ</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-secondary);"></i> So sánh chi phí năm (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:80px;"><canvas id="ch5-hr-cost"></canvas></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch5-hr-cost').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['PA A (Outsource)', 'PA B (Hybrid+AI)', 'PA C (Full team)'],
+                datasets: [
+                  { label: 'Lương', data: [0, 4.2, 8.5], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 },
+                  { label: 'Tool/Infra', data: [6.5, 1.8, 1.2], backgroundColor: 'rgba(139,92,246,0.5)', borderRadius: 3 }
+                ]
+              },
+              options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                scales: { x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { stacked: true, grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } } },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 5.3 Team detail
+        if (slideTitle.includes('5.3') && slideTitle.includes('đội hình')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr);">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-primary);">10</div><div class="fin-kpi-label">Nhân sự</div><div class="fin-kpi-sub">Core team</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-success);">3x</div><div class="fin-kpi-label">AI Multiplier</div><div class="fin-kpi-sub">= 25-30 dev</div></div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="users" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Phân bổ đội hình</div>
+                <div class="fin-chart-canvas" style="height:130px;"><canvas id="ch5-team-pie"></canvas></div>
+              </div>
+              <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:6px;padding:6px;">
+                  <div style="font-size:0.55rem;font-weight:600;color:var(--accent-danger);">Rủi ro chính</div>
+                  <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Bus factor thấp, khó tuyển BIM dev VN</div>
+                </div>
+                <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:6px;padding:6px;">
+                  <div style="font-size:0.55rem;font-weight:600;color:var(--accent-success);">Giảm thiểu</div>
+                  <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Cross-training, tài liệu chi tiết, AI pair-programming</div>
+                </div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch5-team-pie').getContext('2d'), {
+              type: 'doughnut',
+              data: {
+                labels: ['Backend (Go+Python)', 'Frontend (React)', 'BIM/GIS Specialist', 'DevOps/Security', 'PM/QA'],
+                datasets: [{ data: [3, 2, 2, 2, 1], backgroundColor: ['rgba(59,130,246,0.8)','rgba(16,185,129,0.8)','rgba(139,92,246,0.8)','rgba(239,68,68,0.7)','rgba(245,158,11,0.7)'] }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false, cutout: '55%',
+                plugins: { legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 4 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // ========== CHƯƠNG 7: Chất lượng ==========
+
+        // 7.1 SonarQube KPIs
+        if (slideTitle.includes('7.1') && slideTitle.includes('KPI')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="activity" style="width:12px;height:12px;color:var(--accent-primary);"></i> Quality Gate Metrics</div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px;">
+                  <div style="text-align:center;padding:10px 6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;">
+                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-success);">≥80%</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Code Coverage</div>
+                  </div>
+                  <div style="text-align:center;padding:10px 6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
+                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-primary);">A</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Maintainability Rating</div>
+                  </div>
+                  <div style="text-align:center;padding:10px 6px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:10px;">
+                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-secondary);">0</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Critical Vulnerabilities</div>
+                  </div>
+                  <div style="text-align:center;padding:10px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;">
+                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-warning);"><5%</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Duplicated Lines</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-chart-wrap" style="margin-top:8px;">
+                <div class="fin-chart-title"><i data-lucide="shield" style="width:12px;height:12px;color:var(--accent-danger);"></i> CI/CD Pipeline Gates</div>
+                <div style="display:flex;align-items:center;gap:3px;margin-top:6px;flex-wrap:wrap;">
+                  <div style="padding:4px 8px;background:rgba(59,130,246,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-primary);font-weight:600;">Lint</div>
+                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
+                  <div style="padding:4px 8px;background:rgba(139,92,246,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-secondary);font-weight:600;">Unit Test</div>
+                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
+                  <div style="padding:4px 8px;background:rgba(16,185,129,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-success);font-weight:600;">SonarQube</div>
+                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
+                  <div style="padding:4px 8px;background:rgba(245,158,11,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-warning);font-weight:600;">SAST/DAST</div>
+                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
+                  <div style="padding:4px 8px;background:rgba(239,68,68,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-danger);font-weight:600;">Deploy</div>
+                </div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 7.2 Git branching
+        if (slideTitle.includes('7.2') && slideTitle.includes('Git')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="git-branch" style="width:12px;height:12px;color:var(--accent-primary);"></i> GitFlow Branching Strategy</div>
+                <div style="display:flex;flex-direction:column;gap:3px;margin-top:8px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-danger);">main</div>
+                    <div style="flex:1;height:4px;background:var(--accent-danger);border-radius:2px;"></div>
+                    <div style="font-size:0.45rem;color:var(--text-muted);">Production</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-warning);">release</div>
+                    <div style="flex:1;height:4px;background:var(--accent-warning);border-radius:2px;opacity:0.7;"></div>
+                    <div style="font-size:0.45rem;color:var(--text-muted);">Staging</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-success);">develop</div>
+                    <div style="flex:1;height:4px;background:var(--accent-success);border-radius:2px;"></div>
+                    <div style="font-size:0.45rem;color:var(--text-muted);">Integration</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-primary);">feature/*</div>
+                    <div style="flex:1;height:4px;background:var(--accent-primary);border-radius:2px;opacity:0.5;"></div>
+                    <div style="font-size:0.45rem;color:var(--text-muted);">Dev branches</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-primary);"><i data-lucide="git-pull-request" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">PR Required</div><div class="fin-kpi-sub">≥2 reviewers</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-success);"><i data-lucide="check-circle" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">Auto CI</div><div class="fin-kpi-sub">Block on fail</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-warning);"><i data-lucide="tag" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">SemVer</div><div class="fin-kpi-sub">Auto changelog</div></div>
+              </div>
+              <div style="margin-top:8px;background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px;">
+                <div style="font-size:0.55rem;font-weight:600;color:var(--accent-primary);"><i data-lucide="key" style="width:10px;height:10px;"></i> IAM & Access Control</div>
+                <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">RBAC: Admin / Maintainer / Developer / Reporter. Branch protection trên main & release.</div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // ========== CHƯƠNG 8: Triển khai ==========
+
+        // 8.1 Sprint plan
+        if (slideTitle.includes('8.1') && slideTitle.includes('Sprint')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="calendar" style="width:12px;height:12px;color:var(--accent-primary);"></i> Sprint Timeline (12 sprints × 2 tuần)</div>
+                <div class="fin-chart-canvas" style="height:150px;"><canvas id="ch8-sprint-timeline"></canvas></div>
+              </div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(4,1fr);margin-top:8px;">
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-primary);">12</div><div class="fin-kpi-label">Sprints</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-success);">6 th</div><div class="fin-kpi-label">Tổng thời gian</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-warning);">MVP</div><div class="fin-kpi-label">Sprint 6</div></div>
+                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-danger);">GA</div><div class="fin-kpi-label">Sprint 12</div></div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            new Chart(document.getElementById('ch8-sprint-timeline').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: ['S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12'],
+                datasets: [
+                  { label: 'Core Platform', data: [1,1,1,1,0,0,0,0,0,0,0,0], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 2 },
+                  { label: 'BIM Engine', data: [0,1,1,1,1,1,0,0,0,0,0,0], backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 2 },
+                  { label: 'GIS/4D/5D', data: [0,0,0,0,1,1,1,1,0,0,0,0], backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 2 },
+                  { label: 'Security/Polish', data: [0,0,0,0,0,0,0,1,1,1,1,1], backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 2 }
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                  x: { stacked: true, grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
+                  y: { stacked: true, display: false }
+                },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+              }
+            });
+            if (window.lucide) lucide.createIcons();
+          }, 150);
+          return;
+        }
+
+        // 8.2 Pre-deployment checklist
+        if (slideTitle.includes('8.2') && (slideTitle.includes('chuẩn bị') || slideTitle.includes('triển khai'))) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap">
+                <div class="fin-chart-title"><i data-lucide="clipboard-check" style="width:12px;height:12px;color:var(--accent-success);"></i> Pre-deployment Checklist</div>
+                <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">Quality Gate pass (SonarQube A rating)</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">Pentest completed — 0 Critical/High findings</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">QCVN 12 certification approved</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">Load test ≥ 1000 concurrent users OK</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">DR failover drill completed (RTO < 4h)</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">Documentation & runbook reviewed</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(16,185,129,0.06);border-radius:5px;">
+                    <div style="width:14px;height:14px;border-radius:3px;background:var(--accent-success);display:flex;align-items:center;justify-content:center;"><i data-lucide="check" style="width:9px;height:9px;color:#fff;"></i></div>
+                    <span style="font-size:0.55rem;color:var(--text-primary);">Monitoring & alerting configured (Grafana + PagerDuty)</span>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:8px;background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px;text-align:center;">
+                <div style="font-size:0.6rem;font-weight:600;color:var(--accent-primary);">🚀 Go/No-Go Decision Meeting</div>
+                <div style="font-size:0.48rem;color:var(--text-muted);">CTO + PM + SecOps sign-off required before production deploy</div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+          return;
+        }
+
+        // 8.3 Conclusion
+        if (slideTitle.includes('8.3') && slideTitle.includes('Kết luận')) {
+          ph.innerHTML = `
+            <div style="padding-top:4px;">
+              <div class="fin-chart-wrap" style="background:linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.05));">
+                <div class="fin-chart-title"><i data-lucide="trophy" style="width:12px;height:12px;color:var(--accent-warning);"></i> CDE CIC — Tổng kết</div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px;">
+                  <div style="text-align:center;padding:10px 6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--accent-primary);">6</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Phân hệ lõi</div>
+                  </div>
+                  <div style="text-align:center;padding:10px 6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--accent-success);">159 tỷ</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Doanh thu Y5</div>
+                  </div>
+                  <div style="text-align:center;padding:10px 6px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--accent-secondary);">47%</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">IRR dự án</div>
+                  </div>
+                  <div style="text-align:center;padding:10px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--accent-warning);">10 người</div>
+                    <div style="font-size:0.5rem;color:var(--text-muted);">Core Team + AI</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
+                <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:6px;">
+                  <i data-lucide="check-circle" style="width:12px;height:12px;color:var(--accent-success);"></i>
+                  <span style="font-size:0.55rem;color:var(--text-primary);">Nền tảng CDE đầu tiên tại VN tuân thủ ISO 19650 + QCVN 12</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:6px;">
+                  <i data-lucide="check-circle" style="width:12px;height:12px;color:var(--accent-primary);"></i>
+                  <span style="font-size:0.55rem;color:var(--text-primary);">Open BIM + AI-powered → giảm 60% thời gian bóc tách khối lượng</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.15);border-radius:6px;">
+                  <i data-lucide="check-circle" style="width:12px;height:12px;color:var(--accent-secondary);"></i>
+                  <span style="font-size:0.55rem;color:var(--text-primary);">Payback 3.2 năm, NPV +172 tỷ — khả thi tài chính cao</span>
+                </div>
+              </div>
+            </div>
+          `;
+          setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
           return;
         }
 
