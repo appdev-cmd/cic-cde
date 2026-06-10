@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Box, MapPin, RefreshCw, Layers, Radio, Sparkles, Globe, Eye } from 'lucide-react';
+import { fetchProjects } from '../../lib/api/projects';
 
 export interface ProjectPin {
   id: string;
@@ -76,7 +77,26 @@ export function GeoBimMap() {
   const tileLayerRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   
+  const [projects, setProjects] = useState<ProjectPin[]>(PROJECTS);
   const [selectedProject, setSelectedProject] = useState<ProjectPin>(PROJECTS[0]);
+
+  // Nạp dự án thật từ Supabase (chỉ lấy dự án có toạ độ); fallback hardcoded
+  useEffect(() => {
+    fetchProjects().then(rows => {
+      const pins: ProjectPin[] = rows
+        .filter(p => typeof p.lat === 'number' && typeof p.lng === 'number')
+        .map(p => ({
+          id: p.id, name: p.name, coords: [p.lat as number, p.lng as number],
+          location: p.location, status: p.status,
+          tilesUrl: p.tilesUrl || `https://vstorage.cde.cic.vn/3dtiles/${p.id}/tileset.json`,
+          description: p.description, elevation: 0,
+        }));
+      if (pins.length > 0) {
+        setProjects(pins);
+        setSelectedProject(pins[0]);
+      }
+    }).catch(e => console.error('GeoBIM: không tải được dự án', e));
+  }, []);
   const [isTilesStreaming, setIsTilesStreaming] = useState(false);
   const [streamLods, setStreamLods] = useState<string>('LOD 3 (Chi tiết thiết kế)');
   const [tilesLoadedCount, setTilesLoadedCount] = useState(37);
@@ -117,34 +137,7 @@ export function GeoBimMap() {
       darkLayer.addTo(map);
       tileLayerRef.current = darkLayer;
 
-      // Custom marker icon using HTML/CSS for premium styling
-      const createIcon = (projId: string) => {
-        return L.divIcon({
-          className: 'custom-leaflet-marker',
-          html: `<div class="relative flex items-center justify-center">
-            <span class="absolute inline-flex h-6 w-6 animate-ping rounded-full bg-primary/30 opacity-75"></span>
-            <div class="relative flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary border border-surface shadow">
-              <div class="h-1.5 w-1.5 rounded-full bg-on-primary"></div>
-            </div>
-          </div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        });
-      };
-
-      // Add pins
-      markersRef.current = [];
-      PROJECTS.forEach(proj => {
-        const marker = L.marker(proj.coords, {
-          icon: createIcon(proj.id)
-        }).addTo(map);
-
-        marker.on('click', () => {
-          handleSelectProject(proj);
-        });
-
-        markersRef.current.push({ id: proj.id, marker });
-      });
+      // Markers được vẽ ở effect riêng theo `projects` (xem bên dưới)
 
       // Add custom attribution
       L.control.attribution({
@@ -181,6 +174,31 @@ export function GeoBimMap() {
       }
     };
   }, []);
+
+  // Vẽ lại markers khi danh sách dự án thay đổi (hoặc map sẵn sàng)
+  useEffect(() => {
+    const L = (window as any).L;
+    const map = mapRef.current;
+    if (!L || !map || !mapLoaded) return;
+    // Xoá markers cũ
+    markersRef.current.forEach((m: any) => map.removeLayer(m.marker));
+    markersRef.current = [];
+    const icon = L.divIcon({
+      className: 'custom-leaflet-marker',
+      html: `<div class="relative flex items-center justify-center">
+        <span class="absolute inline-flex h-6 w-6 animate-ping rounded-full bg-primary/30 opacity-75"></span>
+        <div class="relative flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary border border-surface shadow">
+          <div class="h-1.5 w-1.5 rounded-full bg-on-primary"></div>
+        </div>
+      </div>`,
+      iconSize: [24, 24], iconAnchor: [12, 12],
+    });
+    projects.forEach(proj => {
+      const marker = L.marker(proj.coords, { icon }).addTo(map);
+      marker.on('click', () => handleSelectProject(proj));
+      markersRef.current.push({ id: proj.id, marker });
+    });
+  }, [projects, mapLoaded]);
 
   // Thay đổi Lớp Bản Đồ
   const changeMapLayer = (layerType: 'dark' | 'satellite') => {
@@ -508,7 +526,7 @@ export function GeoBimMap() {
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-outline tracking-wider uppercase">Lựa chọn dự án</label>
               <div className="flex flex-col gap-1.5">
-                {PROJECTS.map(proj => (
+                {projects.map(proj => (
                   <button
                     key={proj.id}
                     onClick={() => handleSelectProject(proj)}

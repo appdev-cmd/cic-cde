@@ -15,6 +15,7 @@ export interface DocumentItem {
   fileUrl?: string; // Can be a remote URL or a local blob URL
   suitabilityCode?: string; // ISO 19650 suitability code (S0,S1,S2,S3,S4,D1..D4,A1..,B1..,CR)
   dbId?: string; // Supabase uuid (khác với id=mã ISO 19650)
+  fragUrl?: string; // URL file .frag (ThatOpen Fragments) để nạp nhanh
 }
 
 export interface ApprovalItem {

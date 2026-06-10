@@ -58,6 +58,8 @@
   --color-background: var(--color-background-val);
   --color-on-background: var(--color-on-background-val);
   --color-teal-accent: var(--color-teal-accent-val);
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
 }
 
 :root {

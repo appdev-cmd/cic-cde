@@ -2,12 +2,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Filter, ChevronDown, ChevronRight, Folder, FolderOpen, Box, 
   Scissors, Ruler, MessageSquare, EyeOff, X, Copy, RefreshCw, Upload,
-  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download
+  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download, Image as ImageIcon
 } from 'lucide-react';
-import { BimViewer, BimViewerRef, QtoResult, LoadedModelInfo } from '../bim/BimViewer';
+import { BimViewer, BimViewerRef, QtoResult, QtoDetailRow, LoadedModelInfo, ClashResult } from '../bim/BimViewer';
+import { IssuesPanel, IssuesPanelHandle, type BcfIssue } from '../bim/IssuesPanel';
+import { DocumentItem } from '../../types';
 import { analyzeElement } from '../../lib/ai/gemini';
-import { exportBcf, importBcf } from '../../lib/bcf/bcf';
-import { fetchBcfTopics, createBcfTopic } from '../../lib/api/data';
+import { ifcClassLabel } from '../../lib/ifcLabels';
+import { fetchViewpoints, createViewpoint, deleteViewpoint, type Viewpoint } from '../../lib/api/data';
+import { fetchMembers } from '../../lib/api/team';
+import { uploadFile, uploadDataUrl, compressIfcToZip, uploadArrayBuffer } from '../../lib/api/storage';
+import { createDocument, deleteDocument, setDocumentFrag } from '../../lib/api/documents';
+import { updateProjectCover } from '../../lib/api/projects';
 
 interface ViewerTabProps {
   selectedModelUrl: string | null;
@@ -17,28 +23,26 @@ interface ViewerTabProps {
   setSelectedHighlightIds: (ids: number[]) => void;
   viewerRef?: React.RefObject<BimViewerRef | null>;
   projectId?: string;
+  documents?: DocumentItem[];
+  isActive?: boolean;
+  onRemoveDocument?: (code: string) => void;
+  onProjectCoverChanged?: (projectId: string, url: string) => void;
+  onDocFragCached?: (code: string, fragUrl: string) => void;
 }
 
-interface BcfIssue {
-  id: string;
-  title: string;
-  description: string;
-  status: 'Open' | 'Resolved' | 'Closed';
-  priority: 'High' | 'Medium' | 'Low';
-  assignedTo: string;
-  linkedElementGuid?: string;
-  linkedElementExpressId?: number;
-  createdDate: string;
-}
-
-export function ViewerTab({ 
+export function ViewerTab({
   selectedModelUrl, 
   setSelectedModelUrl,
   onModelLoaded,
   selectedHighlightIds,
   setSelectedHighlightIds,
   viewerRef: externalViewerRef,
-  projectId
+  projectId,
+  documents = [],
+  isActive = true,
+  onRemoveDocument,
+  onProjectCoverChanged,
+  onDocFragCached
 }: ViewerTabProps) {
   const localViewerRef = useRef<BimViewerRef>(null);
   const viewerRef = externalViewerRef ?? localViewerRef;
@@ -49,64 +53,349 @@ export function ViewerTab({
   const [selectedElement, setSelectedElement] = useState<any>(null);
 
   // Sidebar controls
-  const [leftSidebarTab, setLeftSidebarTab] = useState<'spatial' | 'classes'>('spatial');
+  const [leftSidebarTab, setLeftSidebarTab] = useState<'models' | 'spatial' | 'classes'>('models');
   const [rightPanelTab, setRightPanelTab] = useState<'properties' | 'bcf'>('properties');
   
-  // BCF States
-  const [bcfIssues, setBcfIssues] = useState<BcfIssue[]>([
-    {
-      id: 'BCF-001',
-      title: 'Xung đột dầm phụ trục C với ống gió cứu hỏa',
-      description: 'Đường ống cứu hỏa đi xuyên trực tiếp qua dầm kết cấu trục C tầng 2, cần hạ cao độ.',
-      status: 'Open',
-      priority: 'High',
-      assignedTo: 'KS. Nguyễn Văn Hải',
-      linkedElementGuid: '1A2B3C4D5E6F7G8H9',
-      linkedElementExpressId: 1045,
-      createdDate: '2026-06-07'
-    },
-    {
-      id: 'BCF-002',
-      title: 'Lệch vị trí ô chờ cửa thoát hiểm block B',
-      description: 'Vị trí trích ô chờ cửa lệch 150mm so với bản vẽ dầm chuyển vách.',
-      status: 'Open',
-      priority: 'Medium',
-      assignedTo: 'KTS. Lê Minh Hoàng',
-      linkedElementGuid: '9H8G7F6E5D4C3B2A1',
-      linkedElementExpressId: 2314,
-      createdDate: '2026-06-08'
-    }
+  // Issues (Vấn đề) — module riêng IssuesPanel quản lý dữ liệu
+  const issuesPanelRef = useRef<IssuesPanelHandle>(null);
+  const [assigneeOptions, setAssigneeOptions] = useState<string[]>([
+    'KS. Nguyễn Văn Hải', 'KTS. Lê Minh Hoàng', 'KS. Trần Thu Thảo',
   ]);
-  const [isCreatingBcf, setIsCreatingBcf] = useState(false);
-  const [newBcfTitle, setNewBcfTitle] = useState('');
-  const [newBcfDesc, setNewBcfDesc] = useState('');
-  const [newBcfPriority, setNewBcfPriority] = useState<'High' | 'Medium' | 'Low'>('High');
-  const [newBcfAssignee, setNewBcfAssignee] = useState('KS. Nguyễn Văn Hải');
 
-  // Multi-model management
+  // Nạp danh sách thành viên dự án để gợi ý người xử lý
+  useEffect(() => {
+    if (!projectId) return;
+    fetchMembers(projectId)
+      .then(ms => { if (ms.length) setAssigneeOptions(ms.map(m => m.name)); })
+      .catch(() => {});
+  }, [projectId]);
+
+  // Chụp viewpoint hiện tại (camera + model ẩn + ảnh) cho vấn đề
+  const captureViewpoint = () => ({
+    camera: viewerRef.current?.getCameraState() || undefined,
+    hiddenModels: Array.from(hiddenModelIds) as string[],
+    screenshot: viewerRef.current?.captureScreenshot() || undefined,
+  });
+
+  // Khôi phục góc nhìn của một vấn đề (camera + ẩn/hiện + highlight)
+  const handleRestoreIssue = (issue: BcfIssue) => {
+    if (!viewerRef.current) return;
+    if (issue.hiddenModels) {
+      const hide = new Set(issue.hiddenModels);
+      loadedModels.forEach(m => viewerRef.current!.setModelVisibility(m.id, !hide.has(m.id)));
+      setHiddenModelIds(hide);
+    }
+    if (issue.camera) viewerRef.current.setCameraState(issue.camera);
+    if (issue.linkedElementExpressId != null) {
+      viewerRef.current.highlightElements([issue.linkedElementExpressId]);
+      if (properties && properties[issue.linkedElementExpressId]) {
+        setSelectedElement(properties[issue.linkedElementExpressId]);
+      }
+    }
+  };
+
+  const handleFocusIssueElement = (expressId: number) => {
+    viewerRef.current?.highlightElements([expressId]);
+    viewerRef.current?.isolateElements([expressId]);
+    if (properties && properties[expressId]) setSelectedElement(properties[expressId]);
+  };
+
+  // Multi-model management (Federation)
   const [loadedModels, setLoadedModels] = useState<LoadedModelInfo[]>([]);
+  const [hiddenModelIds, setHiddenModelIds] = useState<Set<string>>(new Set());
+  const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
+  const [recentered, setRecentered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleToggleRecenter = () => {
+    if (!viewerRef.current) return;
+    const next = !recentered;
+    setRecentered(next);
+    viewerRef.current.setModelsRecentered(next);
+  };
+
+  const handleFitAll = () => viewerRef.current?.fitToAll();
+
+  // Walk/Fly mode
+  const [flyMode, setFlyMode] = useState(false);
+  const handleToggleFly = () => {
+    const next = !flyMode;
+    setFlyMode(next);
+    viewerRef.current?.setFlyMode(next);
+  };
+
+  // Viewpoints (góc nhìn đã lưu)
+  const [viewpoints, setViewpoints] = useState<Viewpoint[]>([]);
+  const [savingVp, setSavingVp] = useState(false);
+  const [newVpName, setNewVpName] = useState('');
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetchViewpoints(projectId).then(setViewpoints).catch(err => console.error('Không tải được viewpoints:', err));
+  }, [projectId]);
+
+  const handleSaveViewpoint = async () => {
+    if (!viewerRef.current || !projectId) return;
+    const cam = viewerRef.current.getCameraState();
+    if (!cam) { alert('Chưa có camera để lưu.'); return; }
+    const name = newVpName.trim() || `Góc nhìn ${viewpoints.length + 1}`;
+    const screenshot = viewerRef.current.captureScreenshot() || undefined;
+    setSavingVp(true);
+    try {
+      const vp = await createViewpoint(projectId, {
+        name, camera: cam, hiddenModels: Array.from(hiddenModelIds), recentered, screenshot,
+      });
+      if (vp) setViewpoints(prev => [vp, ...prev]);
+      setNewVpName('');
+    } finally {
+      setSavingVp(false);
+    }
+  };
+
+  const handleRestoreViewpoint = (vp: Viewpoint) => {
+    if (!viewerRef.current) return;
+    // Khôi phục căn tâm nếu khác
+    if (vp.recentered !== recentered) {
+      setRecentered(vp.recentered);
+      viewerRef.current.setModelsRecentered(vp.recentered);
+    }
+    // Khôi phục ẩn/hiện model
+    const hide = new Set(vp.hiddenModels);
+    loadedModels.forEach(m => viewerRef.current!.setModelVisibility(m.id, !hide.has(m.id)));
+    setHiddenModelIds(hide);
+    // Khôi phục camera
+    viewerRef.current.setCameraState(vp.camera);
+  };
+
+  const handleDeleteViewpoint = async (id: string) => {
+    await deleteViewpoint(id);
+    setViewpoints(prev => prev.filter(v => v.id !== id));
+  };
+
+  // Đặt góc nhìn làm ảnh đại diện dự án
+  const [coverSavingId, setCoverSavingId] = useState<string | null>(null);
+  const handleSetAsCover = async (vp: Viewpoint) => {
+    if (!projectId) return;
+    let img = vp.screenshot;
+    // Nếu góc nhìn chưa có ảnh, chụp màn hình hiện tại
+    if (!img) img = viewerRef.current?.captureScreenshot() || undefined;
+    if (!img) { alert('Không có ảnh để đặt làm đại diện. Hãy mở mô hình rồi thử lại.'); return; }
+    setCoverSavingId(vp.id);
+    try {
+      const url = await uploadDataUrl(img, `covers/${projectId}_${Date.now()}.png`);
+      await updateProjectCover(projectId, url);
+      onProjectCoverChanged?.(projectId, url);
+      alert('Đã đặt làm ảnh đại diện dự án.');
+    } catch (err) {
+      alert('Không đặt được ảnh đại diện: ' + (err as Error).message);
+    } finally {
+      setCoverSavingId(null);
+    }
+  };
+
+  // Clash detection (Phase D)
+  const [clashOpen, setClashOpen] = useState(false);
+  const [clashLoading, setClashLoading] = useState(false);
+  const [clashes, setClashes] = useState<ClashResult[] | null>(null);
+
+  const handleDetectClashes = async () => {
+    if (!viewerRef.current) return;
+    if (loadedModels.length < 2) { alert('Cần tải ít nhất 2 mô hình để kiểm tra xung đột.'); return; }
+    setClashOpen(true);
+    setClashLoading(true);
+    setClashes(null);
+    try {
+      const res = await viewerRef.current.detectClashes();
+      setClashes(res);
+    } catch (err) {
+      console.error(err);
+      setClashes([]);
+    } finally {
+      setClashLoading(false);
+    }
+  };
+
+  const handleFocusClash = (c: ClashResult) => {
+    viewerRef.current?.focusClash(c);
+  };
+
+  const handleClashToBcf = async (c: ClashResult) => {
+    if (!viewerRef.current) return;
+    await viewerRef.current.focusClash(c);
+    const vp = captureViewpoint();
+    await issuesPanelRef.current?.createFromClash({
+      title: `Xung đột: ${c.modelAName} ↔ ${c.modelBName}`,
+      description: `Xung đột hình học giữa cấu kiện #${c.localIdA} (${c.modelAName}) và #${c.localIdB} (${c.modelBName}).`,
+      camera: vp.camera, hiddenModels: vp.hiddenModels, screenshot: vp.screenshot,
+    });
+    setRightPanelTab('bcf');
+    alert('Đã tạo vấn đề từ xung đột.');
+  };
+
+  // Suy bộ môn từ tên/mã mô hình (dùng cho cả model upload lẫn tài liệu Supabase)
+  const deriveDiscipline = (label: string): string => {
+    const s = (label || '').toUpperCase();
+    if (/ARCH|KIEN|\bARC\b|-A-|_ARC/.test(s)) return 'Kiến trúc';
+    if (/STRU|KET\s?CAU|\bSTR\b|-S-|_STR/.test(s)) return 'Kết cấu';
+    if (/ELEC|HVAC|PLUM|FIRE|MEFP|\bMEP\b|MECH|-M-|-E-|-P-|-H-|-F-|_ELE|_HVA|_PLU/.test(s)) return 'MEP';
+    if (/COORD|PHOI\s?HOP|-W-|_ALL|FEDER/.test(s)) return 'Phối hợp';
+    return 'Khác';
+  };
+
+  // Tài liệu IFC thêm trong phiên (vừa upload) — để hiện ngay mà không cần reload
+  const [extraDocs, setExtraDocs] = useState<DocumentItem[]>([]);
 
   const handleUploadModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !viewerRef.current) return;
     e.target.value = '';
-    await viewerRef.current.loadFile(file);
-    setLoadedModels(viewerRef.current.getLoadedModels());
+    setLoadingModelId('__upload__');
+    try {
+      if (projectId) {
+        // LƯU THẬT: nén .ifc -> .ifczip (nếu cần) rồi đẩy lên Storage + tạo bản ghi
+        const code = file.name.replace(/\.[^/.]+$/, '').replace(/[^\w.\-]/g, '_');
+        const toUpload = await compressIfcToZip(file);
+        const up = await uploadFile(toUpload, projectId);
+        const rec = await createDocument({
+          projectId, code, name: file.name.replace(/\.[^/.]+$/, ''),
+          folder: '02_SHARED', subFolder: 'Mô hình phối hợp', status: 'S1 - SHARED',
+          suitabilityCode: 'S1', revision: 'P01', version: 'V1', size: up.sizeLabel,
+          creator: 'BIM Manager (Bạn)', classification: 'EF_55_20', volume: 'Z00 - All Zones',
+          fileType: 'ifc', fileUrl: up.publicUrl, hashSha256: up.hash,
+        });
+        // Hiện ngay trong phiên + nạp vào viewer từ URL (modelId = code)
+        setExtraDocs(prev => prev.some(d => d.id === rec.id) ? prev : [...prev, rec]);
+        await viewerRef.current.loadUrl(up.publicUrl, rec.id);
+        cacheFragInBackground(rec.id); // tạo cache .frag cho lần sau nạp nhanh
+      } else {
+        // Không có dự án (hiếm) — nạp tạm trong bộ nhớ
+        await viewerRef.current.loadFile(file);
+      }
+      setLoadedModels(viewerRef.current.getLoadedModels());
+      if (recentered) viewerRef.current.setModelsRecentered(true);
+    } catch (err) {
+      alert('Tải/lưu mô hình thất bại: ' + (err as Error).message);
+    } finally {
+      setLoadingModelId(null);
+    }
   };
 
   const handleRemoveModel = (modelId: string) => {
     if (!viewerRef.current) return;
     viewerRef.current.removeModel(modelId);
     setLoadedModels(viewerRef.current.getLoadedModels());
+    setHiddenModelIds(prev => { const n = new Set(prev); n.delete(modelId); return n; });
   };
+
+  // Ẩn/hiện một mô hình ĐÃ tải
+  const handleToggleVisibility = (modelId: string) => {
+    if (!viewerRef.current) return;
+    const willHide = !hiddenModelIds.has(modelId);
+    viewerRef.current.setModelVisibility(modelId, !willHide);
+    setHiddenModelIds(prev => { const n = new Set(prev); willHide ? n.add(modelId) : n.delete(modelId); return n; });
+  };
+
+  // Ẩn/hiện cả một bộ môn (nhóm)
+  const handleToggleDiscipline = (models: LoadedModelInfo[]) => {
+    if (!viewerRef.current) return;
+    const anyVisible = models.some(m => !hiddenModelIds.has(m.id));
+    const willHide = anyVisible; // nếu đang có cái hiện -> ẩn hết, ngược lại hiện hết
+    setHiddenModelIds(prev => {
+      const n = new Set(prev);
+      models.forEach(m => {
+        viewerRef.current?.setModelVisibility(m.id, !willHide);
+        willHide ? n.add(m.id) : n.delete(m.id);
+      });
+      return n;
+    });
+  };
+
+  // Zoom camera tới một mô hình (giúp định vị model nhỏ/ở xa như MEP)
+  const handleFitModel = (modelId: string) => {
+    viewerRef.current?.fitToModel(modelId);
+  };
+
+  // Tải một tài liệu IFC từ Supabase vào liên hợp
+  // Chuyển đổi & cache .frag sau khi đã nạp IFC (chạy nền) để lần sau nạp nhanh
+  const cacheFragInBackground = async (code: string) => {
+    if (!projectId || !viewerRef.current) return;
+    try {
+      const buf = await viewerRef.current.getModelBuffer(code);
+      if (!buf) return;
+      const url = await uploadArrayBuffer(buf, `frags/${projectId}/${code}.frag`);
+      await setDocumentFrag(projectId, code, url);
+      setExtraDocs(prev => prev.map(d => d.id === code ? { ...d, fragUrl: url } : d));
+      onDocFragCached?.(code, url);
+    } catch (err) {
+      console.warn('cacheFrag failed:', err);
+    }
+  };
+
+  const handleLoadDoc = async (doc: DocumentItem) => {
+    if (!viewerRef.current) return;
+    if (!doc.fileUrl && !doc.fragUrl) { alert('Tài liệu này chưa có tệp IFC để tải.'); return; }
+    setLoadingModelId(doc.id);
+    try {
+      if (doc.fragUrl) {
+        // NẠP NHANH từ .frag đã cache; lỗi thì fallback sang IFC
+        try {
+          await viewerRef.current.loadFragments(doc.fragUrl, doc.id);
+        } catch {
+          if (doc.fileUrl) await viewerRef.current.loadUrl(doc.fileUrl, doc.id);
+        }
+      } else {
+        await viewerRef.current.loadUrl(doc.fileUrl!, doc.id);
+        cacheFragInBackground(doc.id); // tạo cache cho lần sau
+      }
+      setLoadedModels(viewerRef.current.getLoadedModels());
+      if (recentered) viewerRef.current.setModelsRecentered(true);
+    } catch {
+      alert('Không tải được mô hình: ' + doc.name);
+    } finally {
+      setLoadingModelId(null);
+    }
+  };
+
+  // Xóa hẳn một mô hình/tài liệu IFC khỏi dự án (Storage + DB)
+  const handleDeleteDoc = async (doc: DocumentItem) => {
+    if (!projectId) return;
+    if (!window.confirm(`Xóa vĩnh viễn mô hình "${doc.name}" khỏi dự án? Hành động không thể hoàn tác.`)) return;
+    try {
+      // Nếu đang tải thì gỡ khỏi viewer trước
+      if (loadedModels.some(m => m.id === doc.id)) handleRemoveModel(doc.id);
+      await deleteDocument({ dbId: (doc as any).dbId, id: doc.id, fileUrl: doc.fileUrl }, projectId);
+      setExtraDocs(prev => prev.filter(d => d.id !== doc.id));
+      onRemoveDocument?.(doc.id);
+    } catch (err) {
+      alert('Xóa mô hình thất bại: ' + (err as Error).message);
+    }
+  };
+
+  // Tài liệu IFC của dự án chưa được tải
+  const ifcDocuments = [
+    ...documents.filter(d => d.fileType === 'ifc'),
+    ...extraDocs.filter(e => !documents.some(d => d.id === e.id)),
+  ];
+  const loadedIds = new Set(loadedModels.map(m => m.id));
+  const unloadedDocs = ifcDocuments.filter(d => !loadedIds.has(d.id));
+
+  // Nhóm model ĐÃ tải theo bộ môn (suy từ tên)
+  const loadedByDiscipline = loadedModels.reduce((acc, m) => {
+    const g = deriveDiscipline(m.name);
+    (acc[g] ??= []).push(m);
+    return acc;
+  }, {} as Record<string, LoadedModelInfo[]>);
 
   // Category visibility states
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (selectedModelUrl && viewerRef.current) {
-      viewerRef.current.loadUrl(selectedModelUrl);
+      // Gắn modelId = mã tài liệu nếu URL khớp một tài liệu IFC (để đồng bộ panel)
+      const match = ifcDocuments.find(d => d.fileUrl === selectedModelUrl);
+      viewerRef.current.loadUrl(selectedModelUrl, match?.id).then(() => {
+        if (viewerRef.current) setLoadedModels(viewerRef.current.getLoadedModels());
+      });
       setSelectedModelUrl(null);
     }
   }, [selectedModelUrl, setSelectedModelUrl]);
@@ -116,6 +405,55 @@ export function ViewerTab({
       viewerRef.current.highlightElements(selectedHighlightIds);
     }
   }, [selectedHighlightIds]);
+
+  // Khi quay lại tab Mô hình 3D (canvas vừa hiện lại), ép renderer resize để
+  // khớp kích thước container (tránh canvas 0x0 do display:none).
+  useEffect(() => {
+    // Tạm dừng render khi rời tab → các tab khác không bị lag
+    viewerRef.current?.setRenderingEnabled(isActive);
+    if (isActive) {
+      const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 60);
+      return () => clearTimeout(t);
+    }
+  }, [isActive]);
+
+  // ----- Tự động nạp lại các mô hình của lần trước (session restore) -----
+  const restoreStartedRef = useRef<string | null>(null);
+  const restoreDoneRef = useRef<string | null>(null);
+  const openModelsKey = projectId ? `cic_cde_open_models_${projectId}` : '';
+
+  useEffect(() => {
+    if (!projectId || !viewerRef.current) return;
+    if (restoreStartedRef.current === projectId) return;
+    if (ifcDocuments.length === 0) return; // chờ danh sách tài liệu IFC sẵn sàng
+    restoreStartedRef.current = projectId;
+    (async () => {
+      try {
+        const saved: string[] = JSON.parse(localStorage.getItem(openModelsKey) || '[]');
+        for (const id of saved) {
+          const d = ifcDocuments.find(x => x.id === id);
+          if (!d || viewerRef.current!.getLoadedModels().some(m => m.id === id)) continue;
+          if (d.fragUrl) {
+            try { await viewerRef.current!.loadFragments(d.fragUrl, id); }
+            catch { if (d.fileUrl) await viewerRef.current!.loadUrl(d.fileUrl, id); }
+          } else if (d.fileUrl) {
+            await viewerRef.current!.loadUrl(d.fileUrl, id);
+          }
+        }
+        restoreDoneRef.current = projectId; // đánh dấu trước khi setState để persist đúng
+        setLoadedModels(viewerRef.current!.getLoadedModels());
+        if (recentered) viewerRef.current!.setModelsRecentered(true);
+      } catch {
+        restoreDoneRef.current = projectId;
+      }
+    })();
+  }, [projectId, ifcDocuments.length]);
+
+  // Ghi nhớ danh sách model đang mở (chỉ sau khi đã restore xong, tránh ghi đè rỗng)
+  useEffect(() => {
+    if (!projectId || restoreDoneRef.current !== projectId) return;
+    localStorage.setItem(openModelsKey, JSON.stringify(loadedModels.map(m => m.id)));
+  }, [loadedModels, projectId]);
   
   // Tool state variables
   const [clippingActive, setClippingActive] = useState(false);
@@ -126,10 +464,13 @@ export function ViewerTab({
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // QTO (Quantity Take-Off) state
+  // QTO (Quantity Take-Off) state + bộ lọc theo bộ môn / hạng mục / lớp cấu kiện
   const [qtoOpen, setQtoOpen] = useState(false);
   const [qtoLoading, setQtoLoading] = useState(false);
   const [qtoResult, setQtoResult] = useState<QtoResult | null>(null);
+  const [qtoDiscFilter, setQtoDiscFilter] = useState<Set<string>>(new Set());
+  const [qtoModelFilter, setQtoModelFilter] = useState<Set<string>>(new Set());
+  const [qtoCatFilter, setQtoCatFilter] = useState<Set<string>>(new Set());
 
   const handleOpenQto = async () => {
     setQtoOpen(true);
@@ -138,6 +479,12 @@ export function ViewerTab({
     try {
       const result = await viewerRef.current?.getQuantityTakeoff();
       setQtoResult(result ?? null);
+      // Mặc định chọn tất cả các bộ lọc
+      if (result) {
+        setQtoDiscFilter(new Set(result.detail.map(d => deriveDiscipline(d.modelName))));
+        setQtoModelFilter(new Set(result.detail.map(d => d.modelId)));
+        setQtoCatFilter(new Set(result.detail.map(d => d.category)));
+      }
     } catch (err) {
       console.error(err);
       setQtoResult(null);
@@ -146,18 +493,52 @@ export function ViewerTab({
     }
   };
 
+  // Bật/tắt một mục trong tập bộ lọc
+  const toggleInSet = (set: Set<string>, setFn: (s: Set<string>) => void, key: string) => {
+    const next = new Set(set);
+    next.has(key) ? next.delete(key) : next.add(key);
+    setFn(next);
+  };
+
+  // Danh sách lựa chọn bộ lọc suy từ dữ liệu QTO chi tiết
+  const qtoDetailRows: QtoDetailRow[] = qtoResult?.detail ?? [];
+  const qtoDisciplines: string[] = Array.from(new Set(qtoDetailRows.map(d => deriveDiscipline(d.modelName))));
+  const qtoModels: { id: string; name: string }[] =
+    Array.from(new Map(qtoDetailRows.map(d => [d.modelId, d.modelName] as [string, string])).entries()).map(([id, name]) => ({ id, name }));
+  const qtoCategories: string[] = Array.from(new Set(qtoDetailRows.map(d => d.category))).sort();
+
+  // Lọc chi tiết theo 3 tiêu chí rồi gộp lại theo lớp cấu kiện để hiển thị
+  const qtoFilteredDetail = qtoDetailRows.filter(d =>
+    qtoDiscFilter.has(deriveDiscipline(d.modelName)) &&
+    qtoModelFilter.has(d.modelId) &&
+    qtoCatFilter.has(d.category)
+  );
+  const qtoDisplayRows = (() => {
+    const agg: Record<string, { category: string; count: number; area: number; volume: number; length: number }> = {};
+    for (const d of qtoFilteredDetail) {
+      const a = (agg[d.category] ||= { category: d.category, count: 0, area: 0, volume: 0, length: 0 });
+      a.count += d.count; a.area += d.area; a.volume += d.volume; a.length += d.length;
+    }
+    return Object.values(agg).sort((x, y) => y.volume - x.volume || y.count - x.count);
+  })();
+
   const handleExportQtoCsv = () => {
-    if (!qtoResult) return;
-    const header = 'Loai cau kien (IFC),So luong,Dien tich (m2),The tich (m3),Chieu dai (m)';
-    const lines = qtoResult.rows.map(r =>
-      `${r.category},${r.count},${r.area.toFixed(2)},${r.volume.toFixed(2)},${r.length.toFixed(2)}`
-    );
+    if (qtoFilteredDetail.length === 0) return;
+    // Xuất chi tiết theo Bộ môn / Hạng mục / Lớp cấu kiện (đúng phạm vi đang lọc)
+    const header = 'Bo mon,Hang muc (mo hinh),Loai cau kien (IFC),So luong,Dien tich (m2),The tich (m3),Chieu dai (m)';
+    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = qtoFilteredDetail
+      .slice()
+      .sort((a, b) => a.modelName.localeCompare(b.modelName) || a.category.localeCompare(b.category))
+      .map(r =>
+        [esc(deriveDiscipline(r.modelName)), esc(r.modelName), esc(r.category), r.count, r.area.toFixed(2), r.volume.toFixed(2), r.length.toFixed(2)].join(',')
+      );
     const csv = [header, ...lines].join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `QTO_BouocKhoiLuong_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `QTO_BocKhoiLuong_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -189,16 +570,18 @@ export function ViewerTab({
     }
   };
 
-  const handleModelLoaded = (spatial: any, props: any, model: any) => {
+  const handleModelLoaded = (spatial: any, props: any, _model: any, isPropsRefresh?: boolean) => {
+    // Lần cập nhật thuộc tính chạy nền: chỉ làm mới dữ liệu, KHÔNG reset lựa chọn
+    // /bộ lọc của người dùng (tránh mất cấu kiện đang chọn khi nền trích xong).
     setSpatialTree(spatial);
     setProperties(props);
+    if (onModelLoaded) onModelLoaded(spatial, props);
+    if (isPropsRefresh) return;
+
     setSelectedElement(null);
     setHiddenCategories(new Set());
     if (viewerRef.current) {
       setLoadedModels(viewerRef.current.getLoadedModels());
-    }
-    if (onModelLoaded) {
-      onModelLoaded(spatial, props);
     }
   };
 
@@ -255,131 +638,10 @@ export function ViewerTab({
       nextHidden.add(category);
     }
     setHiddenCategories(nextHidden);
-
-    if (viewerRef.current && properties) {
-      const visibleIds: number[] = [];
-      for (const cat in categoriesMap) {
-        if (!nextHidden.has(cat)) {
-          visibleIds.push(...categoriesMap[cat]);
-        }
-      }
-      viewerRef.current.isolateElements(visibleIds);
-    }
+    // Áp bộ lọc theo lớp IFC trên TẤT CẢ mô hình đang tải
+    viewerRef.current?.applyCategoryVisibility(Array.from(nextHidden));
   };
 
-  // BCF Creation
-  const handleCreateBcf = () => {
-    if (!newBcfTitle.trim()) return;
-    const newIssue: BcfIssue = {
-      id: `BCF-00${bcfIssues.length + 1}`,
-      title: newBcfTitle,
-      description: newBcfDesc,
-      status: 'Open',
-      priority: newBcfPriority,
-      assignedTo: newBcfAssignee,
-      linkedElementGuid: selectedElement ? (selectedElement.GlobalId || selectedElement.GUID) : undefined,
-      linkedElementExpressId: selectedElement ? selectedElement.expressID : undefined,
-      createdDate: new Date().toISOString().split('T')[0]
-    };
-    setBcfIssues([...bcfIssues, newIssue]);
-    setNewBcfTitle('');
-    setNewBcfDesc('');
-    setIsCreatingBcf(false);
-
-    // Persist to Supabase
-    if (projectId) {
-      createBcfTopic(projectId, {
-        title: newIssue.title,
-        description: newIssue.description,
-        status: newIssue.status,
-        priority: newIssue.priority,
-        assignedTo: newIssue.assignedTo,
-        linkedElementGuid: newIssue.linkedElementGuid,
-        linkedElementExpressId: newIssue.linkedElementExpressId,
-      });
-    }
-  };
-
-  // Nạp sự vụ BCF từ Supabase theo dự án
-  useEffect(() => {
-    if (!projectId) return;
-    fetchBcfTopics(projectId)
-      .then(rows => {
-        if (rows.length === 0) return; // giữ mẫu mặc định nếu DB trống
-        setBcfIssues(rows.map(r => ({
-          id: r.id,
-          title: r.title,
-          description: r.description,
-          status: (r.status as BcfIssue['status']) || 'Open',
-          priority: (r.priority as BcfIssue['priority']) || 'Medium',
-          assignedTo: r.assignedTo,
-          linkedElementGuid: r.linkedElementGuid,
-          linkedElementExpressId: r.linkedElementExpressId,
-          createdDate: r.createdDate,
-        })));
-      })
-      .catch(err => console.error('Không tải được BCF:', err));
-  }, [projectId]);
-
-  const handleExportBcf = async () => {
-    if (bcfIssues.length === 0) return;
-    try {
-      await exportBcf(bcfIssues);
-    } catch (err) {
-      alert('Không xuất được file BCF: ' + (err as Error).message);
-    }
-  };
-
-  const handleImportBcf = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const imported = await importBcf(file);
-      if (imported.length === 0) {
-        alert('Không tìm thấy sự vụ BCF nào trong file.');
-        return;
-      }
-      // Gộp, bỏ trùng theo id
-      setBcfIssues(prev => {
-        const existing = new Set(prev.map(i => i.id));
-        const merged = [...prev];
-        for (const iss of imported) {
-          if (!existing.has(iss.id)) merged.push(iss as BcfIssue);
-        }
-        return merged;
-      });
-
-      // Persist imported topics vào Supabase
-      if (projectId) {
-        for (const iss of imported) {
-          createBcfTopic(projectId, {
-            title: iss.title,
-            description: iss.description,
-            status: iss.status,
-            priority: iss.priority,
-            assignedTo: iss.assignedTo,
-            linkedElementGuid: iss.linkedElementGuid,
-            linkedElementExpressId: iss.linkedElementExpressId,
-          });
-        }
-      }
-      alert(`Đã nhập ${imported.length} sự vụ BCF từ "${file.name}".`);
-    } catch (err) {
-      alert('Không đọc được file BCF: ' + (err as Error).message);
-    } finally {
-      e.target.value = '';
-    }
-  };
-
-  const handleSelectBcfIssue = (issue: BcfIssue) => {
-    if (issue.linkedElementExpressId && viewerRef.current) {
-      viewerRef.current.highlightElements([issue.linkedElementExpressId]);
-      if (properties && properties[issue.linkedElementExpressId]) {
-        setSelectedElement(properties[issue.linkedElementExpressId]);
-        setRightPanelTab('properties');
-      }
-    }
-  };
 
   const getPropValue = (prop: any): string => {
     if (prop === null || prop === undefined) return 'N/A';
@@ -398,6 +660,16 @@ export function ViewerTab({
          <div className="p-3 border-b border-outline-variant flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between gap-1">
               <div className="flex bg-surface-container-low rounded-lg p-0.5 border border-outline-variant/60 flex-1">
+                <button
+                  onClick={() => setLeftSidebarTab('models')}
+                  className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
+                    leftSidebarTab === 'models'
+                      ? 'bg-surface text-primary shadow-sm'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Mô hình
+                </button>
                 <button
                   onClick={() => setLeftSidebarTab('spatial')}
                   className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
@@ -434,7 +706,7 @@ export function ViewerTab({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".ifc"
+                  accept=".ifc,.ifczip,.zip"
                   onChange={handleUploadModel}
                   className="hidden"
                 />
@@ -445,28 +717,142 @@ export function ViewerTab({
                 </span>
               )}
             </div>
-            {/* Loaded models list */}
-            {loadedModels.length > 1 && (
-              <div className="space-y-1">
-                {loadedModels.map(m => (
-                  <div key={m.id} className="flex items-center justify-between bg-surface-container-low rounded-md px-2 py-1 border border-outline-variant/30 group">
-                    <span className="text-[10.5px] font-semibold text-on-surface truncate flex-1 mr-2">{m.name}</span>
-                    <button
-                      onClick={() => handleRemoveModel(m.id)}
-                      className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all p-0.5 rounded"
-                      title="Gỡ mô hình"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
          </div>
 
          {/* Left Sidebar Body */}
          <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-            {leftSidebarTab === 'spatial' ? (
+            {leftSidebarTab === 'models' ? (
+              (loadedModels.length === 0 && ifcDocuments.length === 0) ? (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center text-on-surface-variant gap-3">
+                  <Box size={32} className="text-outline/40" />
+                  <p className="text-xs font-medium leading-relaxed">
+                    Chưa có mô hình. Bấm "Tải mô hình IFC" phía trên hoặc mở từ tab Tài liệu.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* MÔ HÌNH ĐÃ TẢI — nhóm theo bộ môn, ẩn/hiện */}
+                  {loadedModels.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Liên hợp ({loadedModels.length})</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => loadedModels.forEach(m => { if (hiddenModelIds.has(m.id)) handleToggleVisibility(m.id); })}
+                            className="text-[10px] font-bold text-on-surface-variant hover:text-primary"
+                            title="Hiện tất cả mô hình"
+                          >
+                            Hiện tất cả
+                          </button>
+                          <button
+                            onClick={handleFitAll}
+                            className="text-[10px] font-bold text-on-surface-variant hover:text-primary"
+                            title="Phóng toàn cảnh"
+                          >
+                            Fit
+                          </button>
+                        </div>
+                      </div>
+                      {/* Toggle căn tâm — đưa các bộ môn lệch toạ độ về đè lên nhau */}
+                      <button
+                        onClick={handleToggleRecenter}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg border text-[10.5px] font-bold transition-colors ${
+                          recentered ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant hover:border-primary/30'
+                        }`}
+                        title="Dịch các mô hình về gốc chung để chồng khít (dùng khi các bộ môn lệch toạ độ)"
+                      >
+                        <span className="flex items-center gap-1.5"><Box size={12} /> Căn tâm mô hình</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${recentered ? 'bg-primary text-on-primary' : 'bg-surface-container text-outline'}`}>
+                          {recentered ? 'BẬT' : 'TẮT'}
+                        </span>
+                      </button>
+                      {(Object.entries(loadedByDiscipline) as [string, LoadedModelInfo[]][]).map(([disc, models]) => {
+                        const groupAllHidden = models.every(m => hiddenModelIds.has(m.id));
+                        return (
+                        <div key={disc}>
+                          <div className="text-[10.5px] font-bold text-on-surface-variant px-1 mb-1 flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleToggleDiscipline(models)}
+                              className="shrink-0 hover:text-primary"
+                              title={groupAllHidden ? 'Hiện cả bộ môn' : 'Ẩn cả bộ môn'}
+                            >
+                              {groupAllHidden ? <EyeOff size={13} className="text-outline" /> : <Eye size={13} className="text-primary" />}
+                            </button>
+                            <Folder size={12} className="text-outline" /> {disc}
+                            <span className="text-outline font-mono">({models.length})</span>
+                          </div>
+                          <div className="space-y-1">
+                            {models.map(m => {
+                              const hidden = hiddenModelIds.has(m.id);
+                              return (
+                                <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border bg-primary/5 border-primary/30">
+                                  <button
+                                    onClick={() => handleToggleVisibility(m.id)}
+                                    className="shrink-0 text-on-surface-variant hover:text-primary"
+                                    title={hidden ? 'Đang ẩn — nhấn để hiện' : 'Đang hiện — nhấn để ẩn'}
+                                  >
+                                    {hidden ? <EyeOff size={15} className="text-outline" /> : <Eye size={15} className="text-primary" />}
+                                  </button>
+                                  <button
+                                    onClick={() => handleFitModel(m.id)}
+                                    className={`text-[11px] font-semibold truncate flex-1 text-left hover:text-primary transition-colors ${hidden ? 'text-outline line-through' : 'text-on-surface'}`}
+                                    title={`${m.name} — nhấn để phóng tới mô hình`}
+                                  >
+                                    {m.name}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveModel(m.id)}
+                                    className="shrink-0 text-on-surface-variant hover:text-error p-0.5"
+                                    title="Gỡ khỏi liên hợp"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* TÀI LIỆU IFC CHƯA TẢI */}
+                  {unloadedDocs.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold text-outline uppercase tracking-wider px-1 pt-2 border-t border-outline-variant/30">
+                        Tài liệu IFC của dự án ({unloadedDocs.length})
+                      </div>
+                      {unloadedDocs.map(doc => {
+                        const isLoadingThis = loadingModelId === doc.id;
+                        return (
+                          <div key={doc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border bg-surface border-outline-variant/30 hover:border-primary/30">
+                            <button
+                              onClick={() => handleLoadDoc(doc)}
+                              disabled={isLoadingThis}
+                              className="shrink-0 text-on-surface-variant hover:text-primary disabled:opacity-50"
+                              title="Tải & hiển thị"
+                            >
+                              {isLoadingThis ? <RefreshCw size={15} className="animate-spin text-primary" /> : <Plus size={15} className="text-outline" />}
+                            </button>
+                            <span className="text-[11px] font-semibold truncate flex-1 text-on-surface-variant" title={doc.name}>
+                              {doc.name}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteDoc(doc)}
+                              className="shrink-0 text-on-surface-variant hover:text-error p-0.5"
+                              title="Xóa mô hình khỏi dự án"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            ) : leftSidebarTab === 'spatial' ? (
               spatialTree ? (
                  <div className="flex flex-col select-none">
                     <SpatialTreeNode 
@@ -513,8 +899,11 @@ export function ViewerTab({
                             onChange={() => {}} // Controlled by click on parent
                             className="rounded text-primary focus:ring-primary border-outline-variant shrink-0 cursor-pointer"
                           />
-                          <span className={`text-[12px] truncate font-semibold ${isHidden ? 'text-outline line-through' : 'text-on-surface'}`}>
+                          <span className={`text-[12px] truncate font-semibold ${isHidden ? 'text-outline line-through' : 'text-on-surface'}`} title={cat}>
                             {cat}
+                            {ifcClassLabel(cat) && (
+                              <span className="text-on-surface-variant font-medium"> ({ifcClassLabel(cat)})</span>
+                            )}
                           </span>
                         </div>
                         <span className="text-[10.5px] font-mono font-bold bg-surface-container-high px-1.5 py-0.5 rounded text-on-surface-variant shrink-0">
@@ -546,22 +935,73 @@ export function ViewerTab({
             onElementSelected={handleElementSelected}
          />
 
-         {/* Floating Camera Angles Selector */}
-         <div className="absolute top-4 right-4 bg-surface-container-lowest/90 backdrop-blur border border-outline-variant/60 p-1 rounded-xl shadow-md flex gap-1 z-10">
+         {/* Floating Camera Angles Selector + Fly toggle */}
+         <div className="absolute top-4 right-4 bg-surface-container-lowest/90 backdrop-blur border border-outline-variant/60 p-1 rounded-xl shadow-md flex gap-1 z-10 items-center">
            {([
              { id: 'iso', label: 'ISO' },
              { id: 'top', label: 'TOP' },
              { id: 'front', label: 'FRONT' },
              { id: 'right', label: 'RIGHT' }
            ] as const).map(view => (
-             <button 
+             <button
                key={view.id}
-               onClick={() => viewerRef.current?.setCameraView(view.id)} 
+               onClick={() => viewerRef.current?.setCameraView(view.id)}
                className="px-2 py-1 text-[11px] font-bold text-on-surface-variant hover:text-primary hover:bg-surface-container rounded transition-colors cursor-pointer"
              >
                {view.label}
              </button>
            ))}
+           <div className="w-px h-4 bg-outline-variant/60 mx-0.5"></div>
+           <button
+             onClick={handleToggleFly}
+             className={`px-2 py-1 text-[11px] font-bold rounded transition-colors cursor-pointer ${flyMode ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'}`}
+             title="Chế độ bay (WASD di chuyển, Q/E lên xuống, Shift nhanh 2x)"
+           >
+             ✈ BAY
+           </button>
+         </div>
+
+         {/* Floating Viewpoints panel */}
+         <div className="absolute top-16 right-4 w-60 bg-surface-container-lowest/95 backdrop-blur border border-outline-variant/60 rounded-xl shadow-md z-10 overflow-hidden">
+           <div className="px-3 py-2 border-b border-outline-variant/50 flex items-center justify-between">
+             <span className="text-[11px] font-bold text-on-surface flex items-center gap-1.5"><Eye size={13} className="text-primary" /> Góc nhìn ({viewpoints.length})</span>
+           </div>
+           <div className="p-2 flex gap-1.5 border-b border-outline-variant/30">
+             <input
+               value={newVpName}
+               onChange={e => setNewVpName(e.target.value)}
+               placeholder="Tên góc nhìn..."
+               className="flex-1 px-2 py-1 bg-surface border border-outline-variant/60 rounded text-[11px] focus:outline-none focus:border-primary min-w-0"
+             />
+             <button
+               onClick={handleSaveViewpoint}
+               disabled={savingVp}
+               className="bg-primary text-on-primary text-[11px] font-bold px-2 py-1 rounded hover:bg-primary/95 disabled:opacity-50 shrink-0"
+               title="Lưu góc nhìn hiện tại"
+             >
+               {savingVp ? '...' : 'Lưu'}
+             </button>
+           </div>
+           <div className="max-h-56 overflow-y-auto custom-scrollbar">
+             {viewpoints.length === 0 ? (
+               <div className="px-3 py-4 text-center text-[10.5px] text-outline">Chưa có góc nhìn. Lưu góc nhìn hiện tại để quay lại nhanh.</div>
+             ) : viewpoints.map(vp => (
+               <div key={vp.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-container/50 border-b border-outline-variant/20 group">
+                 <button onClick={() => handleRestoreViewpoint(vp)} className="flex items-center gap-2 flex-1 min-w-0 text-left" title="Khôi phục góc nhìn">
+                   {vp.screenshot
+                     ? <img src={vp.screenshot} alt="" className="w-9 h-7 object-cover rounded border border-outline-variant/40 shrink-0" />
+                     : <div className="w-9 h-7 rounded bg-surface-container flex items-center justify-center shrink-0"><Eye size={12} className="text-outline" /></div>}
+                   <span className="text-[11px] font-semibold text-on-surface truncate">{vp.name}</span>
+                 </button>
+                 <button onClick={() => handleSetAsCover(vp)} disabled={coverSavingId === vp.id} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-primary p-0.5 shrink-0 disabled:opacity-50" title="Đặt làm ảnh đại diện dự án">
+                   {coverSavingId === vp.id ? <RefreshCw size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                 </button>
+                 <button onClick={() => handleDeleteViewpoint(vp.id)} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error p-0.5 shrink-0" title="Xóa">
+                   <X size={12} />
+                 </button>
+               </div>
+             ))}
+           </div>
          </div>
 
          {/* Floating Pill Toolbar */}
@@ -581,7 +1021,7 @@ export function ViewerTab({
             <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
             <ToolButton
               icon={<MessageSquare size={20} />}
-              label="Tạo Sự vụ BCF"
+              label="Vấn đề (Issue)"
               active={rightPanelTab === 'bcf'}
               onClick={() => setRightPanelTab(rightPanelTab === 'bcf' ? 'properties' : 'bcf')}
             />
@@ -590,6 +1030,12 @@ export function ViewerTab({
               label="Bóc tách khối lượng (QTO)"
               active={qtoOpen}
               onClick={handleOpenQto}
+            />
+            <ToolButton
+              icon={<AlertCircle size={20} />}
+              label="Kiểm tra xung đột (Clash)"
+              active={clashOpen}
+              onClick={handleDetectClashes}
             />
             <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
             <ToolButton 
@@ -628,7 +1074,7 @@ export function ViewerTab({
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                Sự vụ BCF
+                Vấn đề
               </button>
             </div>
          </div>
@@ -772,157 +1218,83 @@ export function ViewerTab({
              </div>
            </>
          ) : (
-           /* BCF ISSUES VIEW */
-           <div className="p-4 flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar h-full space-y-4">
-             <div className="space-y-4">
-               <div className="flex justify-between items-center border-b border-outline-variant/30 pb-2">
-                 <span className="text-[11px] font-bold text-outline uppercase tracking-wider">Danh sách sự vụ ({bcfIssues.length})</span>
-                 <div className="flex items-center gap-1">
-                   <label
-                     className="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer"
-                     title="Nhập file .bcfzip từ Revit/Navisworks"
-                   >
-                     <Download size={12} /> Nhập
-                     <input type="file" accept=".bcfzip,.zip" onChange={handleImportBcf} className="hidden" />
-                   </label>
-                   <button
-                     onClick={handleExportBcf}
-                     disabled={bcfIssues.length === 0}
-                     className="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                     title="Xuất tất cả sự vụ ra file .bcfzip"
-                   >
-                     <Upload size={12} /> Xuất
-                   </button>
-                   <button
-                     onClick={() => setIsCreatingBcf(true)}
-                     className="text-primary hover:text-primary-container p-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-1 font-bold text-[11px] cursor-pointer"
-                   >
-                     <Plus size={12} /> Tạo mới
-                   </button>
-                 </div>
-               </div>
-
-               {isCreatingBcf ? (
-                 /* Creation Form */
-                 <div className="bg-surface-container border border-outline-variant/60 rounded-xl p-4 space-y-3 animate-in fade-in duration-200">
-                   <div className="flex justify-between items-center mb-1">
-                     <h4 className="font-bold text-[12px] text-on-surface">Tạo sự vụ BCF mới</h4>
-                     <button 
-                       onClick={() => setIsCreatingBcf(false)}
-                       className="text-on-surface-variant hover:text-error transition-colors font-bold text-[11px] cursor-pointer"
-                     >
-                       Hủy
-                     </button>
-                   </div>
-
-                   <div className="space-y-1">
-                     <label className="text-[10px] font-bold text-outline uppercase">Tiêu đề sự vụ</label>
-                     <input 
-                       type="text" 
-                       placeholder="Ví dụ: Xung đột dầm với ống nước" 
-                       value={newBcfTitle}
-                       onChange={(e) => setNewBcfTitle(e.target.value)}
-                       className="w-full px-2.5 py-2 bg-surface border border-outline-variant/60 rounded-lg text-xs font-semibold focus:outline-none focus:border-primary placeholder:text-outline/60 text-on-surface"
-                     />
-                   </div>
-
-                   <div className="space-y-1">
-                     <label className="text-[10px] font-bold text-outline uppercase">Mô tả chi tiết</label>
-                     <textarea 
-                       placeholder="Mô tả hiện trạng và giải pháp..." 
-                       value={newBcfDesc}
-                       onChange={(e) => setNewBcfDesc(e.target.value)}
-                       rows={3}
-                       className="w-full px-2.5 py-2 bg-surface border border-outline-variant/60 rounded-lg text-xs font-semibold focus:outline-none focus:border-primary placeholder:text-outline/60 text-on-surface resize-none"
-                     />
-                   </div>
-
-                   <div className="grid grid-cols-2 gap-2">
-                     <div className="space-y-1">
-                       <label className="text-[10px] font-bold text-outline uppercase">Độ ưu tiên</label>
-                       <select 
-                         value={newBcfPriority}
-                         onChange={(e) => setNewBcfPriority(e.target.value as any)}
-                         className="w-full bg-surface border border-outline-variant/60 rounded-lg px-2 py-2 text-xs font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer"
-                       >
-                         <option value="High">Cao</option>
-                         <option value="Medium">Trung bình</option>
-                         <option value="Low">Thấp</option>
-                       </select>
-                     </div>
-                     <div className="space-y-1">
-                       <label className="text-[10px] font-bold text-outline uppercase">Giao xử lý</label>
-                       <select 
-                         value={newBcfAssignee}
-                         onChange={(e) => setNewBcfAssignee(e.target.value)}
-                         className="w-full bg-surface border border-outline-variant/60 rounded-lg px-2 py-2 text-xs font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer"
-                       >
-                         <option value="KS. Nguyễn Văn Hải">KS. Nguyễn Văn Hải</option>
-                         <option value="KTS. Lê Minh Hoàng">KTS. Lê Minh Hoàng</option>
-                         <option value="KS. Trần Thu Thảo">KS. Trần Thu Thảo</option>
-                       </select>
-                     </div>
-                   </div>
-
-                   <div className="bg-primary/5 p-2 rounded-lg border border-primary/10 text-[10.5px] leading-relaxed text-on-surface-variant font-medium">
-                     <span className="font-bold text-primary">Cấu kiện: </span>
-                     {selectedElement ? (
-                       <span className="font-semibold text-on-surface truncate inline-block max-w-[200px] align-bottom">
-                         {getPropValue(selectedElement.Name)}
-                       </span>
-                     ) : (
-                       <span className="text-outline">Chọn cấu kiện để liên kết</span>
-                     )}
-                   </div>
-
-                   <button 
-                     onClick={handleCreateBcf}
-                     className="w-full bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs py-2 rounded-lg transition-colors text-center cursor-pointer shadow-sm mt-1"
-                   >
-                     Gửi Sự vụ BCF
-                   </button>
-                 </div>
-               ) : (
-                 /* Issues List */
-                 <div className="space-y-3 overflow-y-auto">
-                   {bcfIssues.map(issue => (
-                     <div 
-                       key={issue.id}
-                       onClick={() => handleSelectBcfIssue(issue)}
-                       className="bg-surface border border-outline-variant/40 hover:border-primary/40 rounded-xl p-3.5 cursor-pointer transition-all duration-200 group"
-                     >
-                       <div className="flex justify-between items-center mb-1.5">
-                         <span className="font-mono text-[10.5px] font-bold text-primary bg-primary-container/10 px-2 py-0.5 rounded">
-                           {issue.id}
-                         </span>
-                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                           issue.priority === 'High' 
-                             ? 'bg-error-container/20 text-error border-error-variant/20' 
-                             : issue.priority === 'Medium' 
-                             ? 'bg-warning/10 text-warning border-warning/20' 
-                             : 'bg-surface-container text-on-surface-variant'
-                         }`}>
-                           {issue.priority === 'High' ? 'Ưu tiên Cao' : issue.priority === 'Medium' ? 'Trung bình' : 'Thấp'}
-                         </span>
-                       </div>
-                       <h4 className="font-bold text-sm text-on-surface group-hover:text-primary transition-colors leading-snug mb-1">
-                         {issue.title}
-                       </h4>
-                       <p className="text-[11px] text-outline leading-normal line-clamp-2 mb-2 font-medium">
-                         {issue.description}
-                       </p>
-                       <div className="flex justify-between items-center text-[10.5px] font-semibold text-on-surface-variant border-t border-outline-variant/20 pt-2">
-                         <span>Giao: {issue.assignedTo}</span>
-                         <span className="font-mono text-outline text-[10px]">{issue.createdDate}</span>
-                       </div>
-                     </div>
-                   ))}
-                 </div>
-               )}
-             </div>
-           </div>
+           /* ISSUES (VẤN ĐỀ) PANEL */
+           <IssuesPanel
+             ref={issuesPanelRef}
+             projectId={projectId}
+             currentUserName="BIM Manager (Bạn)"
+             assigneeOptions={assigneeOptions}
+             selectedElement={selectedElement}
+             captureViewpoint={captureViewpoint}
+             onRestoreIssue={handleRestoreIssue}
+             onFocusElement={handleFocusIssueElement}
+           />
          )}
       </aside>
+
+      {/* Clash Detection Modal */}
+      {clashOpen && (
+        <div
+          className="absolute inset-0 bg-inverse-on-surface/40 backdrop-blur-[2px] flex items-center justify-center z-[100] animate-in fade-in duration-200 p-6"
+          onClick={() => setClashOpen(false)}
+        >
+          <div
+            className="bg-surface-container-lowest w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl border border-outline-variant flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} className="text-error" />
+                <h3 className="font-bold text-[15px] text-on-surface">Kiểm tra Xung đột (Clash Detection)</h3>
+              </div>
+              <button onClick={() => setClashOpen(false)} className="p-1 text-on-surface-variant hover:bg-surface-container rounded-full cursor-pointer"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+              {clashLoading ? (
+                <div className="h-40 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
+                  <RefreshCw size={28} className="animate-spin text-primary" />
+                  <span className="text-sm font-medium">Đang phân tích giao cắt hình học giữa các mô hình...</span>
+                </div>
+              ) : !clashes || clashes.length === 0 ? (
+                <div className="h-40 flex flex-col items-center justify-center gap-2 text-center text-on-surface-variant px-6">
+                  <Ghost size={28} className="text-success/60" />
+                  <p className="text-sm font-medium">Không phát hiện xung đột hình học giữa các mô hình đang tải.</p>
+                  <p className="text-[11px] text-outline">Lưu ý: cần ít nhất 2 mô hình ở cùng hệ toạ độ (dùng "Căn tâm" nếu lệch).</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[12px] font-bold text-error">Phát hiện {clashes.length} xung đột{clashes.length >= 500 ? '+ (giới hạn 500)' : ''}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {clashes.map(c => (
+                      <div key={c.id} className="flex items-center justify-between gap-2 p-2.5 bg-surface border border-outline-variant/40 rounded-lg hover:border-error/40 transition-colors">
+                        <button onClick={() => handleFocusClash(c)} className="flex items-center gap-2 min-w-0 flex-1 text-left" title="Phóng tới xung đột">
+                          <span className="font-mono text-[10px] font-bold text-error bg-error/10 px-1.5 py-0.5 rounded shrink-0">{c.id}</span>
+                          <span className="text-[11.5px] text-on-surface truncate">
+                            <span className="font-semibold">{c.modelAName}</span> ↔ <span className="font-semibold">{c.modelBName}</span>
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleClashToBcf(c)}
+                          className="shrink-0 text-[10px] font-bold text-primary hover:underline"
+                          title="Tạo sự vụ BCF từ xung đột này"
+                        >
+                          + Sự vụ
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10.5px] text-outline mt-4 leading-relaxed">
+                    * Phát hiện bằng giao cắt hộp bao (bounding-box) phía trình duyệt — nhanh, gần đúng cho điều phối.
+                    Clash chính xác theo hình học sẽ do dịch vụ Python (giai đoạn sau) đảm nhiệm.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* QTO Modal */}
       {qtoOpen && (
@@ -963,18 +1335,61 @@ export function ViewerTab({
                 </div>
               ) : (
                 <>
+                  {/* Bộ lọc: Bộ môn / Hạng mục (mô hình) / Lớp cấu kiện */}
+                  <div className="space-y-2.5 mb-4 bg-surface-container-low/40 border border-outline-variant/40 rounded-xl p-3">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-on-surface">
+                      <Filter size={13} className="text-primary" /> Lọc trước khi xuất khối lượng
+                    </div>
+
+                    {/* Bộ môn */}
+                    <QtoFilterGroup
+                      label="Bộ môn"
+                      items={qtoDisciplines.map(d => ({ key: d, label: d }))}
+                      selected={qtoDiscFilter}
+                      onToggle={(k) => toggleInSet(qtoDiscFilter, setQtoDiscFilter, k)}
+                      onAll={() => setQtoDiscFilter(new Set(qtoDisciplines))}
+                      onNone={() => setQtoDiscFilter(new Set())}
+                    />
+                    {/* Hạng mục (mô hình) */}
+                    <QtoFilterGroup
+                      label="Hạng mục"
+                      items={qtoModels.map(m => ({ key: m.id, label: m.name }))}
+                      selected={qtoModelFilter}
+                      onToggle={(k) => toggleInSet(qtoModelFilter, setQtoModelFilter, k)}
+                      onAll={() => setQtoModelFilter(new Set(qtoModels.map(m => m.id)))}
+                      onNone={() => setQtoModelFilter(new Set())}
+                    />
+                    {/* Lớp cấu kiện */}
+                    <QtoFilterGroup
+                      label="Cấu kiện"
+                      items={qtoCategories.map(c => ({ key: c, label: ifcClassLabel(c) ? `${c} · ${ifcClassLabel(c)}` : c }))}
+                      selected={qtoCatFilter}
+                      onToggle={(k) => toggleInSet(qtoCatFilter, setQtoCatFilter, k)}
+                      onAll={() => setQtoCatFilter(new Set(qtoCategories))}
+                      onNone={() => setQtoCatFilter(new Set())}
+                      scroll
+                    />
+                  </div>
+
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-[11px] text-on-surface-variant font-medium">
-                      Tổng <span className="font-bold text-on-surface">{qtoResult.totalElements}</span> cấu kiện,
-                      trong đó <span className="font-bold text-primary">{qtoResult.elementsWithQuantities}</span> có dữ liệu khối lượng.
+                      Đang chọn <span className="font-bold text-primary">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</span> cấu kiện
+                      ({qtoDisplayRows.length} lớp) / tổng {qtoResult.totalElements} · {qtoResult.elementsWithQuantities} có khối lượng.
                     </div>
                     <button
                       onClick={handleExportQtoCsv}
-                      className="flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm"
+                      disabled={qtoFilteredDetail.length === 0}
+                      className="flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Upload size={13} /> Xuất CSV
+                      <Upload size={13} /> Xuất CSV (đang lọc)
                     </button>
                   </div>
+
+                  {qtoDisplayRows.length === 0 ? (
+                    <div className="h-28 flex items-center justify-center text-center text-[12px] text-outline">
+                      Không có cấu kiện nào khớp bộ lọc. Hãy chọn lại bộ môn / hạng mục / cấu kiện.
+                    </div>
+                  ) : (
                   <table className="w-full text-[12.5px] border-collapse">
                     <thead>
                       <tr className="text-[10px] uppercase tracking-wider text-outline border-b border-outline-variant">
@@ -986,9 +1401,11 @@ export function ViewerTab({
                       </tr>
                     </thead>
                     <tbody>
-                      {qtoResult.rows.map((r) => (
+                      {qtoDisplayRows.map((r) => (
                         <tr key={r.category} className="border-b border-outline-variant/30 hover:bg-surface-container/40 transition-colors">
-                          <td className="py-2 px-2 font-semibold text-on-surface">{r.category}</td>
+                          <td className="py-2 px-2 font-semibold text-on-surface">
+                            {r.category}{ifcClassLabel(r.category) && <span className="text-outline font-normal"> · {ifcClassLabel(r.category)}</span>}
+                          </td>
                           <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.count}</td>
                           <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.area > 0 ? r.area.toFixed(2) : '—'}</td>
                           <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.volume > 0 ? r.volume.toFixed(2) : '—'}</td>
@@ -999,13 +1416,14 @@ export function ViewerTab({
                     <tfoot>
                       <tr className="border-t-2 border-outline-variant font-bold text-on-surface">
                         <td className="py-2 px-2">TỔNG CỘNG</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.count, 0)}</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.area, 0).toFixed(2)}</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.volume, 0).toFixed(2)}</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoResult.rows.reduce((s, r) => s + r.length, 0).toFixed(2)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.area, 0).toFixed(2)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.volume, 0).toFixed(2)}</td>
+                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.length, 0).toFixed(2)}</td>
                       </tr>
                     </tfoot>
                   </table>
+                  )}
                   <p className="text-[10.5px] text-outline mt-4 leading-relaxed">
                     * Khối lượng được trích trực tiếp từ bộ thuộc tính <code className="font-mono">Qto_*BaseQuantities</code> trong tệp IFC.
                     Đây là nền tảng cho dự toán 5D (gắn đơn giá định mức Bộ Xây dựng) ở giai đoạn sau.
@@ -1070,7 +1488,9 @@ const SpatialTreeNode: React.FC<SpatialTreeNodeProps> = ({ node, onSelect, prope
     displayName = getPropValue(properties[expressId].Name);
   }
   if (!displayName) {
-    displayName = node.name || `${resolvedCategory} [ID: ${expressId || 'N/A'}]`;
+    const vi = ifcClassLabel(resolvedCategory);
+    const catLabel = vi ? `${resolvedCategory} (${vi})` : resolvedCategory;
+    displayName = node.name || `${catLabel} [ID: ${expressId || 'N/A'}]`;
   }
 
   return (
@@ -1111,6 +1531,42 @@ const SpatialTreeNode: React.FC<SpatialTreeNodeProps> = ({ node, onSelect, prope
     </div>
   );
 };
+
+// Nhóm chip lọc QTO (Bộ môn / Hạng mục / Cấu kiện) với nút Tất cả / Bỏ chọn
+function QtoFilterGroup({ label, items, selected, onToggle, onAll, onNone, scroll = false }: {
+  label: string;
+  items: { key: string; label: string }[];
+  selected: Set<string>;
+  onToggle: (key: string) => void;
+  onAll: () => void;
+  onNone: () => void;
+  scroll?: boolean;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[10px] font-bold text-outline uppercase tracking-wider w-16 shrink-0">{label}</span>
+        <span className="text-[10px] text-on-surface-variant">{selected.size}/{items.length}</span>
+        <button onClick={onAll} className="text-[10px] font-bold text-primary hover:underline cursor-pointer">Tất cả</button>
+        <button onClick={onNone} className="text-[10px] font-bold text-on-surface-variant hover:underline cursor-pointer">Bỏ chọn</button>
+      </div>
+      <div className={`flex flex-wrap gap-1 ${scroll ? 'max-h-24 overflow-y-auto custom-scrollbar pr-1' : ''}`}>
+        {items.map(it => {
+          const on = selected.has(it.key);
+          return (
+            <button key={it.key} onClick={() => onToggle(it.key)} title={it.label}
+              className={`text-[10px] font-bold px-2 py-1 rounded-full border transition-colors cursor-pointer max-w-[200px] truncate ${
+                on ? 'bg-primary text-on-primary border-primary' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:border-primary/40'
+              }`}>
+              {it.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function ToolButton({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
   return (

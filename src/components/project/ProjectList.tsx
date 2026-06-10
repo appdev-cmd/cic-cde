@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Building2, MapPin, Search, ArrowRight, Folder, 
-  CheckCircle2, TrendingUp, AlertTriangle, Filter, Calendar
+  CheckCircle2, TrendingUp, AlertTriangle, Filter, Calendar,
+  Pencil, Plus
 } from 'lucide-react';
 
 export interface ProjectItem {
@@ -17,6 +18,13 @@ export interface ProjectItem {
   startDate: string;
   client: string;
   description: string;
+  lat?: number;
+  lng?: number;
+  province?: string;
+  tilesUrl?: string;
+  projectGroup?: string;
+  buildingGrade?: string;
+  coverImage?: string;
 }
 
 export const PROJECTS_LIST: ProjectItem[] = [
@@ -78,12 +86,29 @@ export const PROJECTS_LIST: ProjectItem[] = [
   }
 ];
 
+const FALLBACK_PROJECT_IMAGES: Record<string, string> = {
+  'fpt-arch': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=600&auto=format&fit=crop',
+  'complex-a': 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=600&auto=format&fit=crop',
+  'fpt-uni': 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=600&auto=format&fit=crop',
+  'vp-hang-a': 'https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?q=80&w=600&auto=format&fit=crop',
+  'default': 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=600&auto=format&fit=crop'
+};
+
+function getProjectImage(proj: ProjectItem): string {
+  if (proj.coverImage && proj.coverImage.trim() !== '') {
+    return proj.coverImage;
+  }
+  return FALLBACK_PROJECT_IMAGES[proj.id] || FALLBACK_PROJECT_IMAGES['default'];
+}
+
 interface ProjectListProps {
   onSelectProject: (project: ProjectItem) => void;
   projects?: ProjectItem[];
+  onAddProject?: () => void;
+  onEditProject?: (project: ProjectItem) => void;
 }
 
-export function ProjectList({ onSelectProject, projects }: ProjectListProps) {
+export function ProjectList({ onSelectProject, projects, onAddProject, onEditProject }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -100,15 +125,15 @@ export function ProjectList({ onSelectProject, projects }: ProjectListProps) {
   const getStatusColor = (status: ProjectItem['status']) => {
     switch (status) {
       case 'Thi công':
-        return 'bg-success/10 text-success border-success/20';
+        return 'bg-emerald-700 text-white border-emerald-600/30 shadow-sm';
       case 'Thi công ngầm':
-        return 'bg-warning/10 text-warning border-warning/20';
+        return 'bg-amber-700 text-white border-amber-600/30 shadow-sm';
       case 'Đang hoàn thiện':
-        return 'bg-tertiary-container/20 text-tertiary border-tertiary-container/30';
+        return 'bg-blue-700 text-white border-blue-600/30 shadow-sm';
       case 'Chuẩn bị':
-        return 'bg-outline-variant/20 text-on-surface-variant border-outline-variant/30';
+        return 'bg-slate-700 text-white border-slate-600/30 shadow-sm';
       default:
-        return 'bg-surface-container text-on-surface-variant border-outline-variant/50';
+        return 'bg-slate-700 text-white border-slate-600/30 shadow-sm';
     }
   };
 
@@ -126,8 +151,19 @@ export function ProjectList({ onSelectProject, projects }: ProjectListProps) {
             Chọn một dự án hoạt động để truy cập kho dữ liệu mô hình 3D, tiến độ và tài liệu chuẩn ISO 19650.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-surface p-1.5 rounded-lg border border-outline-variant text-[13px] text-outline font-bold">
-          Tổng số: <span className="text-primary font-extrabold">{sourceProjects.length}</span> Dự án
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 bg-surface px-3 py-2 rounded-xl border border-outline-variant text-[13px] text-outline font-bold">
+            Tổng số: <span className="text-primary font-extrabold">{sourceProjects.length}</span> Dự án
+          </div>
+          {onAddProject && (
+            <button
+              onClick={onAddProject}
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary/95 text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer"
+            >
+              <Plus size={15} />
+              Tạo dự án mới
+            </button>
+          )}
         </div>
       </div>
 
@@ -175,21 +211,48 @@ export function ProjectList({ onSelectProject, projects }: ProjectListProps) {
               className="bg-surface border border-outline-variant/50 hover:border-primary/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group flex flex-col justify-between cursor-pointer relative overflow-hidden"
             >
               {/* Highlight line on hover */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-transparent group-hover:bg-primary transition-colors duration-300"></div>
+              <div className="absolute top-0 left-0 right-0 h-1 bg-transparent group-hover:bg-primary transition-colors duration-300 z-10"></div>
 
-              <div>
-                {/* Header Tag and Code */}
-                <div className="flex justify-between items-center gap-2 mb-3">
-                  <span className="font-mono text-[11px] font-bold text-outline tracking-wider uppercase">
+              {/* Ảnh đại diện dự án (BIM render hoặc ảnh phối cảnh) */}
+              <div className="relative -mx-5 -mt-5 mb-4 h-48 overflow-hidden bg-surface-container rounded-t-2xl group/img border-b border-outline-variant/20">
+                <img 
+                  src={getProjectImage(proj)} 
+                  alt={proj.name} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                  loading="lazy"
+                />
+                
+                {/* Lớp phủ Gradient mượt mà */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/35 opacity-90 group-hover:opacity-85 transition-opacity duration-300"></div>
+
+                {/* Mã dự án và Nhãn trạng thái overlay trên ảnh */}
+                <div className="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none">
+                  <span className="font-mono text-[10px] font-extrabold px-2 py-1 bg-black/75 backdrop-blur-md text-slate-100 rounded-md border border-white/10 tracking-wider uppercase">
                     #{proj.id.toUpperCase()}
                   </span>
-                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${getStatusColor(proj.status)}`}>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm ${getStatusColor(proj.status)}`}>
                     {proj.status}
                   </span>
                 </div>
 
+                {/* Nút chỉnh sửa nổi ở góc dưới bên phải ảnh */}
+                {onEditProject && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditProject(proj);
+                    }}
+                    className="absolute bottom-3 right-3 p-2 text-slate-200 hover:text-primary hover:bg-white bg-black/45 backdrop-blur-sm rounded-full border border-white/10 shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer z-20"
+                    title="Chỉnh sửa thông tin dự án"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                )}
+              </div>
+
+              <div>
                 {/* Name */}
-                <h3 className="font-bold text-[18px] text-on-surface mb-1.5 group-hover:text-primary transition-colors tracking-tight leading-snug">
+                <h3 className="font-bold text-[18px] text-on-surface mb-1.5 group-hover:text-primary transition-colors tracking-tight leading-snug line-clamp-1">
                   {proj.name}
                 </h3>
 

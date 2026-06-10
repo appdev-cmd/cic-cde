@@ -2,12 +2,15 @@ import React, { useState, useRef } from 'react';
 import { 
   FileText, CheckCircle2, TrendingUp, AlertTriangle, Upload, 
   MessageSquare, RefreshCw, ExternalLink, Sparkles, Send, Check, 
-  X, HelpCircle, ArrowUpRight, Folder, Eye, CheckCircle 
+  X, HelpCircle, ArrowUpRight, Folder, Eye, CheckCircle,
+  Pencil, MapPin, Calendar, Building2
 } from 'lucide-react';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from '../../types';
+import { ProjectItem } from '../project/ProjectList';
 import { askAssistant, isAiConfigured, type ChatTurn } from '../../lib/ai/gemini';
 import { updateDocument } from '../../lib/api/documents';
 import { updateClashStatus, deleteApproval, logActivity } from '../../lib/api/data';
+import { canApprove, roleLabel } from '../../lib/roles';
 
 export interface DashboardTabProps {
   documents: DocumentItem[];
@@ -19,6 +22,9 @@ export interface DashboardTabProps {
   activities: ActivityItem[];
   setActivities: React.Dispatch<React.SetStateAction<ActivityItem[]>>;
   projectId?: string;
+  project?: ProjectItem | null;
+  onEditProject?: () => void;
+  userRole?: string;
 }
 
 export function DashboardTab({
@@ -30,8 +36,12 @@ export function DashboardTab({
   setClashes,
   activities,
   setActivities,
-  projectId
+  projectId,
+  project,
+  onEditProject,
+  userRole
 }: DashboardTabProps) {
+  const mayApprove = canApprove(userRole);
   // --- STATE ---
   const documentsCount = 1243 + documents.length;
   const clashesCount = clashes.filter(c => c.status !== 'Đã giải quyết').length;
@@ -365,8 +375,112 @@ export function DashboardTab({
           </div>
         </section>
 
-        {/* --- MAIN DOUBLE COLUMN AREA --- */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* --- MAIN THREE COLUMN AREA --- */}
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+          {/* Project Info Widget */}
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/40 shadow-sm flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low/30 shrink-0">
+              <h3 className="font-semibold text-[15px] text-on-surface flex items-center gap-1.5">
+                <Building2 size={16} className="text-primary" />
+                Thông tin Dự án
+              </h3>
+              {onEditProject && (
+                <button
+                  onClick={onEditProject}
+                  className="flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-container bg-primary/5 hover:bg-primary-container/10 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer border border-primary/20"
+                >
+                  <Pencil size={11} />
+                  Sửa
+                </button>
+              )}
+            </div>
+            <div className="p-5 flex-1 flex flex-col gap-4 overflow-y-auto max-h-[360px] text-xs">
+              {project ? (
+                <>
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Mã Dự án (ISO 19650)</div>
+                    <div className="font-mono text-sm text-on-surface font-semibold bg-surface-container/60 px-2 py-1 rounded border border-outline-variant/45 inline-block">
+                      #{project.id.toUpperCase()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Chủ đầu tư</div>
+                    <div className="text-on-surface font-semibold">{project.client || 'Chưa cập nhật'}</div>
+                  </div>
+
+                  {/* Nhóm dự án & Cấp công trình */}
+                  {(project.projectGroup || project.buildingGrade) && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {project.projectGroup && (
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Nhóm dự án</div>
+                          <div className="text-on-surface font-semibold bg-surface-container px-2 py-0.5 rounded border border-outline-variant/30 text-[11px] inline-block">
+                            {project.projectGroup}
+                          </div>
+                        </div>
+                      )}
+                      {project.buildingGrade && (
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Cấp công trình</div>
+                          <div className="text-on-surface font-semibold bg-surface-container px-2 py-0.5 rounded border border-outline-variant/30 text-[11px] inline-block">
+                            {project.buildingGrade}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Ngày bắt đầu</div>
+                    <div className="text-on-surface font-semibold flex items-center gap-1.5">
+                      <Calendar size={13} className="text-outline" />
+                      {project.startDate || 'Chưa cập nhật'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Địa điểm thực tế</div>
+                    <div className="text-on-surface font-semibold flex items-center gap-1.5">
+                      <MapPin size={13} className="text-outline" />
+                      {project.location || 'Chưa cập nhật'}
+                    </div>
+                  </div>
+
+                  {project.lat !== undefined && project.lng !== undefined && (
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Tọa độ địa lý</div>
+                      <div className="text-on-surface font-semibold font-mono">
+                        {project.lat.toFixed(5)}, {project.lng.toFixed(5)} ({project.province || 'Bản đồ'})
+                      </div>
+                    </div>
+                  )}
+
+                  {project.tilesUrl && (
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Mô hình 3D Tiles (GIS)</div>
+                      <div className="text-primary font-mono truncate hover:underline flex items-center gap-1" title={project.tilesUrl}>
+                        <ExternalLink size={12} className="shrink-0 text-outline" />
+                        <span className="truncate">{project.tilesUrl}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-0.5 pt-2 border-t border-outline-variant/30">
+                    <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Mô tả quy mô</div>
+                    <p className="text-on-surface-variant font-normal leading-relaxed text-[11.5px] italic">
+                      "{project.description || 'Chưa có thông tin mô tả chi tiết quy mô công trình.'}"
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-outline py-8">
+                  Không tìm thấy thông tin chi tiết dự án.
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* Recent Activity List widget (State reactive for logs) */}
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/40 shadow-sm flex flex-col overflow-hidden">
@@ -523,21 +637,27 @@ export function DashboardTab({
                   </div>
                </div>
 
-               {/* Actions block */}
-               <div className="p-4 border-t border-outline-variant flex gap-3 shrink-0 bg-surface-container-lowest">
-                  <button 
-                     onClick={() => handleApprove(selectedApproval.id, false)}
-                     className="flex-1 py-2.5 border border-error text-error hover:bg-error-container/20 rounded-xl font-bold text-[13px] transition-colors focus:outline-none"
-                  >
-                     Từ chối
-                  </button>
-                  <button 
-                     onClick={() => handleApprove(selectedApproval.id, true)}
-                     className="flex-1 py-2.5 bg-primary hover:bg-primary/95 text-on-primary rounded-xl font-bold text-[13px] shadow transition-colors focus:outline-none"
-                  >
-                     Phê duyệt
-                  </button>
-               </div>
+               {/* Actions block — chỉ vai trò có quyền mới được duyệt */}
+               {mayApprove ? (
+                 <div className="p-4 border-t border-outline-variant flex gap-3 shrink-0 bg-surface-container-lowest">
+                    <button
+                       onClick={() => handleApprove(selectedApproval.id, false)}
+                       className="flex-1 py-2.5 border border-error text-error hover:bg-error-container/20 rounded-xl font-bold text-[13px] transition-colors focus:outline-none"
+                    >
+                       Từ chối
+                    </button>
+                    <button
+                       onClick={() => handleApprove(selectedApproval.id, true)}
+                       className="flex-1 py-2.5 bg-primary hover:bg-primary/95 text-on-primary rounded-xl font-bold text-[13px] shadow transition-colors focus:outline-none"
+                    >
+                       Phê duyệt
+                    </button>
+                 </div>
+               ) : (
+                 <div className="p-4 border-t border-outline-variant shrink-0 bg-surface-container-lowest text-[11.5px] text-on-surface-variant text-center font-medium">
+                   Vai trò của bạn ({roleLabel(userRole)}) không có quyền phê duyệt. Cần vai trò Người kiểm/Phê duyệt/Quản trị.
+                 </div>
+               )}
             </div>
          </div>
       )}

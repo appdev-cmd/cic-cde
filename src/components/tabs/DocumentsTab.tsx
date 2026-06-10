@@ -2,12 +2,13 @@ import React, { useState, useRef } from 'react';
 import { 
   FolderOpen, Folder, FileText, ChevronRight, ChevronDown, Filter, 
   Columns, Upload, Download, ExternalLink, X, Box, MoreVertical, Search, Check, AlertCircle,
-  RefreshCw, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Info, Settings
+  RefreshCw, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Info, Settings, History, Clock
 } from 'lucide-react';
 import { DocumentItem, ApprovalItem, ActivityItem } from '../../types';
-import { uploadFile } from '../../lib/api/storage';
-import { createDocument, updateDocument } from '../../lib/api/documents';
+import { uploadFile, compressIfcToZip } from '../../lib/api/storage';
+import { createDocument, updateDocument, fetchDocumentVersions, type DocumentVersion } from '../../lib/api/documents';
 import { logActivity, createApproval, deleteApproval } from '../../lib/api/data';
+import { canApprove, canPublish, roleLabel } from '../../lib/roles';
 
 export function validateISO19650(id: string): { 
   isValid: boolean; 
@@ -94,6 +95,7 @@ interface DocumentsTabProps {
   onOpenModel?: (fileUrl: string) => void;
   globalSearch?: string;
   projectId?: string;
+  userRole?: string;
 }
 
 export function DocumentsTab({
@@ -105,8 +107,11 @@ export function DocumentsTab({
   setActivities,
   onOpenModel,
   globalSearch = '',
-  projectId
+  projectId,
+  userRole
 }: DocumentsTabProps) {
+  const mayApprove = canApprove(userRole);
+  const mayPublish = canPublish(userRole);
   const [selectedDocId, setSelectedDocId] = useState<string | null>('PRJ-STR-Z01-ZZ-M3-S-0023');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -147,6 +152,26 @@ export function DocumentsTab({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Lịch sử phiên bản tài liệu (#4)
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [versions, setVersions] = useState<DocumentVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionsDocCode, setVersionsDocCode] = useState('');
+
+  const handleShowVersions = async (doc: DocumentItem) => {
+    if (!projectId) { alert('Lịch sử phiên bản cần dự án trên Supabase.'); return; }
+    setVersionsOpen(true);
+    setVersionsLoading(true);
+    setVersionsDocCode(doc.id);
+    try {
+      setVersions(await fetchDocumentVersions(projectId, doc.id));
+    } catch {
+      setVersions([]);
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
 
   const handleOpenNameBuilder = (doc: DocumentItem) => {
     // Attempt to parse existing ID
@@ -299,7 +324,7 @@ export function DocumentsTab({
     const file = files[0];
 
     const fileType: DocumentItem['fileType'] =
-      file.name.endsWith('.ifc') ? 'ifc' : file.name.endsWith('.dwg') ? 'dwg' : 'pdf';
+      /\.(ifc|ifczip)$/i.test(file.name) ? 'ifc' : file.name.endsWith('.dwg') ? 'dwg' : 'pdf';
     const code = `PRJ-${fileType.toUpperCase()}-${activeFolder === '02_SHARED' ? 'Z01' : 'Z02'}-ZZ-M3-${fileType === 'ifc' ? 'W' : 'A'}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     setIsUploading(true);
@@ -308,8 +333,9 @@ export function DocumentsTab({
     try {
       if (!projectId) throw new Error('Chưa chọn dự án để tải tài liệu.');
 
-      // 1. Tải file thật lên Supabase Storage
-      const up = await uploadFile(file, projectId);
+      // 1. Nén .ifc -> .ifczip (nếu là IFC thô) rồi tải lên Supabase Storage
+      const toUpload = await compressIfcToZip(file);
+      const up = await uploadFile(toUpload, projectId);
       setUploadProgress(70);
 
       // 2. Tạo bản ghi tài liệu trong Supabase (luôn vào WIP theo ISO 19650)
@@ -787,7 +813,7 @@ export function DocumentsTab({
                  ref={fileInputRef}
                  onChange={(e) => handleFileUpload(e.target.files)}
                  className="hidden" 
-                 accept=".ifc,.pdf,.dwg"
+                 accept=".ifc,.ifczip,.zip,.pdf,.dwg"
                />
             </div>
          </div>
@@ -1118,7 +1144,15 @@ export function DocumentsTab({
 
             {/* Actions block */}
             <div className="p-4 border-t border-outline-variant flex flex-col gap-2 shrink-0 bg-surface-container-lowest shadow-[0_-1px_3px_rgba(0,0,0,0.015)]">
-               
+
+               {/* Lịch sử phiên bản */}
+               <button
+                 onClick={() => handleShowVersions(selectedDoc)}
+                 className="w-full py-2 border border-outline-variant/60 text-on-surface-variant hover:text-primary hover:border-primary/40 rounded-xl font-bold text-[12px] transition-colors flex items-center justify-center gap-1.5"
+               >
+                 <History size={14} /> Lịch sử phiên bản
+               </button>
+
                {/* Contextual actions based on ISO 19650 workflow status */}
                {selectedDoc.status === 'S0 - WIP' && (
                  <button
@@ -1138,7 +1172,7 @@ export function DocumentsTab({
                  </button>
                )}
 
-               {selectedDoc.status === 'S2 - PUBLISHED' && (
+               {selectedDoc.status === 'S2 - PUBLISHED' && mayPublish && (
                  <button
                    onClick={() => handleArchiveDocument(selectedDoc)}
                    className="w-full py-2.5 border border-outline-variant text-on-surface-variant hover:bg-surface-container rounded-xl font-bold text-[13px] transition-colors flex items-center justify-center gap-1.5"
@@ -1148,20 +1182,26 @@ export function DocumentsTab({
                )}
 
                {selectedDoc.status === 'PENDING_APPROVAL' && (
-                 <div className="flex gap-2.5 w-full">
-                    <button 
-                      onClick={() => handleRejectDocument(selectedDoc)}
-                      className="flex-1 py-2.5 border border-error text-error hover:bg-error-container/20 rounded-xl font-bold text-[13px] transition-colors focus:outline-none"
-                    >
-                      Từ chối
-                    </button>
-                    <button 
-                      onClick={() => handleApproveDocument(selectedDoc)}
-                      className="flex-1 py-2.5 bg-primary hover:bg-primary/95 text-on-primary rounded-xl font-bold text-[13px] shadow transition-all active:scale-98"
-                    >
-                      Phê duyệt
-                    </button>
-                 </div>
+                 mayApprove ? (
+                   <div className="flex gap-2.5 w-full">
+                      <button
+                        onClick={() => handleRejectDocument(selectedDoc)}
+                        className="flex-1 py-2.5 border border-error text-error hover:bg-error-container/20 rounded-xl font-bold text-[13px] transition-colors focus:outline-none"
+                      >
+                        Từ chối
+                      </button>
+                      <button
+                        onClick={() => handleApproveDocument(selectedDoc)}
+                        className="flex-1 py-2.5 bg-primary hover:bg-primary/95 text-on-primary rounded-xl font-bold text-[13px] shadow transition-all active:scale-98"
+                      >
+                        Phê duyệt
+                      </button>
+                   </div>
+                 ) : (
+                   <div className="w-full py-2.5 bg-surface-container border border-outline-variant/60 rounded-xl text-[11.5px] text-on-surface-variant text-center font-medium px-3">
+                     Tài liệu đang chờ phê duyệt. Vai trò của bạn ({roleLabel(userRole)}) không có quyền phê duyệt.
+                   </div>
+                 )
                )}
 
                <div className="flex gap-2 w-full">
@@ -1193,6 +1233,54 @@ export function DocumentsTab({
       )}
 
       {/* 1. CAD SHEET PREVIEW MODAL */}
+      {/* Modal Lịch sử phiên bản */}
+      {versionsOpen && (
+        <div className="fixed inset-0 bg-inverse-on-surface/40 backdrop-blur-[2px] flex items-center justify-center z-[120] p-6" onClick={() => setVersionsOpen(false)}>
+          <div className="bg-surface-container-lowest w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl border border-outline-variant flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <History size={18} className="text-primary" />
+                <h3 className="font-bold text-[15px] text-on-surface">Lịch sử phiên bản — <span className="font-mono text-[12px] text-primary">{versionsDocCode}</span></h3>
+              </div>
+              <button onClick={() => setVersionsOpen(false)} className="p-1 text-on-surface-variant hover:bg-surface-container rounded-full"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+              {versionsLoading ? (
+                <div className="h-32 flex items-center justify-center gap-2 text-on-surface-variant text-sm"><RefreshCw size={18} className="animate-spin" /> Đang tải...</div>
+              ) : versions.length === 0 ? (
+                <div className="h-32 flex flex-col items-center justify-center gap-2 text-on-surface-variant text-xs">
+                  <Clock size={24} className="text-outline/50" />
+                  Chưa có phiên bản nào được ghi nhận (tài liệu tạo trước khi bật tính năng này).
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {versions.map((v, i) => (
+                    <div key={v.id} className="flex items-center gap-3 p-3 bg-surface border border-outline-variant/40 rounded-lg">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">
+                        {versions.length - i}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[11px] font-bold text-on-surface">{v.revision}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">{v.status}</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">{
+                            v.changeType === 'upload' ? 'Tải lên' : v.changeType === 'status' ? 'Đổi trạng thái' : v.changeType === 'revision' ? 'Phiên bản' : v.changeType === 'rename' ? 'Đổi mã' : 'Cập nhật'
+                          }</span>
+                        </div>
+                        <div className="text-[10.5px] text-outline font-mono mt-0.5">{v.changedBy} · {new Date(v.createdAt).toLocaleString('vi-VN')}</div>
+                      </div>
+                      {v.fileUrl && (
+                        <a href={v.fileUrl} target="_blank" rel="noreferrer" className="shrink-0 text-on-surface-variant hover:text-primary p-1" title="Mở/Tải phiên bản"><Download size={14} /></a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isPreviewOpen && selectedDoc && (
         <div className="fixed inset-0 bg-inverse-on-surface/85 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
           <div className="w-[95vw] h-[90vh] bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">

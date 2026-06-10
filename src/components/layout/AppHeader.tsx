@@ -210,10 +210,12 @@ export function AppHeader({
       {showTabs && (
         <div className="flex px-6 gap-6 xl:gap-8 pt-1">
           {([
-            { id: 'dashboard', label: 'Bảng điều khiển' },
+            { id: 'dashboard', label: 'Tổng quan' },
+            { id: 'team', label: 'Thành viên' },
             { id: 'documents', label: 'Tài liệu' },
             { id: 'viewer', label: 'Mô hình 3D' },
             { id: 'schedule', label: 'Tiến độ & Chi phí' },
+            { id: 'tasks', label: 'Nhiệm vụ' },
             { id: 'fm', label: 'Vận hành (FM)' }
           ] as const).map(tab => (
             <button

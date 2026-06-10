@@ -80,7 +80,62 @@ backend. Tương ứng Phân hệ 1, 2, 3 (cốt lõi) + 6 (FM).
 - [ ] Verify toàn bộ trên trình duyệt (Chrome MCP đang mất kết nối).
 - [ ] (Production) siết RLS theo project_members + tắt autoconfirm + VNeID SSO.
 
-## Milestone 3 — Nâng cao 5D & GeoBIM thật
+## Milestone 3 — BIM Coordination (kiểu BIMcollab) ⬅️ ĐANG LÀM
+
+Mục tiêu: nâng BIM viewer thành môi trường điều phối đa mô hình giống BIMcollab.
+Phạm vi đợt này: Phase A + B + C (Clash detection D để sau).
+
+### Phase A — Model Federation (US-FE-006) ✅
+- [x] BimViewer quản lý NHIỀU model cùng lúc (loadedModelsRef + merged props + fit-all).
+- [x] Panel Navigation "Mô hình": nhóm theo bộ môn, bật/tắt + ẩn/hiện từng model, đếm "đã tải/tổng".
+- [x] Nguồn model: tài liệu IFC trong Supabase, nhóm theo discipline (mã ISO 19650).
+- [x] Fit-to-all + setModelVisibility + dedup. Chọn cấu kiện + thuộc tính trên model liên hợp.
+- [ ] Verify trình duyệt (Chrome MCP đang mất kết nối).
+
+### Phase B — Walk/Fly + Viewpoints (US-FE-007) ✅
+- [x] Chế độ Bay (WASD di chuyển, Q/E lên xuống, Shift 2x) qua camera-controls.
+- [x] Lưu Viewpoint (camera + ẩn/hiện model + căn tâm + screenshot) vào Supabase + khôi phục.
+- [x] Panel "Góc nhìn" nổi + nút BAY. Verify persistence jsonb ✅.
+- [ ] Verify trình duyệt (Chrome MCP đang mất kết nối).
+
+### Phase C — Issues nâng cấp (BCF đầy đủ) (US-FE-008) ✅
+- [x] Module Issues kiểu BIMcollab: thumbnail viewpoint, assignee, loại sự vụ, filter trạng thái.
+- [x] Workflow trạng thái Open→Đang xử lý→Đã xử lý→Đã đóng (lưu Supabase).
+- [x] Tạo issue chụp viewpoint (camera+ẩn/hiện+ảnh); bấm issue khôi phục góc nhìn + highlight.
+- [x] Verify persistence + status update ✅. **Milestone 3 (A+B+C) hoàn tất.**
+
+### Phase D — Clash detection (US-FE-009) ✅
+- [x] Clash client-side: giao cắt bounding-box + lưới broad-phase giữa các model.
+- [x] Modal danh sách xung đột: phóng tới + highlight 2 cấu kiện + tạo BCF từ clash.
+- [x] preserveDrawingBuffer → ảnh thumbnail viewpoint/BCF chắc chắn.
+- [ ] Clash chính xác theo hình học (Python + IfcOpenShell) — giai đoạn backend nâng cao.
+- [ ] Verify trình duyệt (Chrome MCP đang mất kết nối).
+
+## Milestone 5 — Hoàn thiện CDE ISO 19650 (7 tiêu chí)
+
+Đối chiếu 7 tiêu chí cốt lõi: #1,#2,#5,#6 đã có. Còn #3,#4,#7.
+- [x] **#4 Lịch sử phiên bản** (US-FE-012): bảng document_versions + snapshot khi tải lên/đổi trạng thái/revision/đổi mã + modal "Lịch sử phiên bản".
+- [x] **#3 Phân quyền theo vai trò (RBAC)** (US-FE-013): vai trò Author/Checker/Approver/Manager/Viewer; gate duyệt/phát hành/lưu trữ (Documents+Dashboard); chọn vai trò ở Cài đặt. (RLS-by-role để hardening production.)
+- [x] **#7 Kế hoạch bàn giao thông tin** (US-FE-014): bảng delivery_tasks + tab "Nhiệm vụ" (MIDP/TIDP: bộ môn/định dạng/mốc/thời hạn/phụ trách/trạng thái, cảnh báo trễ hạn).
+
+✅ **Milestone 5 hoàn tất — đủ 7 tiêu chí CDE ISO 19650.** (Còn hardening RLS-by-role + BEP/EIR template cho production.)
+
+## Milestone 4 — Nâng cao 5D & GeoBIM thật
+
+### 5D Chi phí (US-FE-010) ✅
+- [x] Import định mức thật TT12/2021/BXD (13.806 công tác) vào `cost_norms`.
+- [x] Cost5DPanel: tìm kiếm công tác + nhập đơn giá + bảng BOQ (sửa KL/đơn giá) + tổng + xuất CSV.
+- [x] Tab "Tiến độ & Chi phí" có toggle 4D/5D. BOQ lưu Supabase (`boq_items`).
+- [ ] Tự động lấy khối lượng từ QTO (bóc tách mô hình) vào BOQ.
+- [ ] Tự tính đơn giá = hao phí × giá nguồn lực (cần bảng giá VL/NC/MTC).
+
+### GeoBIM (US-FE-011) ✅ (client-side)
+- [x] Thêm toạ độ (lat/lng/province) cho projects + seed.
+- [x] GeoBimMap nạp dự án thật từ Supabase, marker từ dữ liệu thật (Leaflet).
+- [x] Giữ bộ chuyển VN2000→WGS84.
+- [ ] 3D Tiles streaming thật (cần pipeline Python py3dtiles — giai đoạn backend).
+
+### GeoBIM nâng cao (sau)
 
 - 5D: CSDL định mức BXD (TT 12/2021), mapping engine QTO ↔ đơn giá.
 - GeoBIM: 3D Tiles streaming thật (pipeline server), Cesium viewer.

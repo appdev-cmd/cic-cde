@@ -3,8 +3,9 @@ import { Sidebar } from './components/layout/Sidebar';
 import { BimViewerRef } from './components/bim/BimViewer';
 import { supabase } from './lib/supabase';
 import { LoginScreen } from './components/auth/LoginScreen';
-import { getSession, onAuthChange, fetchProfile, signOut, type Profile } from './lib/api/auth';
-import { fetchProjects } from './lib/api/projects';
+import { getSession, onAuthChange, fetchProfile, signOut, updateMyRole, type Profile } from './lib/api/auth';
+import { PROJECT_ROLES, roleLabel } from './lib/roles';
+import { fetchProjects, createProject, updateProject } from './lib/api/projects';
 import { fetchDocuments } from './lib/api/documents';
 import { fetchClashes, fetchApprovals, fetchActivities } from './lib/api/data';
 import { AppHeader } from './components/layout/AppHeader';
@@ -13,12 +14,15 @@ import { DocumentsTab } from './components/tabs/DocumentsTab';
 import { ViewerTab } from './components/tabs/ViewerTab';
 import { ScheduleTab } from './components/tabs/ScheduleTab';
 import { FmTab } from './components/tabs/FmTab';
+import { TasksTab } from './components/tabs/TasksTab';
+import { TeamTab } from './components/tabs/TeamTab';
 import { ProjectList, ProjectItem, PROJECTS_LIST } from './components/project/ProjectList';
+import { ProjectFormModal } from './components/project/ProjectFormModal';
 import { GeoBimMap } from './components/gis/GeoBimMap';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from './types';
 import { Building2, ArrowRight, Calendar, Sun, Moon } from 'lucide-react';
 
-export type TabContext = 'dashboard' | 'documents' | 'viewer' | 'schedule' | 'fm';
+export type TabContext = 'dashboard' | 'documents' | 'viewer' | 'schedule' | 'fm' | 'tasks' | 'team';
 
 const DEFAULT_DOCUMENTS: DocumentItem[] = [
   {
@@ -196,6 +200,81 @@ export default function App() {
   const [clashes, setClashes] = useState<ClashItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Modal configuration for creating & editing projects
+  const [projectModalConfig, setProjectModalConfig] = useState<{
+    isOpen: boolean;
+    mode: 'create' | 'edit';
+    project?: ProjectItem;
+  }>({ isOpen: false, mode: 'create' });
+
+  const handleAddProject = () => {
+    setProjectModalConfig({ isOpen: true, mode: 'create' });
+  };
+
+  const handleEditProject = (proj: ProjectItem) => {
+    setProjectModalConfig({ isOpen: true, mode: 'edit', project: proj });
+  };
+
+  const handleProjectFormSubmit = async (projectData: any) => {
+    if (projectModalConfig.mode === 'create') {
+      try {
+        const newProj = await createProject(projectData);
+        setProjects(prev => [...prev, newProj]);
+        
+        // Ghi nhận hoạt động hệ thống
+        const newAct: ActivityItem = {
+          id: String(Date.now()),
+          user: profile?.fullName || 'Người dùng',
+          action: 'đã tạo mới dự án CDE',
+          target: newProj.name,
+          time: 'Vừa xong',
+          type: 'system'
+        };
+        setActivities(prev => [newAct, ...prev]);
+      } catch (err) {
+        console.error('Không lưu được dự án mới lên Supabase, lưu cục bộ làm fallback:', err);
+        const newProj: ProjectItem = {
+          ...projectData,
+          documentsCount: 0,
+          approvalPercent: 0,
+          spendingActual: 0,
+          clashesCount: 0
+        };
+        setProjects(prev => [...prev, newProj]);
+      }
+    } else if (projectModalConfig.mode === 'edit' && projectModalConfig.project) {
+      const originalId = projectModalConfig.project.id;
+      try {
+        const updatedProj = await updateProject(originalId, projectData);
+        setProjects(prev => prev.map(p => p.id === originalId ? updatedProj : p));
+        if (selectedProject?.id === originalId) {
+          setSelectedProject(updatedProj);
+        }
+        
+        // Ghi nhận hoạt động hệ thống
+        const newAct: ActivityItem = {
+          id: String(Date.now()),
+          user: profile?.fullName || 'Người dùng',
+          action: 'đã cập nhật thông tin dự án',
+          target: updatedProj.name,
+          time: 'Vừa xong',
+          type: 'system'
+        };
+        setActivities(prev => [newAct, ...prev]);
+      } catch (err) {
+        console.error('Không cập nhật được dự án lên Supabase, lưu cục bộ làm fallback:', err);
+        const updatedProj: ProjectItem = {
+          ...projectModalConfig.project,
+          ...projectData
+        };
+        setProjects(prev => prev.map(p => p.id === originalId ? updatedProj : p));
+        if (selectedProject?.id === originalId) {
+          setSelectedProject(updatedProj);
+        }
+      }
+    }
+  };
 
   // Nạp danh sách dự án từ Supabase khi khởi động
   useEffect(() => {
@@ -444,6 +523,25 @@ export default function App() {
                 <p className="text-sm text-on-surface-variant font-medium">Tùy chỉnh tiêu chuẩn tài liệu ISO 19650 và kết nối dữ liệu GIS/GeoBIM.</p>
               </div>
 
+              {/* Vai trò người dùng (RBAC) */}
+              <div className="bg-surface border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-2">
+                <h3 className="font-bold text-sm text-on-surface uppercase tracking-wider text-primary">Vai trò của bạn (phân quyền)</h3>
+                <p className="text-[12px] text-on-surface-variant leading-relaxed">
+                  Vai trò quyết định quyền hạn: chỉ <b>Người kiểm / Người phê duyệt / Quản trị</b> mới được phê duyệt & phát hành tài liệu.
+                  <span className="text-warning"> (Pilot: tự chọn để thử; bản chính thức do Quản trị gán.)</span>
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  <select
+                    value={PROJECT_ROLES.includes((profile?.role as any)) ? profile?.role : 'Author'}
+                    onChange={async (e) => { await updateMyRole(e.target.value); const s = await getSession(); if (s) setProfile(await fetchProfile(s.user.id)); }}
+                    className="bg-surface-container border border-outline-variant/60 rounded-lg px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {PROJECT_ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
+                  </select>
+                  <span className="text-[12px] text-on-surface-variant">Hiện tại: <b className="text-on-surface">{roleLabel(profile?.role)}</b></span>
+                </div>
+              </div>
+
               <div className="bg-surface border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-6">
                 <div className="space-y-2">
                   <h3 className="font-bold text-sm text-on-surface uppercase tracking-wider text-primary">Quy tắc đặt tên tài liệu (ISO 19650)</h3>
@@ -503,11 +601,18 @@ export default function App() {
           {activeModule === 'projects' && (
             <>
               {selectedProject === null ? (
-                <ProjectList onSelectProject={handleSelectProject} projects={projects} />
+                <ProjectList
+                  onSelectProject={handleSelectProject}
+                  projects={projects}
+                  onAddProject={handleAddProject}
+                  onEditProject={handleEditProject}
+                />
               ) : (
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {activeTab === 'dashboard' && (
                     <DashboardTab
+                      project={selectedProject}
+                      onEditProject={() => handleEditProject(selectedProject)}
                       documents={documents}
                       setDocuments={setDocuments}
                       approvals={approvals}
@@ -517,6 +622,7 @@ export default function App() {
                       activities={activities}
                       setActivities={setActivities}
                       projectId={selectedProject.id}
+                      userRole={profile?.role}
                     />
                   )}
                   {activeTab === 'documents' && (
@@ -530,9 +636,11 @@ export default function App() {
                       onOpenModel={handleOpenModel}
                       globalSearch={globalSearch}
                       projectId={selectedProject.id}
+                      userRole={profile?.role}
                     />
                   )}
-                  {activeTab === 'viewer' && (
+                  {/* Viewer luôn mounted (ẩn/hiện bằng CSS) để không mất mô hình khi đổi tab */}
+                  <div className={activeTab === 'viewer' ? 'flex-1 flex overflow-hidden min-h-0' : 'hidden'}>
                     <ViewerTab
                       selectedModelUrl={selectedModelUrl}
                       setSelectedModelUrl={setSelectedModelUrl}
@@ -543,17 +651,30 @@ export default function App() {
                       setSelectedHighlightIds={setSelectedHighlightIds}
                       viewerRef={viewerRef}
                       projectId={selectedProject.id}
+                      documents={documents}
+                      isActive={activeTab === 'viewer'}
+                      onRemoveDocument={(code) => setDocuments(prev => prev.filter(d => d.id !== code))}
+                      onProjectCoverChanged={(pid, url) => setProjects(prev => prev.map(p => p.id === pid ? { ...p, coverImage: url } : p))}
+                      onDocFragCached={(code, fragUrl) => setDocuments(prev => prev.map(d => d.id === code ? { ...d, fragUrl } : d))}
                     />
-                  )}
+                  </div>
                   {activeTab === 'schedule' && (
                     <ScheduleTab
                       viewerProperties={viewerProperties}
                       setSelectedHighlightIds={setSelectedHighlightIds}
                       setActiveTab={setActiveTab}
+                      projectId={selectedProject.id}
+                      getQto={() => viewerRef.current?.getQuantityTakeoff() ?? Promise.resolve(null)}
                     />
                   )}
                   {activeTab === 'fm' && (
                     <FmTab projectId={selectedProject.id} />
+                  )}
+                  {activeTab === 'tasks' && (
+                    <TasksTab projectId={selectedProject.id} />
+                  )}
+                  {activeTab === 'team' && (
+                    <TeamTab projectId={selectedProject.id} />
                   )}
                 </div>
               )}
@@ -562,6 +683,15 @@ export default function App() {
 
         </div>
       </main>
+
+      <ProjectFormModal
+        isOpen={projectModalConfig.isOpen}
+        mode={projectModalConfig.mode}
+        project={projectModalConfig.project}
+        onClose={() => setProjectModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onSubmit={handleProjectFormSubmit}
+        existingProjectIds={projects.map(p => p.id)}
+      />
     </div>
   );
 }

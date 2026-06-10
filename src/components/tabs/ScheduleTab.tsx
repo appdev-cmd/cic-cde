@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Wallet, TrendingUp, AlertTriangle, CheckCircle2, FolderOpen, Box, Calendar, Edit2, Info, Eye, CheckCircle, Upload, X } from 'lucide-react';
 import { TabContext } from '../../App';
+import { Cost5DPanel } from './Cost5DPanel';
+import type { QtoResult } from '../bim/BimViewer';
 
 interface GanttTask {
   id: string;
@@ -20,13 +22,19 @@ interface ScheduleTabProps {
   viewerProperties: any;
   setSelectedHighlightIds: (ids: number[]) => void;
   setActiveTab: (tab: TabContext) => void;
+  projectId?: string;
+  getQto?: () => Promise<QtoResult | null>;
 }
 
 export function ScheduleTab({
   viewerProperties,
   setSelectedHighlightIds,
-  setActiveTab
+  setActiveTab,
+  projectId,
+  getQto
 }: ScheduleTabProps) {
+  // Chế độ: 4D Tiến độ (Gantt) hay 5D Chi phí (dự toán)
+  const [scheduleMode, setScheduleMode] = useState<'4d' | '5d'>('4d');
   const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
   
   // State for tasks with customizable actualCost
@@ -307,9 +315,27 @@ export function ScheduleTab({
   const earnedPath = earnedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
   const actualPath = actualPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
+const modeToggle = (
+    <div className="flex bg-surface-container rounded-lg p-1 border border-outline-variant/60 w-fit">
+      <button onClick={() => setScheduleMode('4d')} className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-colors ${scheduleMode === '4d' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant'}`}>Tiến độ 4D</button>
+      <button onClick={() => setScheduleMode('5d')} className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-colors ${scheduleMode === '5d' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant'}`}>Chi phí 5D</button>
+    </div>
+  );
+
+  // Chế độ 5D — Dự toán chi phí
+  if (scheduleMode === '5d') {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="shrink-0 px-6 pt-4">{modeToggle}</div>
+        <Cost5DPanel projectId={projectId} getQto={getQto} />
+      </div>
+    );
+  }
+
 return (
     <div className="flex-1 overflow-y-auto bg-surface p-6 md:p-8">
       <div className="max-w-[1400px] mx-auto flex flex-col gap-6 select-none relative">
+        <div className="mb-1">{modeToggle}</div>
 
         {/* Transient Toast Alerts */}
         {toastMessage && (

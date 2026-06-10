@@ -35,6 +35,13 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+export async function updateMyRole(role: string): Promise<void> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error('Chưa đăng nhập');
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', data.user.id);
+  if (error) throw error;
+}
+
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error || !data) return null;

@@ -10,26 +10,72 @@
 ## Chương 1: Mở đầu & Tóm tắt Dự án (Executive Summary)
 
 ### 1.1. Bối cảnh & Lý do đầu tư
-Trong những năm gần đây, việc áp dụng Mô hình thông tin công trình (BIM - Building Information Modeling) đã trở thành xu thế bắt buộc nhằm tối ưu hóa chi phí, thời gian và chất lượng trong hoạt động xây dựng toàn cầu. Tại Việt Nam, sau giai đoạn triển khai theo Quyết định số 258/QĐ-TTg của Thủ tướng Chính phủ, Chính phủ đã ban hành **Nghị định số 175/2024/NĐ-CP** quy định chi tiết về lộ trình và phạm vi áp dụng BIM bắt buộc đối với các dự án đầu tư công, và sắp tới là **Luật Xây dựng sửa đổi số 135** dự kiến thông qua nhằm luật hóa toàn diện hoạt động này.
+
+#### 1.1.1. Bối cảnh pháp lý và xu hướng công nghệ
+Trong những năm gần đây, việc áp dụng Mô hình thông tin công trình (BIM - Building Information Modeling) đã trở thành xu thế bắt buộc nhằm tối ưu hóa chi phí, thời gian và chất lượng trong hoạt động xây dựng toàn cầu. Tại Việt Nam, sau giai đoạn triển khai theo Quyết định số 258/QĐ-TTg của Thủ tướng Chính phủ, Quốc hội đã ban hành **Luật Xây dựng số 135/2025/QH15** ngày 10/12/2025 (quy định tại Điều 7 và Điều 14 về bắt buộc ứng dụng khoa học công nghệ, chuyển đổi số, mô hình BIM và xây dựng hệ thống cơ sở dữ liệu quốc gia về xây dựng), làm nền tảng pháp lý cao nhất cho chuyển đổi số ngành xây dựng. Cụ thể hóa Luật, Chính phủ chuẩn bị ban hành **Nghị định quy định chi tiết một số điều của Luật Xây dựng về quản lý hoạt động xây dựng** (theo bản Dự thảo mới nhất đầu năm 2026), trong đó **Điều 9** quy định bắt buộc áp dụng BIM cho toàn bộ dự án từ Nhóm B trở lên và công trình xây dựng mới từ cấp II trở lên, đồng thời yêu cầu Chủ đầu tư thiết lập và vận hành **Môi trường dữ liệu chung (CDE)** để quản lý, lưu trữ tập tin gốc của mô hình BIM và làm cơ sở đối chiếu, bóc tách khối lượng (QTO) chính thức.
 
 Để hiện thực hóa lộ trình pháp lý trên, việc thiết lập một Môi trường dữ liệu chung (CDE - Common Data Environment) là yêu cầu kỹ thuật tiên quyết. CDE đóng vai trò là hạ tầng dữ liệu số trung tâm, lưu trữ, quản lý và điều phối toàn bộ thông tin của dự án xây dựng từ giai đoạn chuẩn bị, thiết kế, thi công đến bàn giao vận hành.
 
-Với vai trò là doanh nghiệp công nghệ đi đầu trong việc cung cấp giải pháp phần mềm xây dựng tại Việt Nam, Công ty Cổ phần Công nghệ và Tư vấn CIC cần tiên phong xây dựng một giải pháp CDE mang thương hiệu Việt Nam (CDE CIC) đáp ứng các tiêu chí:
-1. **Tuân thủ quy chuẩn pháp lý Việt Nam**: Đặc biệt là Quy chuẩn kỹ thuật quốc gia về an ninh mạng QCVN 12:2026/BCA và yêu cầu liên thông hạ tầng số quốc gia (NDXP/LGSP).
-2. **Tự chủ hoàn toàn về mặt công nghệ**: Tránh rủi ro phụ thuộc vào các nhà cung cấp nước ngoài (Vendor Lock-in).
-3. **Hiệu quả kinh tế vượt trội**: Áp dụng các công nghệ tiên tiến nhất của năm 2026, bao gồm tối ưu hóa quy trình phát triển phần mềm bằng trí tuệ nhân tạo (AI-augmented) để giảm thiểu tối đa chi phí đầu tư R&D.
+#### 1.1.2. Cơ sở thực tiễn và cơ hội thương mại từ Mạng lưới tư vấn BIM CIC
+Quyết định đầu tư xây dựng nền tảng CDE CIC của Ban Lãnh đạo CIC không chỉ dựa trên xu hướng pháp lý mà còn được bảo đảm vững chắc bởi dữ liệu thực tế hoạt động kinh doanh của công ty thông qua **Báo cáo đánh giá tổng hợp mạng lưới tư vấn BIM (Trung tâm BIM)** tính đến tháng 6/2026:
 
-### 1.2. Mục đích báo cáo
+1. **Thị trường sẵn có và tệp khách hàng VIP trung thành**:
+   - CIC đang sở hữu mạng lưới khách hàng BIM cực kỳ lớn và thực chất, với **78 hợp đồng** dịch vụ tư vấn BIM đã ký kết, tổng giá trị hợp đồng đạt **66.13 tỷ VND** (doanh thu thuần trước thuế đạt 60.12 tỷ VND).
+   - Đáng chú ý, **khối Chủ đầu tư công và Doanh nghiệp Nhà nước (B2G) chiếm tỷ trọng lớn nhất với 48.4%** tổng giá trị hợp đồng (HUD, Viglacera, Tổng công ty 319, và các Ban quản lý dự án trọng điểm). Đây chính là nhóm đối tượng bắt buộc phải tuân thủ Luật Xây dựng mới và quy chuẩn QCVN 12:2026/BCA.
+   - Uy tín chuyên môn của CIC được khẳng định bằng tỷ lệ khách hàng quay lại rất cao: chỉ **20.8% số lượng khách hàng quay lại (từ 2 hợp đồng trở lên) nhưng đã mang lại tới 60.8% tổng doanh số** mảng BIM của công ty (tiêu biểu như Ban QLDA Dân dụng TP.HCM với 13 hợp đồng trị giá 8.08 tỷ VND, Stellar với 3 hợp đồng trị giá 8.48 tỷ VND, Ban Dân Dụng Hà Nội với 4 hợp đồng trị giá 7.56 tỷ VND...).
+   - Việc có sẵn một tệp khách hàng VIP và khối lượng hợp đồng lớn giúp CDE CIC có ngay một lượng người dùng thực tế khổng lồ khi ra mắt, đảm bảo khả năng thương mại hóa nhanh chóng.
+
+2. **Khắc phục tình trạng phụ thuộc phần mềm ngoại bang và rò rỉ lợi nhuận (Profit Leakage)**:
+   - Hiện tại, CIC đang phân phối các giải pháp CDE ngoại nhập như Autodesk ACC, BIMcollab, Bentley ProjectWise, Trimble Connect với sản phẩm tiêu thụ tốt (doanh số đạt hơn 1.69 tỷ VND cho 23 licenses lớn nhỏ).
+   - Tuy nhiên, việc reselling phần mềm ngoại chỉ mang lại biên lợi nhuận gộp thương mại trung bình **21% - 25%**, trong khi mảng dịch vụ tư vấn BIM của CIC có biên lợi nhuận gộp quản trị thực tế lên tới **36.36%** (lợi nhuận gộp quản trị đạt hơn 24 tỷ VND).
+   - Quan trọng hơn, toàn bộ CDE ngoại (như Autodesk ACC) đều lưu trữ dữ liệu tại cloud nước ngoài (US Cloud), trực tiếp vi phạm quy chuẩn an ninh mạng quốc gia **QCVN 12:2026/BCA** (buộc phải lưu trữ máy chủ trong nước đối với khối đầu tư công).
+   - Đầu tư xây dựng CDE CIC (đặt trên hạ tầng Viettel Cloud nội địa) sẽ giúp CIC giữ lại 100% dòng doanh thu SaaS, loại bỏ rủi ro bảo mật cho khách hàng B2G và tạo động lực tăng trưởng đột phá nhờ mô hình bán chéo (bundle): **Dịch vụ tư vấn BIM + Bản quyền CDE CIC**.
+
+3. **Giải quyết điểm nghẽn chi phí nhân sự triển khai**:
+   - Báo cáo chỉ ra chi phí triển khai thực tế của Trung tâm BIM chiếm tới 55.4% tổng giá trị hợp đồng, trong đó **phí thuê chuyên gia bên ngoài chiếm tới 55.7%** tổng chi phí.
+   - Hệ thống CDE CIC tích hợp các công cụ tự động hóa R&D và động cơ AI bóc tách khối lượng (QTO) sẽ hỗ trợ đội ngũ tư vấn tự động hóa các tác vụ lặp đi lặp lại, nâng cao tỷ lệ tự thực hiện của nhân sự cơ hữu, từ đó tối ưu hóa cơ cấu chi phí dịch vụ và gia tăng biên lợi nhuận gộp cho CIC.
+
+Từ những cơ sở thực tiễn trên, việc phát triển CDE mang thương hiệu Việt Nam (CDE CIC) là bước đi chiến lược, cấp thiết để CIC bảo vệ tệp khách hàng VIP sẵn có, khai thác phân khúc B2G màu mỡ trước các quy định an ninh mới, và tối ưu hóa hiệu quả tài chính doanh nghiệp.
+
+#### 1.1.3. CDE - "Bộ não" trung tâm hội tụ của Bản sao số (Digital Twin)
+Trong kỷ nguyên số hóa ngành xây dựng và quản lý đô thị thông minh, một Bản sao số (Digital Twin) thực sự không thể tồn tại nếu thiếu đi một Môi trường dữ liệu chung (CDE). CDE đóng vai trò là "bộ não" trung tâm, nơi hội tụ và đồng bộ hóa ba trụ cột công nghệ cốt lõi:
+1. **BIM (Building Information Modeling)**: Cung cấp thông tin hình học 3D chi tiết, thuộc tính kỹ thuật và vòng đời cấu kiện của toàn bộ công trình từ thiết kế đến thi công.
+2. **GIS (Geographic Information System)**: Định vị công trình trong không gian địa lý, cung cấp bối cảnh môi trường, dữ liệu địa hình, bản đồ số và kết nối hạ tầng kỹ thuật đô thị xung quanh.
+3. **IoT (Internet of Things)**: Truyền dữ liệu telemetry thời gian thực từ các cảm biến đo đạc (nhiệt độ, độ ẩm, ứng suất kết cấu, điện năng tiêu thụ, lưu lượng người và thiết bị vận hành).
+
+Sự tích hợp chặt chẽ này biến CDE từ một kho lưu trữ tài liệu đơn thuần thành một hệ điều hành bản sao số sống động. Mọi biến động vật lý ngoài thực địa được cảm biến IoT ghi nhận, định vị chính xác trên không gian GIS và phản ánh trực quan trên mô hình BIM của CDE. Đây chính là nền tảng cốt lõi để hiện thực hóa các giải pháp quản lý đô thị thông minh, tối ưu hóa bảo trì dự phòng (predictive maintenance) và mô phỏng phản ứng sự cố trong thời gian thực.
+
+### 1.2. Mục tiêu chiến lược và Định hướng phát triển CDE CIC
+Để định hình rõ nét vai trò và hướng đi của dự án, Ban chỉ đạo R&D xác lập các mục tiêu và định hướng phát triển cụ thể của CDE CIC như sau:
+
+1. **Mục tiêu ngắn hạn (1 - 2 năm)**:
+   - **Tự chủ công nghệ 100%**: Phát triển hoàn chỉnh hệ thống quản lý dữ liệu bản vẽ, mô hình BIM và luồng phê duyệt theo tiêu chuẩn ISO 19650, thay thế hoàn toàn phần mềm ngoại nhập.
+   - **Thương mại hóa nhanh**: Chuyển đổi tối thiểu 30% tệp khách hàng BIM hiện tại sang sử dụng bản quyền CDE CIC, tạo nguồn doanh thu SaaS ổn định.
+   - **Chứng nhận an ninh QCVN 12**: Hoàn thành thủ tục đánh giá độc lập và nhận giấy chứng nhận hợp quy QCVN 12:2026/BCA của Cục A05 (Bộ Công an) cho hạ tầng Viettel Cloud trong vòng 12 tháng kể từ khi vận hành thử nghiệm.
+
+2. **Mục tiêu dài hạn (3 - 5 năm)**:
+   - **Số 1 phân khúc B2G**: Trở thành nền tảng CDE tiêu chuẩn được lựa chọn hàng đầu bởi các Ban Quản lý dự án trọng điểm, các Sở Xây dựng và doanh nghiệp nhà nước tại Việt Nam.
+   - **Liên thông dữ liệu quốc gia**: Tích hợp liên thông trực tiếp với Cổng NDXP/LGSP quốc gia, phục vụ công tác nộp file mô hình thiết kế, thẩm định quy hoạch và cấp phép xây dựng số.
+   - **Nền tảng lõi Digital Twin**: Mở rộng CDE thành nền tảng hạ tầng số lõi cho Đô thị thông minh (Smart City), kết nối không gian GIS tỉnh/thành phố và hệ thống cảm biến IOT vận hành thực tế.
+
+3. **Định hướng phát triển sản phẩm**:
+   - **Chủ quyền dữ liệu**: Đặt toàn bộ hệ thống trên hạ tầng đám mây nội địa (Viettel Cloud), bảo đảm an toàn thông tin cấp độ 3 và tuân thủ tuyệt đối quy định lưu trữ dữ liệu quốc gia.
+   - **Mở rộng dựa trên OpenBIM**: Tuân thủ tuyệt đối định dạng file mở IFC (OpenBIM), cung cấp hệ thống API mở (REST, gRPC) để dễ dàng tích hợp với các hệ thống ERP doanh nghiệp và phần mềm quản lý đầu tư công khác.
+   - **Tập trung dữ liệu & Khai thác tài sản số**: Định vị CDE là nền tảng tập trung dữ liệu toàn diện của dự án xây dựng, tối ưu hóa lưu trữ, quản lý vòng đời tài liệu và khai thác hiệu quả tài sản số (digital assets) kết hợp trợ lý ảo AI để tự động kiểm tra quy chuẩn bản vẽ và rà soát xung đột thiết kế trực tiếp trên trình duyệt.
+
+
+### 1.3. Mục đích báo cáo
 Báo cáo này phân tích sâu sắc cấu trúc công nghệ của các giải pháp CDE nội địa (NovaCDE, VinaCDE, BuildTab,...) và quốc tế (Autodesk Construction Cloud, Trimble Connect,...), từ đó kiến nghị:
 * Mô hình kiến trúc phần mềm tối ưu dựa trên nền tảng Go + Python + TypeScript và Rust (cho giai đoạn 2).
 * Mô hình hạ tầng đám mây bảo mật cao Multi-Cloud (Viettel Cloud làm Primary, VNPT làm DR, FPT làm GPU on-demand) tuân thủ QCVN 12.
 * Mô hình nhân sự tối giản kết hợp công cụ AI thế hệ mới (Mô hình AI-Conductor), giúp tinh gọn bộ máy phát triển từ 16 nhân sự xuống còn 6-7 nhân sự cốt lõi trong giai đoạn đầu.
 * Dự toán tài chính chi tiết trong vòng 5 năm và lộ trình triển khai cụ thể theo Sprint.
 
-### 1.3. Khuyến nghị kỹ thuật then chốt
-* **Mô hình Kiến trúc**: Áp dụng kiến trúc vi dịch vụ đa ngôn ngữ (Polyglot Microservices) nhằm phát huy tối đa thế mạnh xử lý song song của Go cho tầng API/Workflow, thế mạnh xử lý hình học/AI của Python cho tầng tính toán BIM, và hiệu năng render WebGL/WebGPU của TypeScript cho tầng giao diện người dùng.
-* **Hạ tầng**: Triển khai theo mô hình Hybrid Multi-Cloud đặt hoàn toàn trong nước để đảm bảo an toàn thông tin cấp độ 3 và bảo mật tối đa cho dữ liệu đầu tư công.
-* **Phương thức vận hành R&D**: Áp dụng triệt để mô hình **AI-Conductor** (Nhà quản trị Sản phẩm sử dụng AI để tạo mã nguồn, kết hợp chặt chẽ với 01 Kỹ sư Full-stack cao cấp để kiểm soát chất lượng và xử lý lỗi kỹ thuật sâu).
+### 1.4. Khuyến nghị kỹ thuật then chốt
+* **Định dạng lưu trữ mở & Engine độc lập**: Sử dụng IFC 4.0 làm định dạng dữ liệu hình học cốt lõi (OpenBIM), kết hợp ThatOpen Engine render trực tiếp trên trình duyệt bằng WebGL/WebGPU để loại bỏ sự phụ thuộc vào các engine thương mại đắt đỏ của nước ngoài.
+* **Cơ sở dữ liệu GIS kết hợp BIM (GeoBIM)**: Tích hợp PostGIS với PostgreSQL để đồng bộ tọa độ công trình theo hệ VN-2000, sẵn sàng liên thông cổng dữ liệu số của các địa phương phục vụ quản lý quy hoạch và hạ tầng đô thị thông minh.
+* **R&D mô hình AI-Conductor & Khai thác dữ liệu**: Phát triển mô hình AI-Conductor giúp tối ưu hóa nhân sự, sử dụng AI thế hệ mới để khai thác dữ liệu từ mô hình (đọc cấu trúc thông tin hình học, thuộc tính phi hình học, phân tích xung đột, rà soát quy chuẩn bản vẽ) thay vì chỉ giới hạn ở việc bóc tách khối lượng (QTO) đơn thuần.
+* **Tuân thủ Quy chuẩn QCVN 12/BCA**: Thiết lập hệ thống lưu trữ hoàn toàn trên đám mây nội địa (Viettel Cloud), tích hợp định danh VNeID SSO và cơ chế ghi log bất biến (Immutable WORM logging) để đáp ứng tuyệt đối các yêu cầu về an ninh mạng quốc gia phục vụ khối đầu tư công (B2G).
 
 ---
 
@@ -752,24 +798,29 @@ https://cde.cic.vn/fm/asset/8a9b-7c1d-4e5f-90ab
 
 ### 3.9. Kiến trúc Phân hệ An ninh QCVN 12 & Định danh SSO VNeID (Phân hệ 7)
 
-Phân hệ an ninh là lớp bảo vệ ngoài cùng của CDE CIC, đảm bảo hệ thống đủ điều kiện pháp lý để phục vụ các cơ quan quản lý nhà nước và dự án đầu tư công.
+Phân hệ an ninh là lớp bảo vệ ngoài cùng của CDE CIC, đảm bảo hệ thống đủ điều kiện pháp lý để phục vụ các cơ quan quản lý nhà nước và dự án đầu tư công, đáp ứng đầy đủ các tiêu chuẩn nghiêm ngặt của **QCVN 12:2026/BCA** ban hành kèm theo **Thông tư số 47/2026/TT-BCA** của Bộ Công an (có hiệu lực từ ngày 01/07/2026).
 
-#### 3.9.1. Định danh Xác thực SSO tích hợp cổng VNeID
-Đối với phân khúc khách hàng B2G, CDE CIC không lưu trữ mật khẩu của người dùng công vụ. Thay vào đó, hệ thống tích hợp giải pháp quản lý định danh **Keycloak** kết nối trực tiếp với API định danh điện tử quốc gia **VNeID (Nghị định 59/2022/NĐ-CP)** thông qua giao thức SAML 2.0 / OpenID Connect (OIDC). Người dùng công vụ đăng nhập bằng cách quét mã QR trên ứng dụng VNeID, đảm bảo định danh chính xác 100% cá nhân chịu trách nhiệm phê duyệt hồ sơ thiết kế.
+#### 3.9.1. Định danh Xác thực SSO tích hợp cổng VNeID & Xác thực đa nhân tố (MFA)
+Đối với phân khúc khách hàng B2G, CDE CIC tuân thủ nghiêm ngặt yêu cầu xác thực người dùng của QCVN 12:2026/BCA:
+- Không lưu trữ mật khẩu trực tiếp của người dùng công vụ. Hệ thống tích hợp giải pháp quản lý định danh **Keycloak** kết nối trực tiếp với API định danh điện tử quốc gia **VNeID (Nghị định 59/2022/NĐ-CP)** thông qua giao thức SAML 2.0 / OpenID Connect (OIDC). Người dùng công vụ đăng nhập bằng cách quét mã QR trên ứng dụng VNeID, đảm bảo định danh chính xác 100% cá nhân chịu trách nhiệm phê duyệt hồ sơ thiết kế.
+- Bắt buộc áp dụng **Xác thực đa nhân tố (MFA)** cho tất cả các tài khoản quản trị hệ thống và người dùng có quyền phê duyệt hồ sơ, thiết kế để chống lại các nguy cơ rò rỉ thông tin xác thực.
 
 #### 3.9.2. Nhật ký kiểm toán bất biến (Audit Trail WORM)
-Nhật ký thao tác hệ thống (ai upload, ai sửa, ai duyệt, ai tải tài liệu) là dữ liệu pháp lý tối quan trọng. CDE CIC thiết lập một phân vùng lưu trữ log riêng áp dụng cơ chế **WORM (Write Once, Read Many)**:
-- Log được ghi trực tiếp xuống ổ đĩa bất biến ở dạng Append-only.
+Nhật ký thao tác hệ thống (ai upload, ai sửa, ai duyệt, ai tải tài liệu) là dữ liệu pháp lý tối quan trọng phục vụ công tác thanh kiểm tra theo QCVN 12:2026/BCA. CDE CIC thiết lập một phân vùng lưu trữ log riêng áp dụng cơ chế **WORM (Write Once, Read Many)**:
+- Log được ghi trực tiếp xuống ổ đĩa bất biến ở dạng Append-only, không thể sửa đổi hoặc xóa bởi bất kỳ tài khoản nào (kể cả root admin).
 - Mỗi bản ghi log được băm SHA-256 kèm theo chữ ký số của máy chủ và liên kết với mã băm của bản ghi trước đó (tương tự cấu trúc Blockchain).
-- Không một tài khoản nào (kể cả quản trị viên hệ thống hoặc lập trình viên backend) có quyền sửa đổi hoặc xóa bỏ dữ liệu nhật ký này.
+- Đảm bảo lưu vết đầy đủ mọi hành động truy cập, thay đổi cấu hình, phân quyền để phục vụ công tác giám sát an ninh mạng.
 
-#### 3.9.3. Kiến trúc Bảo mật mạng & Giám sát SIEM
-Hệ thống hạ tầng Viettel Cloud được chia tách thành 3 vùng mạng an toàn độc lập vật lý:
+#### 3.9.3. Kiến trúc Bảo mật mạng, Giám sát SIEM & Kiểm soát truy cập từ xa nghiêm ngặt
+Hệ thống hạ tầng Viettel Cloud (đặt tại Việt Nam) được chia tách thành 3 vùng mạng an toàn độc lập vật lý theo đúng tinh thần bảo vệ của QCVN 12:2026/BCA:
 1. **Public Zone (Vùng công cộng)**: Chứa API Gateway và Static Web Assets, được bảo vệ bởi lớp tường lửa Web Application Firewall (WAF) để chống tấn công DDoS, SQL Injection, Cross-Site Scripting (XSS).
 2. **Private Zone (Vùng ứng dụng nội bộ)**: Chứa cụm máy chủ Kubernetes (VKE Cluster) chạy các vi dịch vụ Go/Python. Không thể truy cập trực tiếp từ Internet.
 3. **Database Zone (Vùng cơ sở dữ liệu)**: Chứa PostgreSQL, Redis và S3 Storage, chỉ chấp nhận kết nối từ Private Zone.
 
-Toàn bộ hoạt động của hệ thống được giám sát liên tục 24/7 bởi giải pháp **Wazuh SIEM**, tự động phân tích hành vi bất thường (như brute-force login, truy cập dữ liệu lớn từ IP lạ) để phát cảnh báo an ninh tức thì.
+Đặc biệt, hệ thống áp dụng các nguyên tắc an ninh nghiêm ngặt sau:
+- **Kiểm soát truy cập từ xa và cập nhật**: Nghiêm cấm mọi cơ chế tự động cập nhật hoặc gọi về máy chủ nước ngoài (Auto-updates/Call-home) để bảo vệ hệ thống khỏi các lỗ hổng zero-day và backdoor từ nhà cung cấp bên ngoài. Mọi hoạt động cập nhật phần phần mềm hoặc truy cập quản trị từ xa phải được thực hiện thủ công qua kênh VPN an toàn và được phê duyệt theo quy trình nghiêm ngặt.
+- **Giám sát SIEM**: Toàn bộ hoạt động của hệ thống được giám sát liên tục 24/7 bởi giải pháp **Wazuh SIEM**, tự động phân tích hành vi bất thường (như brute-force login, truy cập dữ liệu lớn từ IP lạ) để phát cảnh báo an ninh tức thì.
+- **Sao lưu dự phòng 3-2-1**: Dữ liệu thiết kế và mô hình BIM được sao lưu theo chiến lược 3-2-1 (3 bản sao lưu, lưu trên 2 loại phương tiện khác nhau, và ít nhất 1 bản lưu tại địa điểm vật lý khác/air-gapped backup) để đảm bảo khả năng phục hồi thảm họa tuyệt đối trong mọi tình huống.
 
 #### 3.9.4. Quy trình 5 bước đạt Chứng nhận Hợp quy QCVN 12
 Để hỗ trợ Ban giám đốc CIC bấm nút khởi động dự án an toàn, quy trình đạt hợp quy QCVN 12:2026/BCA được thiết kế thành lộ trình 5 bước độc lập chạy song song với tiến trình phát triển sản phẩm:
@@ -802,18 +853,20 @@ Toàn bộ hoạt động của hệ thống được giám sát liên tục 24/
 ## Chương 4: An toàn Thông tin, Pháp lý & Bản quyền (Security, Compliance & IP)
 
 ### 4.1. Quy chuẩn QCVN 12:2026/BCA & Quy trình 5 bước đạt chứng nhận
+Để đáp ứng điều kiện lưu trữ tài liệu số và an ninh thông tin cho khối cơ quan Nhà nước và Đảng, CDE CIC tuân thủ nghiêm ngặt quy định tại **Thông tư số 47/2026/TT-BCA** của Bộ Công an ban hành ngày 12/05/2026, ban hành Quy chuẩn kỹ thuật quốc gia **QCVN 12:2026/BCA** về An ninh mạng đối với Hệ thống lưu trữ tài liệu điện tử, có hiệu lực kể từ ngày **01/07/2026**.
+
 Để đạt được giấy chứng nhận hợp quy của Cục An ninh mạng và Phòng chống tội phạm sử dụng công nghệ cao (A05 - Bộ Công an), hệ thống CDE CIC cần tuân thủ 22 nhóm yêu cầu kỹ thuật:
 
 ```mermaid
 graph TD
-    Step1["Bước 1: Thiết kế Security by Design<br/>(Mã hóa AES-256, TLS 1.3, MFA, WORM)"] --> Step2["Bước 2: Rà quét & Khắc phục nội bộ<br/>(Kiểm thử SAST/DAST, Vá lỗ hổng)"]
+    Step1["Bước 1: Thiết kế Security by Design<br/>(Mã hóa AES-256, TLS 1.3, MFA, WORM, Air-gapped backup)"] --> Step2["Bước 2: Rà quét & Khắc phục nội bộ<br/>(Kiểm thử SAST/DAST, Vá lỗ hổng, Cô lập nâng cấp)"]
     Step2 --> Step3["Bước 3: Đánh giá độc lập<br/>(Thuê đơn vị sự nghiệp kiểm định độc lập)"]
     Step3 --> Step4["Bước 4: Nộp hồ sơ pháp lý lên A05<br/>(Hồ sơ đề xuất, Báo cáo kiểm định)"]
     Step4 --> Step5["Bước 5: Thanh tra thực tế & Cấp chứng nhận<br/>(Cục A05 thẩm định tại DC & Phần mềm)"]
     style Step5 fill:#198754,color:#fff
 ```
 
-Hệ thống sẽ được thiết kế sẵn sàng cho việc kiểm thử an ninh mã nguồn thông qua công cụ quét tự động SonarQube, ghi vết nhật ký hệ thống bất biến qua phân vùng WORM và tích hợp sẵn cơ chế đăng nhập một lần (SSO) sử dụng tài khoản định danh điện tử VNeID phục vụ các cán bộ công chức nhà nước.
+Hệ thống sẽ được thiết kế sẵn sàng cho việc kiểm thử an ninh mã nguồn thông qua công cụ quét tự động SonarQube, ghi vết nhật ký hệ thống bất biến qua phân vùng WORM, thiết lập quy trình lưu trữ dự phòng 3-2-1 với air-gapped backup, tắt tính năng cập nhật tự động/call-home ngoài ý muốn, và tích hợp sẵn cơ chế đăng nhập một lần (SSO) sử dụng tài khoản định danh điện tử VNeID phục vụ các cán bộ công chức nhà nước.
 
 **Lộ trình QCVN 12 tách biệt khỏi timeline ship product:**
 

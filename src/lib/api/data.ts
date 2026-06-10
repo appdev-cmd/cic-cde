@@ -90,16 +90,23 @@ export async function fetchActivities(projectId: string): Promise<ActivityItem[]
   return (data ?? []).map(mapActivity);
 }
 
-// ---------------- BCF topics ----------------
+// ---------------- BCF topics (Vấn đề / Issue) ----------------
 export interface BcfTopicRow {
   id: string;
   title: string;
   description: string;
   status: string;
   priority: string;
+  topicType: string;
   assignedTo: string;
+  author?: string;
+  dueDate?: string;
+  labels?: string[];
   linkedElementGuid?: string;
   linkedElementExpressId?: number;
+  camera?: { position: number[]; target: number[] };
+  hiddenModels?: string[];
+  screenshot?: string;
   createdDate: string;
 }
 
@@ -113,16 +120,25 @@ export async function fetchBcfTopics(projectId: string): Promise<BcfTopicRow[]> 
     description: r.description ?? '',
     status: r.status ?? 'Open',
     priority: r.priority ?? 'Medium',
+    topicType: r.topic_type ?? 'Clash',
     assignedTo: r.assigned_to ?? '',
+    author: r.author ?? undefined,
+    dueDate: r.due_date ?? undefined,
+    labels: r.labels ?? undefined,
     linkedElementGuid: r.linked_element_guid ?? undefined,
     linkedElementExpressId: r.linked_element_express_id ?? undefined,
+    camera: r.camera ?? undefined,
+    hiddenModels: r.hidden_models ?? undefined,
+    screenshot: r.screenshot ?? undefined,
     createdDate: (r.created_at ?? '').split('T')[0],
   }));
 }
 
 export async function createBcfTopic(projectId: string, t: {
-  title: string; description: string; status: string; priority: string; assignedTo: string;
+  title: string; description: string; status: string; priority: string; topicType?: string; assignedTo: string;
+  author?: string; dueDate?: string; labels?: string[];
   linkedElementGuid?: string; linkedElementExpressId?: number;
+  camera?: { position: number[]; target: number[] }; hiddenModels?: string[]; screenshot?: string;
 }): Promise<string | null> {
   const { data, error } = await supabase.from('bcf_topics').insert({
     project_id: projectId,
@@ -130,12 +146,90 @@ export async function createBcfTopic(projectId: string, t: {
     description: t.description,
     status: t.status,
     priority: t.priority,
+    topic_type: t.topicType ?? 'Clash',
     assigned_to: t.assignedTo,
+    author: t.author ?? null,
+    due_date: t.dueDate ?? null,
+    labels: t.labels ?? null,
     linked_element_guid: t.linkedElementGuid ?? null,
     linked_element_express_id: t.linkedElementExpressId ?? null,
+    camera: t.camera ?? null,
+    hidden_models: t.hiddenModels ?? null,
+    screenshot: t.screenshot ?? null,
   }).select('id').single();
   if (error) { console.error('createBcfTopic error:', error.message); return null; }
   return data.id;
+}
+
+export async function updateBcfStatus(id: string, status: string): Promise<void> {
+  const { error } = await supabase.from('bcf_topics').update({ status }).eq('id', id);
+  if (error) console.error('updateBcfStatus error:', error.message);
+}
+
+// Cập nhật nhiều trường của vấn đề (trạng thái/ưu tiên/giao việc/hạn/nhãn...)
+export async function updateBcfTopic(id: string, patch: {
+  status?: string; priority?: string; assignedTo?: string; dueDate?: string | null;
+  labels?: string[]; title?: string; description?: string; topicType?: string;
+}): Promise<void> {
+  const dbPatch: Record<string, any> = {};
+  if (patch.status !== undefined) dbPatch.status = patch.status;
+  if (patch.priority !== undefined) dbPatch.priority = patch.priority;
+  if (patch.assignedTo !== undefined) dbPatch.assigned_to = patch.assignedTo;
+  if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate;
+  if (patch.labels !== undefined) dbPatch.labels = patch.labels;
+  if (patch.title !== undefined) dbPatch.title = patch.title;
+  if (patch.description !== undefined) dbPatch.description = patch.description;
+  if (patch.topicType !== undefined) dbPatch.topic_type = patch.topicType;
+  if (Object.keys(dbPatch).length === 0) return;
+  const { error } = await supabase.from('bcf_topics').update(dbPatch).eq('id', id);
+  if (error) console.error('updateBcfTopic error:', error.message);
+}
+
+export async function deleteBcfTopic(id: string): Promise<void> {
+  const { error } = await supabase.from('bcf_topics').delete().eq('id', id);
+  if (error) console.error('deleteBcfTopic error:', error.message);
+}
+
+// ---------------- BCF comments (trao đổi/nhật ký vấn đề) ----------------
+export interface BcfComment {
+  id: string;
+  topicId: string;
+  author: string;
+  body: string;
+  commentType: 'comment' | 'status' | 'assign' | 'priority' | 'system';
+  createdAt: string;
+}
+
+const mapComment = (r: any): BcfComment => ({
+  id: r.id, topicId: r.topic_id, author: r.author ?? '', body: r.body ?? '',
+  commentType: (r.comment_type ?? 'comment'), createdAt: r.created_at,
+});
+
+export async function fetchBcfComments(topicId: string): Promise<BcfComment[]> {
+  const { data, error } = await supabase.from('bcf_comments').select('*')
+    .eq('topic_id', topicId).order('created_at', { ascending: true });
+  if (error) { console.error('fetchBcfComments error:', error.message); return []; }
+  return (data ?? []).map(mapComment);
+}
+
+export async function addBcfComment(
+  topicId: string, projectId: string, author: string, body: string,
+  commentType: BcfComment['commentType'] = 'comment'
+): Promise<BcfComment | null> {
+  const { data, error } = await supabase.from('bcf_comments').insert({
+    topic_id: topicId, project_id: projectId, author, body, comment_type: commentType,
+  }).select().single();
+  if (error) { console.error('addBcfComment error:', error.message); return null; }
+  return mapComment(data);
+}
+
+// Đếm số bình luận cho nhiều vấn đề (badge trên danh sách)
+export async function countBcfComments(projectId: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('bcf_comments').select('topic_id').eq('project_id', projectId);
+  if (error) { console.error('countBcfComments error:', error.message); return {}; }
+  const counts: Record<string, number> = {};
+  for (const r of (data ?? [])) counts[(r as any).topic_id] = (counts[(r as any).topic_id] ?? 0) + 1;
+  return counts;
 }
 
 // ---------------- Assets (FM) ----------------
@@ -193,6 +287,61 @@ export async function createTicket(assetId: string, t: {
 export async function updateTicketStatus(ticketId: string, status: string): Promise<void> {
   const { error } = await supabase.from('maintenance_tickets').update({ status }).eq('id', ticketId);
   if (error) console.error('updateTicketStatus error:', error.message);
+}
+
+// ---------------- Viewpoints (góc nhìn) ----------------
+export interface Viewpoint {
+  id: string;
+  name: string;
+  camera: { position: number[]; target: number[] };
+  hiddenModels: string[];
+  recentered: boolean;
+  screenshot?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+export async function fetchViewpoints(projectId: string): Promise<Viewpoint[]> {
+  const { data, error } = await supabase.from('viewpoints').select('*').eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    camera: r.camera,
+    hiddenModels: r.hidden_models ?? [],
+    recentered: r.recentered ?? false,
+    screenshot: r.screenshot ?? undefined,
+    createdByName: r.created_by_name ?? undefined,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function createViewpoint(projectId: string, vp: {
+  name: string; camera: { position: number[]; target: number[] };
+  hiddenModels: string[]; recentered: boolean; screenshot?: string; createdByName?: string;
+}): Promise<Viewpoint | null> {
+  const { data, error } = await supabase.from('viewpoints').insert({
+    project_id: projectId,
+    name: vp.name,
+    camera: vp.camera,
+    hidden_models: vp.hiddenModels,
+    recentered: vp.recentered,
+    screenshot: vp.screenshot ?? null,
+    created_by_name: vp.createdByName ?? null,
+  }).select().single();
+  if (error) { console.error('createViewpoint error:', error.message); return null; }
+  return {
+    id: data.id, name: data.name, camera: data.camera,
+    hiddenModels: data.hidden_models ?? [], recentered: data.recentered ?? false,
+    screenshot: data.screenshot ?? undefined, createdByName: data.created_by_name ?? undefined,
+    createdAt: data.created_at,
+  };
+}
+
+export async function deleteViewpoint(id: string): Promise<void> {
+  const { error } = await supabase.from('viewpoints').delete().eq('id', id);
+  if (error) console.error('deleteViewpoint error:', error.message);
 }
 
 export async function logActivity(
