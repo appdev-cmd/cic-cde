@@ -87,15 +87,20 @@ export const extractQto = async (
 ): Promise<{ detail: QtoDetailRow[]; total: number; withQ: number }> => {
   const idsSet = await model.getLocalIds();
   const ids = Array.from(idsSet) as number[];
-  const items = await model.getItemsData(ids, {
+
+  const map: Record<string, QtoDetailRow> = {};
+  let withQ = 0;
+
+  // Chia lô để không tạo mảng kết quả khổng lồ (kèm quan hệ IsDefinedBy) một lúc
+  // — model lớn dễ làm tràn bộ nhớ tab nếu lấy toàn bộ trong 1 lần gọi.
+  const BATCH = 3000;
+  for (let off = 0; off < ids.length; off += BATCH) {
+  const items = await model.getItemsData(ids.slice(off, off + BATCH), {
     attributesDefault: true,
     relations: {
       IsDefinedBy: { attributes: true, relations: true },
     },
   });
-
-  const map: Record<string, QtoDetailRow> = {};
-  let withQ = 0;
 
   for (const item of items) {
     if (!item) continue;
@@ -134,6 +139,9 @@ export const extractQto = async (
     };
     visit(definedBy, 0);
     if (elementHasQ) withQ += 1;
+  }
+  // Nhường main thread giữa các lô
+  await new Promise(r => setTimeout(r, 0));
   }
 
   const detail = Object.values(map).filter(r => r.count > 0);
@@ -181,7 +189,8 @@ export interface BimViewerRef {
   isolateElements: (expressIds: number[]) => void;
   setGhostMode: (expressIds: number[], active: boolean) => void;
   setCameraView: (viewType: 'top' | 'front' | 'right' | 'iso') => void;
-  getQuantityTakeoff: () => Promise<QtoResult | null>;
+  getQuantityTakeoff: (modelIds?: string[]) => Promise<QtoResult | null>;
+  getModelCategories: () => { modelId: string; modelName: string; categories: string[] }[];
   zoomIn: () => void;
   zoomOut: () => void;
   getLoadedModels: () => LoadedModelInfo[];
@@ -213,6 +222,16 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
   const catMapsRef = useRef<Record<string, Record<string, number[]>>>({}); // modelId -> category -> localIds
   const flyEnabledRef = useRef(false);
   const propsDictRef = useRef<Record<number, any>>({});
+
+  // Hàng đợi tác vụ nặng chạy nền (trích thuộc tính, xuất .frag) — chạy TUẦN TỰ
+  // để không chồng nhiều tác vụ ngốn RAM cùng lúc (nguyên nhân tab bị OOM/crash
+  // khi liên hợp nhiều mô hình lớn).
+  const bgQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const enqueueBg = (task: () => Promise<void>): Promise<void> => {
+    const next = bgQueueRef.current.then(task).catch(e => console.warn('Tác vụ nền lỗi:', e));
+    bgQueueRef.current = next;
+    return next;
+  };
 
   // Store callbacks in refs to prevent useEffect dependency cycle
   const onElementSelectedRef = useRef(onElementSelected);
@@ -457,12 +476,18 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     const highlighter = componentsRef.current.get(OBF.Highlighter);
     await highlighter.clear();
 
-    // Trích xuất thuộc tính đầy đủ CHẠY NỀN (không chặn) — model lớn không bị khựng.
-    void (async () => {
-      try {
-        const localIds = Array.from(await model.getLocalIds());
-        const itemsData = await model.getItemsData(localIds);
-        const newProps: Record<number, any> = {};
+    // Trích xuất thuộc tính đầy đủ CHẠY NỀN — xếp hàng tuần tự (enqueueBg) và chia
+    // lô nhỏ để không chồng tác vụ nặng/không tạo mảng khổng lồ → tránh OOM khi
+    // liên hợp nhiều mô hình lớn.
+    enqueueBg(async () => {
+      // Model có thể đã bị gỡ trong lúc chờ tới lượt
+      if (!loadedModelsRef.current.some(m => m.id === modelId)) return;
+      const localIds = Array.from(await model.getLocalIds()) as number[];
+      const newProps: Record<number, any> = {};
+      const BATCH = 5000;
+      for (let i = 0; i < localIds.length; i += BATCH) {
+        if (!loadedModelsRef.current.some(m => m.id === modelId)) return;
+        const itemsData = await model.getItemsData(localIds.slice(i, i + BATCH));
         for (const item of itemsData) {
           if (!item) continue;
           const id = item._localId ? item._localId.value : null;
@@ -480,21 +505,21 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
           }
           newProps[id] = props;
         }
-        propsDictRef.current = { ...propsDictRef.current, ...newProps };
-        // Cập nhật lại UI với tên/thuộc tính đầy đủ + catMap hoàn chỉnh
-        if (Object.keys(newProps).length) {
-          const fullCat: Record<string, number[]> = {};
-          for (const idStr in newProps) {
-            const cat = (newProps[idStr].type || 'IFCELEMENT').toUpperCase();
-            (fullCat[cat] ||= []).push(Number(idStr));
-          }
-          catMapsRef.current[modelId] = fullCat;
-          onModelLoadedRef.current?.(spatial, propsDictRef.current, model, true);
-        }
-      } catch (e) {
-        console.warn('Trích thuộc tính nền lỗi:', e);
+        // Nhường main thread một nhịp giữa các lô (UI không khựng)
+        await new Promise(r => setTimeout(r, 0));
       }
-    })();
+      propsDictRef.current = { ...propsDictRef.current, ...newProps };
+      // Cập nhật lại UI với tên/thuộc tính đầy đủ + catMap hoàn chỉnh
+      if (Object.keys(newProps).length) {
+        const fullCat: Record<string, number[]> = {};
+        for (const idStr in newProps) {
+          const cat = (newProps[idStr].type || 'IFCELEMENT').toUpperCase();
+          (fullCat[cat] ||= []).push(Number(idStr));
+        }
+        catMapsRef.current[modelId] = fullCat;
+        onModelLoadedRef.current?.(spatial, propsDictRef.current, model, true);
+      }
+    });
   };
 
   // Shared helper: configure IfcLoader WASM
@@ -515,6 +540,10 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       if (modelId && loadedModelsRef.current.some(m => m.id === modelId)) return;
 
       setLoading(true);
+      // Chờ tác vụ nền của model trước (trích thuộc tính) xong rồi mới parse IFC
+      // mới — không chồng 2 tác vụ ngốn RAM → tránh crash tab khi nạp nhiều model.
+      setLoadingProgress('Đang chờ xử lý mô hình trước đó...');
+      await bgQueueRef.current;
       setLoadingProgress('Đang tải tệp tin từ máy chủ...');
 
       try {
@@ -552,6 +581,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       if (loadedModelsRef.current.some(m => m.id === modelId)) return;
       setLoading(true);
       setLoadingProgress('Đang nạp mô hình (định dạng nhanh)...');
+      await bgQueueRef.current; // chờ tác vụ nền trước đó, tránh chồng tải
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error('fetch frag failed');
@@ -570,6 +600,9 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     },
 
     getModelBuffer: async (modelId: string) => {
+      // Chờ các tác vụ nền (trích thuộc tính) xong rồi mới serialize buffer —
+      // tránh 2 tác vụ ngốn RAM chạy cùng lúc gây OOM với model lớn.
+      await bgQueueRef.current;
       const info = loadedModelsRef.current.find(m => m.id === modelId);
       if (!info) return null;
       try {
@@ -584,6 +617,8 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       if (!componentsRef.current || !worldRef.current) return;
 
       setLoading(true);
+      setLoadingProgress('Đang chờ xử lý mô hình trước đó...');
+      await bgQueueRef.current; // tuần tự hóa tác vụ nặng, tránh OOM
       setLoadingProgress('Đang đọc tệp tin cục bộ...');
 
       try {
@@ -713,13 +748,26 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       }
     },
 
-    getQuantityTakeoff: async () => {
-      const models = loadedModelsRef.current;
+    // Danh mục nhanh (mô hình + lớp cấu kiện) để hiện bộ chọn phạm vi NGAY,
+    // không cần trích xuất khối lượng nặng trước.
+    getModelCategories: () => {
+      return loadedModelsRef.current.map(m => ({
+        modelId: m.id,
+        modelName: m.name,
+        categories: Object.keys(catMapsRef.current[m.id] || {}).sort(),
+      }));
+    },
+
+    getQuantityTakeoff: async (modelIds?: string[]) => {
+      let models = loadedModelsRef.current;
+      if (modelIds && modelIds.length) models = models.filter(m => modelIds.includes(m.id));
       if (!models.length) return null;
+      // Chờ tác vụ nền (trích thuộc tính) xong để không tranh chấp worker → tránh treo
+      await bgQueueRef.current;
       try {
         const detail: QtoDetailRow[] = [];
         let total = 0, withQ = 0;
-        // Bóc tách khối lượng cho TẤT CẢ mô hình đang liên hợp (mỗi mô hình = 1 hạng mục)
+        // Bóc tách khối lượng cho các mô hình ĐƯỢC CHỌN (mỗi mô hình = 1 hạng mục)
         for (const { id, name, model } of models) {
           try {
             const r = await extractQto(model, id, name);

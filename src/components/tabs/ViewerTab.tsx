@@ -464,27 +464,42 @@ export function ViewerTab({
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // QTO (Quantity Take-Off) state + bộ lọc theo bộ môn / hạng mục / lớp cấu kiện
+  // QTO (Quantity Take-Off): chọn phạm vi (bộ môn/hạng mục/cấu kiện) TRƯỚC, rồi bóc tách
   const [qtoOpen, setQtoOpen] = useState(false);
   const [qtoLoading, setQtoLoading] = useState(false);
+  const [qtoExtracted, setQtoExtracted] = useState(false);
   const [qtoResult, setQtoResult] = useState<QtoResult | null>(null);
+  // Danh mục nhanh (mô hình + lớp cấu kiện) — lấy NGAY khi mở, không cần trích nặng
+  const [qtoScope, setQtoScope] = useState<{ modelId: string; modelName: string; categories: string[] }[]>([]);
   const [qtoDiscFilter, setQtoDiscFilter] = useState<Set<string>>(new Set());
   const [qtoModelFilter, setQtoModelFilter] = useState<Set<string>>(new Set());
   const [qtoCatFilter, setQtoCatFilter] = useState<Set<string>>(new Set());
 
-  const handleOpenQto = async () => {
+  // Mở bảng QTO: hiện bộ chọn phạm vi NGAY (không trích xuất gì cả)
+  const handleOpenQto = () => {
     setQtoOpen(true);
-    setQtoLoading(true);
+    setQtoLoading(false);
+    setQtoExtracted(false);
     setQtoResult(null);
+    const scope = viewerRef.current?.getModelCategories() ?? [];
+    setQtoScope(scope);
+    // Mặc định chọn tất cả
+    setQtoDiscFilter(new Set(scope.map(s => deriveDiscipline(s.modelName))));
+    setQtoModelFilter(new Set(scope.map(s => s.modelId)));
+    setQtoCatFilter(new Set(scope.flatMap(s => s.categories)));
+  };
+
+  // Bóc tách khối lượng theo phạm vi đã chọn (bộ môn + hạng mục)
+  const handleRunQto = async () => {
+    const ids = qtoScope
+      .filter(s => qtoDiscFilter.has(deriveDiscipline(s.modelName)) && qtoModelFilter.has(s.modelId))
+      .map(s => s.modelId);
+    if (ids.length === 0) return;
+    setQtoLoading(true);
+    setQtoExtracted(true);
     try {
-      const result = await viewerRef.current?.getQuantityTakeoff();
+      const result = await viewerRef.current?.getQuantityTakeoff(ids);
       setQtoResult(result ?? null);
-      // Mặc định chọn tất cả các bộ lọc
-      if (result) {
-        setQtoDiscFilter(new Set(result.detail.map(d => deriveDiscipline(d.modelName))));
-        setQtoModelFilter(new Set(result.detail.map(d => d.modelId)));
-        setQtoCatFilter(new Set(result.detail.map(d => d.category)));
-      }
     } catch (err) {
       console.error(err);
       setQtoResult(null);
@@ -500,12 +515,16 @@ export function ViewerTab({
     setFn(next);
   };
 
-  // Danh sách lựa chọn bộ lọc suy từ dữ liệu QTO chi tiết
+  // Lựa chọn bộ lọc lấy từ DANH MỤC NHANH (có ngay, trước khi bóc tách)
+  const qtoDisciplines: string[] = Array.from(new Set(qtoScope.map(s => deriveDiscipline(s.modelName))));
+  const qtoModels: { id: string; name: string }[] = qtoScope.map(s => ({ id: s.modelId, name: s.modelName }));
+  // Lớp cấu kiện chỉ hiện của các mô hình/bộ môn đang chọn
+  const qtoCategories: string[] = Array.from(new Set<string>(
+    qtoScope
+      .filter(s => qtoDiscFilter.has(deriveDiscipline(s.modelName)) && qtoModelFilter.has(s.modelId))
+      .flatMap(s => s.categories)
+  )).sort();
   const qtoDetailRows: QtoDetailRow[] = qtoResult?.detail ?? [];
-  const qtoDisciplines: string[] = Array.from(new Set(qtoDetailRows.map(d => deriveDiscipline(d.modelName))));
-  const qtoModels: { id: string; name: string }[] =
-    Array.from(new Map(qtoDetailRows.map(d => [d.modelId, d.modelName] as [string, string])).entries()).map(([id, name]) => ({ id, name }));
-  const qtoCategories: string[] = Array.from(new Set(qtoDetailRows.map(d => d.category))).sort();
 
   // Lọc chi tiết theo 3 tiêu chí rồi gộp lại theo lớp cấu kiện để hiển thị
   const qtoFilteredDetail = qtoDetailRows.filter(d =>
@@ -1322,26 +1341,19 @@ export function ViewerTab({
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
-              {qtoLoading ? (
-                <div className="h-40 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
-                  <RefreshCw size={28} className="animate-spin text-primary" />
-                  <span className="text-sm font-medium">Đang trích xuất khối lượng từ mô hình IFC...</span>
-                </div>
-              ) : !qtoResult || qtoResult.rows.length === 0 ? (
+              {qtoScope.length === 0 ? (
                 <div className="h-40 flex flex-col items-center justify-center gap-2 text-center text-on-surface-variant px-6">
                   <AlertCircle size={28} className="text-outline/50" />
-                  <p className="text-sm font-medium">Chưa nạp mô hình hoặc mô hình không chứa dữ liệu khối lượng (Qto_*BaseQuantities).</p>
-                  <p className="text-[11px] text-outline">Hãy nạp một mô hình IFC có bộ thuộc tính khối lượng để bóc tách.</p>
+                  <p className="text-sm font-medium">Chưa có mô hình nào được nạp.</p>
+                  <p className="text-[11px] text-outline">Hãy nạp ít nhất một mô hình IFC ở tab “Mô hình” rồi mở lại bảng bóc tách.</p>
                 </div>
               ) : (
                 <>
-                  {/* Bộ lọc: Bộ môn / Hạng mục (mô hình) / Lớp cấu kiện */}
+                  {/* BƯỚC 1: Chọn phạm vi bóc tách (hiện ngay, không cần trích nặng) */}
                   <div className="space-y-2.5 mb-4 bg-surface-container-low/40 border border-outline-variant/40 rounded-xl p-3">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-on-surface">
-                      <Filter size={13} className="text-primary" /> Lọc trước khi xuất khối lượng
+                      <Filter size={13} className="text-primary" /> Bước 1 — Chọn phạm vi bóc tách
                     </div>
-
-                    {/* Bộ môn */}
                     <QtoFilterGroup
                       label="Bộ môn"
                       items={qtoDisciplines.map(d => ({ key: d, label: d }))}
@@ -1350,7 +1362,6 @@ export function ViewerTab({
                       onAll={() => setQtoDiscFilter(new Set(qtoDisciplines))}
                       onNone={() => setQtoDiscFilter(new Set())}
                     />
-                    {/* Hạng mục (mô hình) */}
                     <QtoFilterGroup
                       label="Hạng mục"
                       items={qtoModels.map(m => ({ key: m.id, label: m.name }))}
@@ -1359,7 +1370,6 @@ export function ViewerTab({
                       onAll={() => setQtoModelFilter(new Set(qtoModels.map(m => m.id)))}
                       onNone={() => setQtoModelFilter(new Set())}
                     />
-                    {/* Lớp cấu kiện */}
                     <QtoFilterGroup
                       label="Cấu kiện"
                       items={qtoCategories.map(c => ({ key: c, label: ifcClassLabel(c) ? `${c} · ${ifcClassLabel(c)}` : c }))}
@@ -1369,65 +1379,90 @@ export function ViewerTab({
                       onNone={() => setQtoCatFilter(new Set())}
                       scroll
                     />
-                  </div>
-
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-[11px] text-on-surface-variant font-medium">
-                      Đang chọn <span className="font-bold text-primary">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</span> cấu kiện
-                      ({qtoDisplayRows.length} lớp) / tổng {qtoResult.totalElements} · {qtoResult.elementsWithQuantities} có khối lượng.
-                    </div>
                     <button
-                      onClick={handleExportQtoCsv}
-                      disabled={qtoFilteredDetail.length === 0}
-                      className="flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={handleRunQto}
+                      disabled={qtoLoading || qtoScope.filter(s => qtoDiscFilter.has(deriveDiscipline(s.modelName)) && qtoModelFilter.has(s.modelId)).length === 0}
+                      className="w-full mt-1 flex items-center justify-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12.5px] font-bold py-2 rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Upload size={13} /> Xuất CSV (đang lọc)
+                      {qtoLoading ? <><RefreshCw size={14} className="animate-spin" /> Đang bóc tách...</> : <><ClipboardList size={14} /> Bóc tách khối lượng</>}
                     </button>
                   </div>
 
-                  {qtoDisplayRows.length === 0 ? (
-                    <div className="h-28 flex items-center justify-center text-center text-[12px] text-outline">
-                      Không có cấu kiện nào khớp bộ lọc. Hãy chọn lại bộ môn / hạng mục / cấu kiện.
+                  {qtoLoading ? (
+                    <div className="h-32 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
+                      <RefreshCw size={26} className="animate-spin text-primary" />
+                      <span className="text-[13px] font-medium">Đang trích xuất khối lượng từ mô hình đã chọn...</span>
+                    </div>
+                  ) : !qtoExtracted ? (
+                    <div className="h-28 flex flex-col items-center justify-center gap-1.5 text-center text-on-surface-variant">
+                      <ClipboardList size={24} className="text-outline/50" />
+                      <p className="text-[12.5px] font-medium">Chọn phạm vi ở trên rồi bấm <span className="font-bold text-primary">Bóc tách khối lượng</span>.</p>
+                    </div>
+                  ) : !qtoResult || qtoResult.rows.length === 0 ? (
+                    <div className="h-28 flex flex-col items-center justify-center gap-1.5 text-center text-on-surface-variant px-6">
+                      <AlertCircle size={24} className="text-outline/50" />
+                      <p className="text-[12.5px] font-medium">Phạm vi đã chọn không có dữ liệu khối lượng (Qto_*BaseQuantities) trong IFC.</p>
                     </div>
                   ) : (
-                  <table className="w-full text-[12.5px] border-collapse">
-                    <thead>
-                      <tr className="text-[10px] uppercase tracking-wider text-outline border-b border-outline-variant">
-                        <th className="text-left font-bold py-2 px-2">Loại cấu kiện (IFC)</th>
-                        <th className="text-right font-bold py-2 px-2">Số lượng</th>
-                        <th className="text-right font-bold py-2 px-2">Diện tích (m²)</th>
-                        <th className="text-right font-bold py-2 px-2">Thể tích (m³)</th>
-                        <th className="text-right font-bold py-2 px-2">Chiều dài (m)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {qtoDisplayRows.map((r) => (
-                        <tr key={r.category} className="border-b border-outline-variant/30 hover:bg-surface-container/40 transition-colors">
-                          <td className="py-2 px-2 font-semibold text-on-surface">
-                            {r.category}{ifcClassLabel(r.category) && <span className="text-outline font-normal"> · {ifcClassLabel(r.category)}</span>}
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.count}</td>
-                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.area > 0 ? r.area.toFixed(2) : '—'}</td>
-                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.volume > 0 ? r.volume.toFixed(2) : '—'}</td>
-                          <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.length > 0 ? r.length.toFixed(2) : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-outline-variant font-bold text-on-surface">
-                        <td className="py-2 px-2">TỔNG CỘNG</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.area, 0).toFixed(2)}</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.volume, 0).toFixed(2)}</td>
-                        <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.length, 0).toFixed(2)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-[11px] text-on-surface-variant font-medium">
+                          Hiển thị <span className="font-bold text-primary">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</span> cấu kiện
+                          ({qtoDisplayRows.length} lớp) / đã bóc {qtoResult.totalElements} · {qtoResult.elementsWithQuantities} có khối lượng.
+                        </div>
+                        <button
+                          onClick={handleExportQtoCsv}
+                          disabled={qtoFilteredDetail.length === 0}
+                          className="flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Upload size={13} /> Xuất CSV
+                        </button>
+                      </div>
+                      {qtoDisplayRows.length === 0 ? (
+                        <div className="h-24 flex items-center justify-center text-center text-[12px] text-outline">
+                          Không có cấu kiện nào khớp lọc “Cấu kiện”. Hãy chọn thêm lớp cấu kiện.
+                        </div>
+                      ) : (
+                      <table className="w-full text-[12.5px] border-collapse">
+                        <thead>
+                          <tr className="text-[10px] uppercase tracking-wider text-outline border-b border-outline-variant">
+                            <th className="text-left font-bold py-2 px-2">Loại cấu kiện (IFC)</th>
+                            <th className="text-right font-bold py-2 px-2">Số lượng</th>
+                            <th className="text-right font-bold py-2 px-2">Diện tích (m²)</th>
+                            <th className="text-right font-bold py-2 px-2">Thể tích (m³)</th>
+                            <th className="text-right font-bold py-2 px-2">Chiều dài (m)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qtoDisplayRows.map((r) => (
+                            <tr key={r.category} className="border-b border-outline-variant/30 hover:bg-surface-container/40 transition-colors">
+                              <td className="py-2 px-2 font-semibold text-on-surface">
+                                {r.category}{ifcClassLabel(r.category) && <span className="text-outline font-normal"> · {ifcClassLabel(r.category)}</span>}
+                              </td>
+                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.count}</td>
+                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.area > 0 ? r.area.toFixed(2) : "—"}</td>
+                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.volume > 0 ? r.volume.toFixed(2) : "—"}</td>
+                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.length > 0 ? r.length.toFixed(2) : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-outline-variant font-bold text-on-surface">
+                            <td className="py-2 px-2">TỔNG CỘNG</td>
+                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</td>
+                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.area, 0).toFixed(2)}</td>
+                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.volume, 0).toFixed(2)}</td>
+                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.length, 0).toFixed(2)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                      )}
+                      <p className="text-[10.5px] text-outline mt-4 leading-relaxed">
+                        * Khối lượng được trích trực tiếp từ bộ thuộc tính <code className="font-mono">Qto_*BaseQuantities</code> trong tệp IFC.
+                        Đây là nền tảng cho dự toán 5D (gắn đơn giá định mức Bộ Xây dựng) ở giai đoạn sau.
+                      </p>
+                    </>
                   )}
-                  <p className="text-[10.5px] text-outline mt-4 leading-relaxed">
-                    * Khối lượng được trích trực tiếp từ bộ thuộc tính <code className="font-mono">Qto_*BaseQuantities</code> trong tệp IFC.
-                    Đây là nền tảng cho dự toán 5D (gắn đơn giá định mức Bộ Xây dựng) ở giai đoạn sau.
-                  </p>
                 </>
               )}
             </div>

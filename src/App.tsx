@@ -19,8 +19,9 @@ import { TeamTab } from './components/tabs/TeamTab';
 import { ProjectList, ProjectItem, PROJECTS_LIST } from './components/project/ProjectList';
 import { ProjectFormModal } from './components/project/ProjectFormModal';
 import { GeoBimMap } from './components/gis/GeoBimMap';
+import { OverviewDashboard } from './components/overview/OverviewDashboard';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from './types';
-import { Building2, ArrowRight, Calendar, Sun, Moon } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 export type TabContext = 'dashboard' | 'documents' | 'viewer' | 'schedule' | 'fm' | 'tasks' | 'team';
 
@@ -397,115 +398,12 @@ export default function App() {
           
           {/* Module 1: Overview */}
           {activeModule === 'overview' && (
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-surface-container-lowest space-y-6">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <h2 className="text-2xl font-bold text-on-surface tracking-tight mb-1 flex items-center gap-2">
-                    <Building2 className="text-primary" size={24} />
-                    Cổng Chỉ huy CDE Toàn cầu
-                  </h2>
-                  <p className="text-sm text-on-surface-variant font-medium">Giám sát tổng hợp chỉ số KPI, tài liệu và xung đột trên tất cả các dự án hoạt động.</p>
-                </div>
-              </div>
-
-              {/* Global KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                <div className="bg-surface border border-outline-variant/60 p-5 rounded-2xl flex items-center justify-between shadow-sm">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">Tổng số Dự án</span>
-                    <div className="text-2xl font-extrabold text-on-surface">4</div>
-                  </div>
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-extrabold text-sm">4</div>
-                </div>
-                
-                <div className="bg-surface border border-outline-variant/60 p-5 rounded-2xl flex items-center justify-between shadow-sm">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">Hồ sơ CDE (ISO 19650)</span>
-                    <div className="text-2xl font-extrabold text-on-surface">2,920 <span className="text-xs text-outline font-medium">tệp</span></div>
-                  </div>
-                  <div className="w-10 h-10 bg-tertiary-container/20 rounded-full flex items-center justify-center text-tertiary font-extrabold text-sm">2k</div>
-                </div>
-
-                <div className="bg-surface border border-outline-variant/60 p-5 rounded-2xl flex items-center justify-between shadow-sm">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">Tỷ lệ Phê duyệt chung</span>
-                    <div className="text-2xl font-extrabold text-on-surface">85.5%</div>
-                  </div>
-                  <div className="w-10 h-10 bg-success/15 rounded-full flex items-center justify-center text-success font-bold text-[11px]">OK</div>
-                </div>
-
-                <div className="bg-surface border border-outline-variant/60 p-5 rounded-2xl flex items-center justify-between shadow-sm">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider">Tổng số Xung đột</span>
-                    <div className="text-2xl font-extrabold text-error">20 <span className="text-xs text-outline font-medium">chưa xử lý</span></div>
-                  </div>
-                  <div className="w-10 h-10 bg-error/10 rounded-full flex items-center justify-center text-error font-extrabold text-sm">!</div>
-                </div>
-              </div>
-
-              {/* Project Quick Actions & Latest Activity */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Project list panel */}
-                <div className="lg:col-span-2 bg-surface border border-outline-variant/50 rounded-2xl p-5 shadow-sm space-y-4">
-                  <h3 className="font-bold text-[15px] text-on-surface tracking-tight border-b border-outline-variant/30 pb-3 flex items-center gap-2">
-                    <Building2 size={16} className="text-primary" />
-                    Tiếp cận nhanh Dự án
-                  </h3>
-                  <div className="space-y-3">
-                    {projects.map(proj => (
-                      <div 
-                        key={proj.id}
-                        onClick={() => handleSelectProject(proj)}
-                        className="flex items-center justify-between p-3.5 hover:bg-surface-container rounded-xl cursor-pointer border border-outline-variant/30 hover:border-primary/30 transition-all group"
-                      >
-                        <div className="min-w-0 pr-4">
-                          <div className="font-bold text-sm text-on-surface group-hover:text-primary transition-colors">{proj.name}</div>
-                          <div className="text-[11px] text-on-surface-variant font-medium mt-0.5">{proj.location}</div>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <span className="text-[11px] font-mono font-bold bg-surface-container px-2 py-0.5 rounded border border-outline-variant/50 text-on-surface-variant">
-                            {proj.progress}%
-                          </span>
-                          <ArrowRight size={16} className="text-outline group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Global Activity panel */}
-                <div className="bg-surface border border-outline-variant/50 rounded-2xl p-5 shadow-sm space-y-4">
-                  <h3 className="font-bold text-[15px] text-on-surface tracking-tight border-b border-outline-variant/30 pb-3 flex items-center gap-2">
-                    <Calendar size={16} className="text-primary" />
-                    Hoạt động Toàn hệ thống
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex gap-3 text-xs leading-relaxed">
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 shrink-0"></div>
-                      <div>
-                        <span className="font-semibold text-on-surface">ARC Studio</span> đã trình duyệt thiết kế kiến trúc của dự án <span className="font-semibold text-primary">Complex A</span>.
-                        <div className="text-[10px] text-outline mt-1 font-mono">10 phút trước</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 text-xs leading-relaxed">
-                      <div className="w-1.5 h-1.5 bg-success rounded-full mt-1.5 shrink-0"></div>
-                      <div>
-                        <span className="font-semibold text-on-surface">KS. Nguyễn Văn Hải</span> đã phê duyệt biện pháp thi công cốp pha của dự án <span className="font-semibold text-primary">FPT Arch Tower</span>.
-                        <div className="text-[10px] text-outline mt-1 font-mono">1 giờ trước</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 text-xs leading-relaxed">
-                      <div className="w-1.5 h-1.5 bg-error rounded-full mt-1.5 shrink-0"></div>
-                      <div>
-                        <span className="font-semibold text-on-surface">Hệ thống phát hiện</span> 12 xung đột mới cấp độ cao giữa dầm và ống gió tại dự án <span className="font-semibold text-primary">FPT University Campus</span>.
-                        <div className="text-[10px] text-outline mt-1 font-mono">Hôm qua</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <OverviewDashboard
+              projects={projects}
+              activities={activities}
+              userName={profile?.fullName || 'Người dùng'}
+              onSelectProject={handleSelectProject}
+            />
           )}
 
           {/* Module 2: GIS/GeoBIM */}

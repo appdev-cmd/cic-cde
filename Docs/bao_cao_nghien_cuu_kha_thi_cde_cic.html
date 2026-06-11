@@ -9,7 +9,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   
   <!-- CDNs for Reveal.js and Libraries -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.css">
@@ -22,24 +22,26 @@
   <style>
     :root {
       /* Palette (Tech Dark Theme) */
-      --bg-gradient: radial-gradient(circle at 50% 50%, #151b2d 0%, #030712 100%);
-      --bg-card: rgba(17, 24, 39, 0.45);
-      --bg-details: rgba(3, 7, 18, 0.65);
+      --bg-gradient: radial-gradient(circle at 50% 50%, #0A0E1A 0%, #03050a 100%);
+      --bg-card: rgba(15, 22, 41, 0.7);
+      --bg-details: rgba(10, 14, 26, 0.85);
       --text-primary: #f9fafb;
       --text-secondary: #cbd5e1;
       --text-muted: #64748b;
-      --accent-primary: #3b82f6; /* Lighter Blue */
-      --accent-primary-rgb: 59, 130, 246;
-      --accent-secondary: #14b8a6; /* Teal */
-      --accent-secondary-rgb: 20, 184, 166;
+      --accent-primary: #00D4AA; /* Electric Teal */
+      --accent-primary-rgb: 0, 212, 170;
+      --accent-secondary: #0094FF; /* Electric Blue */
+      --accent-secondary-rgb: 0, 148, 255;
+      --accent-tertiary: #7C3AED; /* AI Purple */
+      --accent-tertiary-rgb: 124, 58, 237;
       --accent-success: #10b981;
       --accent-warning: #f59e0b;
       --accent-danger: #ef4444;
       --border-color: rgba(255, 255, 255, 0.08);
       --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       
-      --font-heading: 'Roboto', sans-serif;
-      --font-body: 'Roboto', sans-serif;
+      --font-heading: 'DM Sans', sans-serif;
+      --font-body: 'Inter', sans-serif;
       --font-mono: 'Fira Code', monospace;
     }
 
@@ -483,38 +485,46 @@
     .highlight-card-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
+      gap: 20px;
       margin: 16px 0;
     }
 
     .highlight-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 12px 14px;
-      transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px 18px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      min-height: 120px;
     }
 
     .highlight-card:hover {
       border-color: var(--accent-primary);
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.06);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0, 212, 170, 0.15);
     }
 
     .highlight-card-title {
       font-family: var(--font-heading);
-      font-weight: 600;
-      font-size: 0.82rem;
+      font-weight: 700;
+      font-size: 0.9rem;
       color: var(--text-primary);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     .highlight-card-desc {
-      font-size: 0.72rem;
+      font-size: 0.74rem;
       color: var(--text-secondary);
-      line-height: 1.4;
+      line-height: 1.45;
       text-align: justify;
     }
 
@@ -1000,6 +1010,42 @@
 
     .slide-details-content th, .slide-details-content td {
       padding: 3px 5px !important;
+    }
+
+    /* Compact styles for high-column-count tables to eliminate horizontal scrollbars */
+    .compact-table {
+      font-size: 0.44rem !important;
+      width: 100% !important;
+      table-layout: fixed !important;
+      border-collapse: collapse !important;
+    }
+    .compact-table th, .compact-table td {
+      padding: 2px 1px !important;
+      text-align: center !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .compact-table th:first-child, .compact-table td:first-child {
+      text-align: left !important;
+      white-space: normal !important;
+    }
+    .table-19-cols th:first-child, .table-19-cols td:first-child {
+      width: 32% !important;
+    }
+    .table-19-cols th:not(:first-child), .table-19-cols td:not(:first-child) {
+      width: 3.7% !important;
+    }
+    .table-20-cols th:first-child, .table-20-cols td:first-child {
+      width: 25% !important;
+    }
+    .table-20-cols th:last-child, .table-20-cols td:last-child {
+      width: 9% !important;
+      text-align: right !important;
+      white-space: normal !important;
+    }
+    .table-20-cols th:not(:first-child):not(:last-child), .table-20-cols td:not(:first-child):not(:last-child) {
+      width: 3.6% !important;
     }
 
     .slide-visual table {
@@ -1702,7 +1748,7 @@ BuildTab tập trung mạnh vào phân khúc quản lý vận hành tòa nhà (F
             </div>
           </section>
         
-          <section class="split-slide  no-details-slide" data-slide-title="2.3. Phân tích chi tiết đối thủ Quốc tế">
+          <section class="split-slide" data-slide-title="2.3. Phân tích chi tiết đối thủ Quốc tế">
             <div class="slide-layout">
               <!-- Left Visual Panel -->
               <div class="slide-visual">
@@ -1778,7 +1824,7 @@ Kiến trúc công nghệ AEC thế giới đang trải qua bước chuyển mì
             </div>
           </section>
         
-          <section class="split-slide full-width-slide " data-slide-title="2.5. Ma trận Cạnh tranh Công nghệ">
+          <section class="split-slide" data-slide-title="2.5. Ma trận Cạnh tranh Công nghệ">
             <div class="slide-layout">
               <!-- Left Visual Panel -->
               <div class="slide-visual">
@@ -2099,16 +2145,16 @@ CDE CIC sẽ áp dụng chiến lược **Đồ họa nguồn mở kết hợp (
 │ ③ Geometry → Draco compression → Tiled chunks (.cic3d tiles)       │
 │ ④ Metadata → PostgreSQL (truy vấn thuộc tính instant)              │
 │ ⑤ Tiles stored in vStorage (S3)                                    │
-└─────────────────────────────────────────────────────────���────────┘
+└──────────────────────────────────────────────────────────────────┘
                               │
                     REST/gRPC streaming on-demand
                               ▼
-┌────────────────────��─────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────┐
 │ CLIENT VIEWER (TypeScript + Three.js / WebGPU) — Chỉ render        │
 │                                                                    │
-│ ① Load spatial tree (nhẹ, <1MB cho model 500MB)                    │
+│ ① Load spatial tree (nhẹ, &lt;1MB cho model 500MB)                    │
 │ ② Render visible tiles on-demand (LOD tự động theo camera)         │
-│ ③ Click object → Query properties từ PostgreSQL (<50ms)            │
+│ ③ Click object → Query properties từ PostgreSQL (&lt;50ms)            │
 │ ④ Section/Clip/Measure → Pure Three.js math                        │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -2250,8 +2296,8 @@ Bài toán cốt lõi của GeoBIM là hiệu năng: một file IFC dự án c�
 
 ✅ 3D Tiles:  Server xử lý IFC 1 lần (khi upload) → chia thành hàng nghìn tile nhỏ
               Browser chỉ tải tile nào đang nằm trong tầm nhìn của camera
-              Zoom ra xa → tile thấp chi tiết (< 50KB)
-              Zoom vào gần → tile chi tiết cao (< 500KB)
+              Zoom ra xa → tile thấp chi tiết (&lt; 50KB)
+              Zoom vào gần → tile chi tiết cao (&lt; 500KB)
               → First render: 3-5 giây | FPS: 50-60 trên máy văn phòng thông thường
 ```
 
@@ -2261,7 +2307,7 @@ So sánh hiệu năng thực tế:
 |---|:---:|:---:|
 | **File IFC 100MB, viewer cơ bản** | 45-90 giây load, giật lag | **2-3 giây first paint, 60fps** |
 | **File IFC 500MB (dự án cầu lớn)** | Crash browser | **3-5 giây, mượt mà** |
-| **50 công trình cùng lúc trên bản đồ** | Không thể thực hiện | **< 2 giây, 60fps** |
+| **50 công trình cùng lúc trên bản đồ** | Không thể thực hiện | **&lt; 2 giây, 60fps** |
 | **1.000 công trình tổng quan dashboard** | Không thể | **Vài giây (LOD rất thấp)** |
 | **Mobile / Tablet** | Crash do giới hạn RAM | **Mượt với tile size nhỏ hơn** |
 
@@ -2300,12 +2346,12 @@ Phía trình duyệt chỉ đảm nhiệm nhiệm vụ render thuần túy, khô
 ```
 Browser (Cesium.js / TypeScript)
 │
-├─ Load spatial tree index (< 100KB) — instant
-├─ Request visible tiles on-demand (< 500KB/lượt) — progressive
+├─ Load spatial tree index (&lt; 100KB) — instant
+├─ Request visible tiles on-demand (&lt; 500KB/lượt) — progressive
 ├─ FRUSTUM CULLING: Bỏ qua tile ngoài tầm nhìn camera
 ├─ LOD AUTO: Xa camera → tile thấp chi tiết | Gần → tile cao chi tiết
 ├─ MEMORY CACHE: Tile đã load được cache — pan/rotate không tải lại
-└─ Click object → Query PostgreSQL (< 50ms) → Hiển thị BIM properties
+└─ Click object → Query PostgreSQL (&lt; 50ms) → Hiển thị BIM properties
 ```
 
 **Yêu cầu phần cứng tối thiểu phía người dùng:**
@@ -2345,7 +2391,7 @@ transformer = Transformer.from_crs(
     always_xy=True
 )
 lon, lat = transformer.transform(vn2000_x, vn2000_y)
-# Độ chính xác: < 0.5m — đạt yêu cầu hiển thị bản đồ
+# Độ chính xác: &lt; 0.5m — đạt yêu cầu hiển thị bản đồ
 ```
 
 Hệ thống hỗ trợ tự động nhận dạng múi chiếu (3° hoặc 6°) dựa trên kinh độ trung tâm của công trình, đảm bảo chuyển đổi chính xác cho mọi vị trí trên lãnh thổ Việt Nam.
@@ -2511,7 +2557,7 @@ Hệ thống CSDL PostgreSQL lưu trữ dữ liệu định mức quốc gia (đ
 │               DATABASE ĐỊNH MỨC BỘ XÂY DỰNG            │
 ├────────────────────────────────────────────────────────┤
 │  Mã hiệu định mức: AE.11112                            │
-│  Tên công tác: Xây tường gạch bê tông dày <= 110mm      │
+│  Tên công tác: Xây tường gạch bê tông dày &lt;= 110mm      │
 ├────────────────────────────────────────────────────────┤
 │  - Định mức Vật liệu: Gạch (m3), Cát (m3), Xi măng (kg)│
 │  - Định mức Nhân công: Thợ bậc 3.5/7 (công)            │
@@ -2775,23 +2821,31 @@ Một số thư viện đồ họa 3D hiển thị BIM trên web sử dụng gi�
 **Giải pháp của CDE CIC (Kiến trúc Cô lập - Architectural Isolation):**
 Chúng tôi thiết lập cơ chế giao tiếp độc lập thông qua API tiêu chuẩn giữa phần hiển thị giao diện (Frontend) chứa mã nguồn mở và phần logic nghiệp vụ (Backend) đóng vai trò độc quyền sở hữu trí tuệ của CIC. Cơ chế này đảm bảo về mặt pháp lý sở hữu trí tuệ rằng phần mềm CDE CIC hoàn toàn an toàn và được giữ độc quyền thương mại 100%.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ 🌐 CLIENT BROWSER (Môi trường chạy độc lập phía người dùng)            │
-│ ┌──────────────────────┐        ┌────────────────────────────────────┐ │
-│ │  ThatOpen / WebGL    │        │  React UI (Giao diện CDE)          │ │
-│ │  (Thư viện AGPLv3)   │ <════> │  (Mã độc quyền thương mại của CIC) │ │
-│ └──────────────────────┘        └────────────────────────────────────┘ │
-└────────────────────────────────────╪───────────────────────────────────┘
-                                     │ (Giao tiếp qua REST API/gRPC chuẩn)
-                                     ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ 🖥️ SERVER BACKEND (Mã nguồn độc quyền của CIC - Lưu tại Viettel Cloud) │
-│ - Document Service (Go)     - QTO Engine (Python)                      │
-│ - PostgreSQL Database       - WORM Audit Trail                         │
-│ - Keycloak SSO Authentication                                          │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin: 12px 0; font-size: 0.68rem; line-height: 1.4;">
+  <div style="font-weight: 700; color: var(--accent-primary); margin-bottom: 6px; text-transform: uppercase;"><i data-lucide="monitor" style="width: 12px; height: 12px; display:inline-block; vertical-align:middle; margin-right: 4px;"></i> 1. Client Browser (Phía người dùng)</div>
+  <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+    <div style="flex: 1; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 6px; text-align: center;">
+      <div style="font-weight: 600; color: var(--accent-success);">ThatOpen Engine / WebGL</div>
+      <div style="font-size: 0.58rem; color: var(--text-muted);">(Thư viện AGPLv3)</div>
+    </div>
+    <div style="display: flex; align-items: center; color: var(--text-muted); font-weight: bold;">◀ ── ▶</div>
+    <div style="flex: 1; background: rgba(0, 148, 255, 0.08); border: 1px solid rgba(0, 148, 255, 0.2); border-radius: 6px; padding: 6px; text-align: center;">
+      <div style="font-weight: 600; color: var(--accent-secondary);">React UI (Giao diện CDE)</div>
+      <div style="font-size: 0.58rem; color: var(--text-muted);">(Mã độc quyền của CIC)</div>
+    </div>
+  </div>
+  <div style="font-size: 0.58rem; color: var(--text-muted); text-align: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 6px; margin-bottom: 6px;">Giao tiếp qua HTTP REST / gRPC API tiêu chuẩn</div>
+  <div style="font-weight: 700; color: var(--accent-warning); margin-bottom: 6px; text-transform: uppercase;"><i data-lucide="server" style="width: 12px; height: 12px; display:inline-block; vertical-align:middle; margin-right: 4px;"></i> 2. Server Backend (Viettel Cloud)</div>
+  <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 6px; padding: 8px;">
+    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">Các vi dịch vụ nghiệp vụ (Mã đóng độc quyền)</div>
+    <div style="font-size: 0.58rem; color: var(--text-secondary); display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+      <div>• Document Service (Golang)</div>
+      <div>• QTO Engine (Python)</div>
+      <div>• PostgreSQL Database</div>
+      <div>• Keycloak Auth SSO</div>
+    </div>
+  </div>
+</div>
 
 Theo quy định pháp lý quốc tế về sở hữu trí tuệ phần mềm, việc giao tiếp giữa hai hệ thống độc lập qua giao thức mạng tiêu chuẩn (API/gRPC JSON) không cấu thành hành vi tạo tác phẩm phái sinh (derivative work), do đó phần logic nghiệp vụ chạy ở backend của CDE CIC hoàn toàn được bảo hộ độc quyền 100%.
 
@@ -2947,13 +3001,13 @@ Trong năm 2026, các công cụ AI (Claude Code, Antigravity, Cursor, v0) đã 
             </div>
           </section>
         
-          <section class="split-slide  " data-slide-title="5.3. Chi tiết đội hình đề xuất 10 người (Khi hệ thống bước vào giai đoạn vận hành ổn định)">
+          <section class="split-slide  " data-slide-title="5.3. Chi tiết đội hình đề xuất 7 người (Mô hình AI-Conductor)">
             <div class="slide-layout">
               <!-- Left Visual Panel -->
               <div class="slide-visual">
                 <div class="slide-header">
                   <span class="slide-chap-ref">Chương 05</span>
-                  <h3 class="slide-heading">5.3. Chi tiết đội hình đề xuất 10 người (Khi hệ thống bước vào giai đoạn vận hành ổn định)</h3>
+                  <h3 class="slide-heading">5.3. Chi tiết đội hình đề xuất 7 người (Mô hình AI-Conductor)</h3>
                 </div>
                 
                 <div class="slide-visual-body">
@@ -2965,70 +3019,111 @@ Trong năm 2026, các công cụ AI (Claude Code, Antigravity, Cursor, v0) đã 
               <!-- Right Detailed Report Panel (Scrollable) -->
               <div class="slide-details">
                 <div class="slide-details-content markdown-body" id="raw-content-4-3" style="padding-top: 16px;">
+                  <h4 style="margin-top:0; color: var(--accent-primary); font-size:0.85rem; font-family: var(--font-heading);">Bảng 6.2a1: Cơ cấu Đội ngũ R&D và Phân bổ Chi phí Lương (Giai đoạn CAPEX - CAP-01)</h4>
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.65rem; margin-top: 8px; line-height: 1.3;">
+                    <thead>
+                      <tr style="border-bottom: 2px solid rgba(255, 255, 255, 0.1); text-align: left; background: rgba(255, 255, 255, 0.02);">
+                        <th style="padding: 6px 4px; color: var(--text-primary); font-weight: 600;">Vị trí nhân sự phát triển lõi</th>
+                        <th style="padding: 6px 4px; text-align: center; color: var(--text-primary); font-weight: 600; width: 6%;">SL</th>
+                        <th style="padding: 6px 4px; text-align: right; color: var(--text-primary); font-weight: 600; width: 15%;">Lương gộp (tr/th)</th>
+                        <th style="padding: 6px 4px; text-align: center; color: var(--text-primary); font-weight: 600; width: 14%;">Onboard</th>
+                        <th style="padding: 6px 4px; color: var(--text-primary); font-weight: 600; width: 45%;">Vai trò & Nhiệm vụ chính</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-primary);">1. CTO kiêm KTS hệ thống</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-primary);">75</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Chỉ đạo công nghệ, thiết kế kiến trúc vi dịch vụ & bảo mật.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-secondary);">2. Senior Đồ họa WebGL/BIM</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-secondary);">55</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Tự chủ BIM engine, tối ưu hóa WebAssembly & render model nặng.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-warning);">3. Product Manager kiêm BIM BA</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-warning);">55</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Quản lý sản phẩm, đặc tả quy trình ISO 19650 & định mức.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-secondary);">4. Senior Backend/DevOps (Go)</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-secondary);">45</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Xây dựng lõi API Gateway, CI/CD, cơ sở dữ liệu WORM audit trail.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-danger);">5. Senior Security & Pentester</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-danger);">45</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Bảo đảm an toàn thông tin, lập hồ sơ Cấp độ 3 & QCVN 12.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-tertiary);">6. AI/ML & Data Engineer</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-tertiary);">45</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Xây dựng BIM Agent RAG, xử lý cơ sở dữ liệu định mức BXD.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-success);">7. Sr Frontend & QA Engineer</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-success);">35</td>
+                        <td style="padding: 6px 4px; text-align: center;">T1 - 18</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Phát triển giao diện Next.js/React, thiết lập test automation.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <td style="padding: 6px 4px; font-weight: 600; color: var(--accent-primary);">8. Chuyên gia GIS (Part-time)</td>
+                        <td style="padding: 6px 4px; text-align: center;">1</td>
+                        <td style="padding: 6px 4px; text-align: right; font-weight: 600; color: var(--accent-primary);">35</td>
+                        <td style="padding: 6px 4px; text-align: center;">T7 - 16</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Phát triển CSDL địa lý, cấu hình tile server và API bản đồ nền.</td>
+                      </tr>
+                    </tbody>
+                  </table>
 
-```mermaid
-graph TB
-    subgraph "Ban Điều hành & Nghiệp vụ (3 nhân sự)"
-        CTO["👤 CTO / Kiến trúc sư chính<br/>(Quyết định kiến trúc hệ thống)"]
-        PM["👤 PM kiêm BIM BA<br/>(Nghiệp vụ xây dựng, BEP/EIR)"]
-        SEC["👤 Senior An ninh mạng<br/>(Hồ sơ Cấp độ 3, QCVN 12)"]
-    end
-
-    subgraph "Đội ngũ Phát triển & Vận hành (5 nhân sự + AI)"
-        BIM1["👤 Senior WebGL/BIM #1<br/>(Dựng hình 3D, LOD)"]
-        BIM2["👤 Senior WebGL/BIM #2<br/>(Tối ưu hóa hình học IFC)"]
-        BE1["👤 Senior Backend (Go)<br/>(API Gateway, Core Services)"]
-        BE2["👤 Senior Backend (Python)<br/>(QTO, AI Integration)"]
-        FE["👤 Senior Frontend/UX<br/>(Thiết kế UI & Điều phối AI)"]
-    end
-
-    subgraph "Kiểm soát an ninh & Dữ liệu (2 nhân sự)"
-        PEN["👤 Pentester Chuyên trách<br/>(Dò quét lỗ hổng hệ thống)"]
-        DATA["👤 Kỹ sư Dữ liệu (Data Eng)<br/>(CSDL Định mức BXD)"]
-    end
-
-    CTO --> BE1
-    CTO --> BE2
-    PM --> FE
-    PM --> DATA
-    SEC --> PEN
-    BE1 & BE2 & FE & BIM1 & BIM2 -.->|"Sử dụng công cụ"| AI["🤖 Claude, Cursor, v0, Copilot"]
-
-    style CTO fill:#dc3545,color:#fff
-    style PM fill:#dc3545,color:#fff
-    style SEC fill:#dc3545,color:#fff
-    style BIM1 fill:#fd7e14,color:#fff
-    style BIM2 fill:#fd7e14,color:#fff
-    style BE1 fill:#fd7e14,color:#fff
-    style BE2 fill:#fd7e14,color:#fff
-    style FE fill:#28a745,color:#fff
-    style PEN fill:#fd7e14,color:#fff
-    style DATA fill:#ffc107,color:#000
-    style AI fill:#7c3aed,color:#fff
-```
-
-#### Ma trận phân bổ rủi ro nhân sự trong mô hình AI-augmented:
-
-| Rủi ro kỹ thuật | Mức độ | Phương án phòng ngừa và giảm thiểu |
-|---|:---:|---|
-| **AI sinh mã nguồn sai logic nghiệp vụ** | 🔴 Cao | Áp dụng quy trình duyệt code (Pull Request) bắt buộc, yêu cầu tỷ lệ phủ kiểm thử tự động (Unit Test) đạt ≥80%. |
-| **Nợ kỹ thuật tích tụ do lạm dụng AI** | 🟠 Trung bình | Kỹ sư Full-stack cao cấp tiến hành dọn dẹp và tối ưu hóa mã nguồn (refactoring) định kỳ vào ngày cuối của mỗi chu kỳ phát triển (Sprint). |
-| **Lỗi tràn bộ nhớ WebGL khi tải file BIM lớn** | 🔴 Cao | Chỉ đạo kỹ sư đồ họa xây dựng giải pháp phân tầng chi tiết (LOD) và kỹ thuật loại bỏ vật thể khuất (Occlusion Culling) thủ công, không để AI tự quyết định phần này. |
-| **Rò rỉ tài khoản truy cập hạ tầng** | 🟠 Trung bình | Kích hoạt bắt buộc xác thực 2 lớp (MFA) trên GitHub Enterprise, mã hóa ổ cứng máy tính cá nhân của lập trình viên. |
-
-#### Ma trận rủi ro bổ sung — Phân hệ GIS/GeoBIM
-
-| Rủi ro | Mức độ | Phương án giảm thiểu |
-|---|:---:|---|
-| **Thiếu nhân lực GIS chuyên biệt** | 🔴 Cao | Hạch toán ngân sách thuê chuyên gia tư vấn GIS địa lý độc lập và hợp tác đào tạo ngắn hạn với Hội Trắc địa - Bản đồ - Viễn thám Việt Nam (VGAC). |
-| **Dịch vụ bản đồ quốc tế (MapBox) vi phạm QCVN 12 cho dự án đầu tư công** | 🔴 Cao | Áp dụng triệt để chiến lược Dual-map: Vmap cho phân khúc B2G/nhà nước và MapBox cho phân khúc SaaS/tư nhân. |
-| **Độ phức tạp khi chuyển đổi hệ tọa độ VN-2000 địa phương** | 🟠 Trung bình | Tích hợp thư viện pyproj kết hợp với grid shift file (.gsb) chuẩn hóa từ Cục Đo đạc Bản đồ để xử lý tự động. |
-| **Hiệu năng hệ thống sụt giảm khi tải nhiều công trình 3D** | 🟠 Trung bình | Áp dụng triệt để chuẩn 3D Tiles Streaming kết hợp nén mesh Draco và cơ chế LOD tự động ở frontend (đặc tả tại §3.5). |
-| **Độ chi tiết bản đồ nền Vmap không đáp ứng nhu cầu thực tế** | 🟡 Thấp | Hỗ trợ tính năng cho phép người dùng tự tải lên (import) bản đồ không ảnh UAV hoặc tệp tin địa hình cục bộ (GeoTIFF, Shapefile) làm lớp phủ. |
-
----
-
-                </div>
+                  <h4 style="margin-top:12px; color: var(--accent-danger); font-size:0.8rem; font-family: var(--font-heading);">Ma trận quản lý rủi ro nhân sự trong mô hình AI-augmented:</h4>
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.65rem; margin-top: 6px; line-height: 1.3;">
+                    <thead>
+                      <tr style="border-bottom: 2px solid rgba(255, 255, 255, 0.1); text-align: left; background: rgba(255, 255, 255, 0.02);">
+                        <th style="padding: 6px 4px; color: var(--text-primary); font-weight: 600; width: 35%;">Rủi ro chính</th>
+                        <th style="padding: 6px 4px; text-align: center; color: var(--text-primary); font-weight: 600; width: 15%;">Mức độ</th>
+                        <th style="padding: 6px 4px; color: var(--text-primary); font-weight: 600; width: 50%;">Phương án phòng ngừa và giảm thiểu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600;">AI sinh mã nguồn sai logic nghiệp vụ</td>
+                        <td style="padding: 6px 4px; text-align: center; color: var(--accent-danger); font-weight: 600;">🔴 Cao</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Quy trình duyệt PR bắt buộc, yêu cầu tỷ lệ phủ Unit Test đạt ≥80%.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600;">Nợ kỹ thuật tích tụ do lạm dụng AI</td>
+                        <td style="padding: 6px 4px; text-align: center; color: var(--accent-warning); font-weight: 600;">🟠 Trung bình</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Refactoring định kỳ vào ngày cuối của mỗi chu kỳ phát triển (Sprint).</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600;">WebGL tràn bộ nhớ khi tải file BIM lớn</td>
+                        <td style="padding: 6px 4px; text-align: center; color: var(--accent-danger); font-weight: 600;">🔴 Cao</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Áp dụng giải pháp phân tầng chi tiết (LOD) và kỹ thuật Occlusion Culling thủ công.</td>
+                      </tr>
+                      <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 6px 4px; font-weight: 600;">Thiếu nhân lực GIS chuyên biệt</td>
+                        <td style="padding: 6px 4px; text-align: center; color: var(--accent-danger); font-weight: 600;">🔴 Cao</td>
+                        <td style="padding: 6px 4px; color: var(--text-muted);">Thuê chuyên gia tư vấn GIS độc lập & hợp tác đào tạo với VGAC.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  
+</div>
               </div>
             </div>
           </section>
@@ -3537,8 +3632,8 @@ Giai đoạn 2026-2030 là giai đoạn khó khăn — thị trường BIM Việ
 2. **Kịch bản C (Bi quan - xác suất 30%)** cho thấy NPV âm trong 5 năm đầu nhưng chỉ lỗ tích lũy -4,28 tỷ đến cuối 2030. Với bối cảnh **sau 2030 BIM đã luật hóa hoàn toàn và đầu tư công tăng mạnh**, dự án vẫn có thể hoàn vốn trong năm 2031-2032. Tuy nhiên, CIC cần chuẩn bị tối thiểu **12 tỷ vốn lưu động** để đảm bảo an toàn tài chính trong kịch bản xấu nhất.
 
 3. **Phương án ứng phó kịch bản C** (checkpoint tiêu chí pivot/stop):
-   - *Tháng 12*: Nếu doanh thu H2/2027 < 1 tỷ → Thu hẹp scope, tập trung On-Prem cho 2-3 khách hàng anchor.
-   - *Tháng 18*: Nếu tổng doanh thu tích lũy < 3 tỷ → Cân nhắc pivot thành consulting/integration hoặc licensing engine.
+   - *Tháng 12*: Nếu doanh thu H2/2027 &lt; 1 tỷ → Thu hẹp scope, tập trung On-Prem cho 2-3 khách hàng anchor.
+   - *Tháng 18*: Nếu tổng doanh thu tích lũy &lt; 3 tỷ → Cân nhắc pivot thành consulting/integration hoặc licensing engine.
    - *Tháng 24*: Nếu cash burn > 15 tỷ → Tìm nhà đầu tư chiến lược hoặc bán IP/codebase.
 
 ---
@@ -3630,13 +3725,13 @@ Hệ thống CI/CD sẽ tự động chạy công cụ phân tích SonarQube tr�
 │   Tỷ lệ phủ kiểm thử (Code Coverage):  84.5% (Yêu cầu ≥80%) │
 │   Số lỗi logic phát hiện (Bugs):       0     (Yêu cầu =0)   │
 │   Lỗ hổng bảo mật (Vulnerabilities):   0     (Yêu cầu =0)   │
-│   Tỷ lệ nợ kỹ thuật (Technical Debt):  2.4%  (Yêu cầu <5%)  │
+│   Tỷ lệ nợ kỹ thuật (Technical Debt):  2.4%  (Yêu cầu &lt;5%)  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 1. **Tỷ lệ phủ kiểm thử (Code Coverage - Yêu cầu ≥ 80%)**: Đảm bảo các đoạn code đều có kịch bản chạy thử tự động bảo vệ. Nếu chỉ số này sụt giảm, hệ thống sẽ rất dễ phát sinh lỗi dây chuyền khi nâng cấp tính năng mới.
-2. **Tỷ lệ nợ kỹ thuật (Technical Debt - Yêu cầu < 5%)**: Đo lường tỷ lệ các đoạn code viết chắp vá, không tối ưu. Nếu tỷ lệ này vượt quá 5%, hệ thống cần dừng phát triển tính năng mới để tiến hành tái cấu trúc (refactoring).
+2. **Tỷ lệ nợ kỹ thuật (Technical Debt - Yêu cầu &lt; 5%)**: Đo lường tỷ lệ các đoạn code viết chắp vá, không tối ưu. Nếu tỷ lệ này vượt quá 5%, hệ thống cần dừng phát triển tính năng mới để tiến hành tái cấu trúc (refactoring).
 3. **Lỗ hổng bảo mật (Vulnerabilities - Yêu cầu = 0)**: Bắt buộc phải bằng 0 để vượt qua vòng kiểm tra nghiệm thu của Cục An ninh mạng Bộ Công an.
 
 ---
@@ -4151,8 +4246,8 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
                     {
                       label: 'CDE CIC (Đề xuất)',
                       data: [95, 90, 85, 95, 100],
-                      borderColor: 'rgba(59, 130, 246, 1)',
-                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      borderColor: 'rgba(0, 212, 170, 1)',
+                      backgroundColor: 'rgba(0, 212, 170, 0.15)',
                       borderWidth: 2
                     },
                     {
@@ -4182,14 +4277,14 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
                   responsive: true,
                   maintainAspectRatio: false,
                   plugins: {
-                    title: { display: true, text: 'MA TRẬN NĂNG LỰC CẠNH TRANH CÔNG NGHỆ', color: '#f8fafc', font: { family: 'Roboto', size: 10, weight: '700' } },
-                    legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { family: 'Roboto', size: 8 } } }
+                    title: { display: true, text: 'MA TRẬN NĂNG LỰC CẠNH TRANH CÔNG NGHỆ', color: '#f8fafc', font: { family: 'DM Sans', size: 10, weight: '700' } },
+                    legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { family: 'Inter', size: 8 } } }
                   },
                   scales: {
                     r: {
                       angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
                       grid: { color: 'rgba(255, 255, 255, 0.08)' },
-                      pointLabels: { color: '#9ca3af', font: { family: 'Roboto', size: 8 } },
+                      pointLabels: { color: '#9ca3af', font: { family: 'Inter', size: 8 } },
                       ticks: { display: false },
                       suggestedMin: 0,
                       suggestedMax: 100
@@ -4202,6 +4297,12 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
           }
 
           // Slide 2.6 details override removed as it is now a no-details slide
+
+          // Slide 5.3 details override: Bypass markdown parsing to preserve HTML tables
+          if (slideTitle.includes('5.3')) {
+            setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
+            return;
+          }
 
           const rawMd = block.textContent;
           block.innerHTML = marked.parse(rawMd);
@@ -4272,6 +4373,17 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
           container.className = 'table-container';
           table.parentNode.insertBefore(container, table);
           container.appendChild(table);
+
+          // Add compact styling if table has many columns to prevent overflow
+          const colCount = table.rows[0] ? table.rows[0].cells.length : 0;
+          if (colCount >= 10) {
+            table.classList.add('compact-table');
+            if (colCount === 19) {
+              table.classList.add('table-19-cols');
+            } else if (colCount === 20) {
+              table.classList.add('table-20-cols');
+            }
+          }
         });
 
         // Render Mermaid SVGs
@@ -4664,21 +4776,82 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
         // 2.5 Ma trận Cạnh tranh Công nghệ
         if (slideTitle.includes('Ma trận Cạnh tranh Công nghệ')) {
           ph.innerHTML = `
-            <div class="highlight-card-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 0;">
-              <div class="highlight-card" style="border-left: 4px solid var(--accent-primary); padding: 10px 12px;">
-                <div class="highlight-card-title" style="font-size: 0.8rem; margin-bottom: 4px;"><i data-lucide="cpu" style="color: var(--accent-primary); width: 14px; height: 14px;"></i> Tự chủ Công nghệ 100%</div>
-                <div class="highlight-card-desc" style="font-size: 0.7rem; line-height: 1.4;">CDE CIC phát triển 3D Engine độc lập dựa trên ThatOpen, không phụ thuộc vào Autodesk APS hay ODA SDK.</div>
-              </div>
-              <div class="highlight-card" style="border-left: 4px solid var(--accent-secondary); padding: 10px 12px;">
-                <div class="highlight-card-title" style="font-size: 0.8rem; margin-bottom: 4px;"><i data-lucide="shield-check" style="color: var(--accent-secondary); width: 14px; height: 14px;"></i> Tiên phong Pháp lý & Bảo mật</div>
-                <div class="highlight-card-desc" style="font-size: 0.7rem; line-height: 1.4;">Sản phẩm duy nhất tuân thủ nghiêm ngặt **QCVN 12:2026/BCA** (MFA, WORM, 3-2-1 backup) và tích hợp cổng SSO VNeID.</div>
-              </div>
-              <div class="highlight-card" style="border-left: 4px solid var(--accent-success); padding: 10px 12px;">
-                <div class="highlight-card-title" style="font-size: 0.8rem; margin-bottom: 4px;"><i data-lucide="map-pin" style="color: var(--accent-success); width: 14px; height: 14px;"></i> Địa phương hóa Đặc thù</div>
-                <div class="highlight-card-desc" style="font-size: 0.7rem; line-height: 1.4;">Tích hợp sâu hệ tọa độ VN-2000 phục vụ GIS/GeoBIM và 5D Định mức xây dựng theo tiêu chuẩn Bộ Xây dựng Việt Nam.</div>
-              </div>
+            <div class="table-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; padding-top: 10px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.65rem; line-height: 1.4; color: var(--text-secondary);">
+                <thead>
+                  <tr style="border-bottom: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.03);">
+                    <th style="padding: 6px 8px; text-align: left; font-weight: 700; color: var(--text-primary);">Tiêu chí so sánh</th>
+                    <th style="padding: 6px 4px; text-align: center; font-weight: 500;">NovaCDE</th>
+                    <th style="padding: 6px 4px; text-align: center; font-weight: 500;">VinaCDE</th>
+                    <th style="padding: 6px 4px; text-align: center; font-weight: 500;">BuildTab</th>
+                    <th style="padding: 6px 4px; text-align: center; font-weight: 500;">BIMNEXT</th>
+                    <th style="padding: 6px 4px; text-align: center; font-weight: 500;">Autodesk ACC</th>
+                    <th style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);">CDE CIC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);"><i data-lucide="cpu" style="width: 10px; height: 10px; display: inline-block; margin-right: 4px; color: var(--accent-secondary); vertical-align: middle;"></i> Tự chủ 3D engine</td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: var(--accent-warning); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.15);">⚠️ ODA</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> CÓ</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> APS</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> CÓ</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> APS</span></td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: #00D4AA; background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2);"><i data-lucide="target" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> 100%</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);"><i data-lucide="file-box" style="width: 10px; height: 10px; display: inline-block; margin-right: 4px; color: var(--accent-secondary); vertical-align: middle;"></i> Xem file lớn ≥500MB</td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: var(--accent-warning); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.15);">⚠️ YẾU</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> YẾU</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> TỐT</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> YẾU</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> TỐT</span></td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> TỐT</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);"><i data-lucide="map" style="width: 10px; height: 10px; display: inline-block; margin-right: 4px; color: var(--accent-secondary); vertical-align: middle;"></i> Bản đồ số GeoBIM/GIS</td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> CÓ</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> CÓ</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> CÓ</span></td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: #00D4AA; background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2);"><i data-lucide="target" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> MỐC 2</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);"><i data-lucide="calculator" style="width: 10px; height: 10px; display: inline-block; margin-right: 4px; color: var(--accent-secondary); vertical-align: middle;"></i> Dự toán 5D Định mức</td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: var(--accent-warning); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.15);">⚠️ ÍT</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: var(--accent-warning); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.15);">⚠️ ÍT</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);"><span class="status-badge" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: #00D4AA; background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2);"><i data-lucide="target" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> MỐC 2</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);"><i data-lucide="shield" style="width: 10px; height: 10px; display: inline-block; margin-right: 4px; color: var(--accent-secondary); vertical-align: middle;"></i> An toàn mạng QCVN 12</td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: var(--accent-danger); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.15);">❌ CLOUD MỸ</span></td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: #10b981; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);"><i data-lucide="shield-check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> TUÂN THỦ</span></td>
+                  </tr>
+                  <tr style="border-bottom: 2px solid rgba(255,255,255,0.15);">
+                    <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);"><i data-lucide="fingerprint" style="width: 10px; height: 10px; display: inline-block; margin-right: 4px; color: var(--accent-secondary); vertical-align: middle;"></i> Định danh VNeID SSO</td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 4px; text-align: center;"><span class="status-badge status-danger" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700;"><i data-lucide="x" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> KHÔNG</span></td>
+                    <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--accent-primary); background: rgba(0, 212, 170, 0.08); border-left: 1px solid rgba(0, 212, 170, 0.15); border-right: 1px solid rgba(0, 212, 170, 0.15);"><span class="status-badge status-success" style="padding: 2px 4px; font-size: 0.52rem; font-weight: 700; color: #10b981; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);"><i data-lucide="shield-check" style="width: 7px; height: 7px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> TÍCH HỢP</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top: 8px; font-size: 0.54rem; color: var(--text-muted); font-style: italic;">🎯 = Định hướng thiết kế sản phẩm CDE CIC. QCVN 12 là rào cản pháp lý tuyệt đối để bảo vệ khối đầu tư công (B2G).</div>
             </div>
           `;
+          setTimeout(() => {
+            if (window.lucide) lucide.createIcons({attrs: {'class': 'lucide'}});
+          }, 100);
           return;
         }
         // 2.4 Xu hướng Công nghệ trong ngành CDE toàn cầu
@@ -5284,25 +5457,25 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
         if (slideTitle.includes('6.4') && slideTitle.includes('Doanh thu')) {
           ph.innerHTML = `
             <div style="padding-top: 4px;">
-              <div class="fin-kpi-row" style="grid-template-columns: repeat(2, 1fr);">
-                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-success);">
-                  <div class="fin-kpi-label">Tổng DT 5 năm</div>
-                  <div class="fin-kpi-value" style="color:var(--accent-success);">~274</div>
-                  <div class="fin-kpi-sub">tỷ VNĐ</div>
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 6px;">
+                <div class="fin-kpi-card" style="border-top: 2px solid var(--accent-success); padding: 4px 8px;">
+                  <div class="fin-kpi-label" style="font-size:0.5rem;">Tổng DT 5 năm</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-success); font-size:1.0rem;">~274</div>
+                  <div class="fin-kpi-sub" style="font-size:0.45rem;">tỷ VNĐ (Kịch bản A)</div>
                 </div>
-                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-primary);">
-                  <div class="fin-kpi-label">SaaS Users 2030</div>
-                  <div class="fin-kpi-value" style="color:var(--accent-primary);">14K</div>
-                  <div class="fin-kpi-sub">người dùng</div>
+                <div class="fin-kpi-card" style="border-top: 2px solid var(--accent-primary); padding: 4px 8px;">
+                  <div class="fin-kpi-label" style="font-size:0.5rem;">SaaS Users 2030</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-primary); font-size:1.0rem;">14K</div>
+                  <div class="fin-kpi-sub" style="font-size:0.45rem;">active (5% thị phần)</div>
                 </div>
               </div>
-              <div class="fin-chart-wrap">
-                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-success);"></i> Doanh thu theo phân khúc (tỷ VNĐ)</div>
-                <div class="fin-chart-canvas" style="height:160px;"><canvas id="ch6-revenue-stack"></canvas></div>
+              <div class="fin-chart-wrap" style="margin-top: 4px;">
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:10px;height:10px;color:var(--accent-success);"></i> Doanh thu theo phân khúc (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:120px; overflow: hidden;"><canvas id="ch6-revenue-stack"></canvas></div>
               </div>
-              <div class="fin-chart-wrap">
-                <div class="fin-chart-title"><i data-lucide="users" style="width:12px;height:12px;color:var(--accent-primary);"></i> Tăng trưởng SaaS Users</div>
-                <div class="fin-chart-canvas" style="height:120px;"><canvas id="ch6-saas-growth"></canvas></div>
+              <div class="fin-chart-wrap" style="margin-top: 4px;">
+                <div class="fin-chart-title"><i data-lucide="users" style="width:10px;height:10px;color:var(--accent-primary);"></i> Tăng trưởng SaaS Users</div>
+                <div class="fin-chart-canvas" style="height:90px; overflow: hidden;"><canvas id="ch6-saas-growth"></canvas></div>
               </div>
             </div>
           `;
@@ -5312,19 +5485,19 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               data: {
                 labels: ['2027', '2028', '2029', '2030'],
                 datasets: [
-                  { label: 'SaaS', data: [0.6, 9.45, 31.5, 77.4], backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 3 },
-                  { label: 'PMU', data: [2.0, 11.8, 22.8, 41.1], backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3 },
-                  { label: 'Sở XD', data: [0, 4.0, 9.4, 16.9], backgroundColor: 'rgba(20,184,166,0.75)', borderRadius: 3 },
-                  { label: 'DN', data: [3.0, 7.3, 12.9, 24.2], backgroundColor: 'rgba(245,158,11,0.75)', borderRadius: 3 }
+                  { label: 'SaaS', data: [0.6, 9.45, 31.5, 77.4], backgroundColor: 'rgba(0, 148, 255, 0.8)', borderRadius: 2 },
+                  { label: 'PMU', data: [2.0, 11.8, 22.8, 41.1], backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 2 },
+                  { label: 'Sở XD', data: [0, 4.0, 9.4, 16.9], backgroundColor: 'rgba(0, 212, 170, 0.8)', borderRadius: 2 },
+                  { label: 'DN', data: [3.0, 7.3, 12.9, 24.2], backgroundColor: 'rgba(245, 158, 11, 0.8)', borderRadius: 2 }
                 ]
               },
               options: {
                 responsive: true, maintainAspectRatio: false,
                 scales: {
-                  x: { stacked: true, grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 } } },
+                  x: { stacked: true, grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
                   y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }
                 },
-                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 7 }, boxWidth: 7, padding: 4 } } }
               }
             });
             new Chart(document.getElementById('ch6-saas-growth').getContext('2d'), {
@@ -5334,16 +5507,16 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
                 datasets: [{
                   label: 'SaaS Users (cuối kỳ)',
                   data: [500, 3000, 7500, 14000],
-                  borderColor: 'rgba(59,130,246,1)',
-                  backgroundColor: 'rgba(59,130,246,0.1)',
-                  borderWidth: 2, tension: 0.3, fill: true,
-                  pointBackgroundColor: 'rgba(59,130,246,1)', pointRadius: 4
+                  borderColor: 'rgba(0, 148, 255, 1)',
+                  backgroundColor: 'rgba(0, 148, 255, 0.08)',
+                  borderWidth: 1.5, tension: 0.25, fill: true,
+                  pointBackgroundColor: 'rgba(0, 148, 255, 1)', pointRadius: 3
                 }]
               },
               options: {
                 responsive: true, maintainAspectRatio: false,
                 scales: {
-                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 } } },
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
                   y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 }, callback: v => v >= 1000 ? (v/1000)+'K' : v } }
                 },
                 plugins: { legend: { display: false } }
@@ -5358,66 +5531,100 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
         if (slideTitle.includes('6.5') && !slideTitle.includes('6.5bis') && slideTitle.includes('tài chính')) {
           ph.innerHTML = `
             <div style="padding-top: 4px;">
-              <div class="fin-kpi-row" style="grid-template-columns: repeat(2, 1fr);">
-                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-success);">
-                  <div class="fin-kpi-label">NPV Dự án</div>
-                  <div class="fin-kpi-value" style="color:var(--accent-success);">+47,5</div>
-                  <div class="fin-kpi-sub">tỷ VNĐ (WACC 12%)</div>
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 6px;">
+                <div class="fin-kpi-card" style="border-top: 2px solid var(--accent-success); padding: 4px; text-align: center;">
+                  <div class="fin-kpi-label" style="font-size:0.46rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">NPV Dự án</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-success); font-size:0.8rem; font-weight:700;">+47,5 tỷ</div>
+                  <div class="fin-kpi-sub" style="font-size:0.42rem;">WACC 12%</div>
                 </div>
-                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-primary);">
-                  <div class="fin-kpi-label">IRR Dự án</div>
-                  <div class="fin-kpi-value" style="color:var(--accent-primary);">~46%</div>
-                  <div class="fin-kpi-sub">vượt xa WACC</div>
+                <div class="fin-kpi-card" style="border-top: 2px solid var(--accent-primary); padding: 4px; text-align: center;">
+                  <div class="fin-kpi-label" style="font-size:0.46rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">IRR Dự án</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-primary); font-size:0.8rem; font-weight:700;">~46%</div>
+                  <div class="fin-kpi-sub" style="font-size:0.42rem;">WACC = 12%</div>
                 </div>
-                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-warning);">
-                  <div class="fin-kpi-label">Hoàn vốn</div>
-                  <div class="fin-kpi-value" style="color:var(--accent-warning);font-size:1rem;">Q4/2029</div>
-                  <div class="fin-kpi-sub">~3 năm</div>
+                <div class="fin-kpi-card" style="border-top: 2px solid var(--accent-warning); padding: 4px; text-align: center;">
+                  <div class="fin-kpi-label" style="font-size:0.46rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Hoàn vốn</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-warning); font-size:0.8rem; font-weight:700;">Q4/2029</div>
+                  <div class="fin-kpi-sub" style="font-size:0.42rem;">~3 năm OPEX</div>
                 </div>
-                <div class="fin-kpi-card" style="border-top: 3px solid var(--accent-danger);">
-                  <div class="fin-kpi-label">Cash burn max</div>
-                  <div class="fin-kpi-value" style="color:var(--accent-danger);">-14,5</div>
-                  <div class="fin-kpi-sub">tỷ VNĐ (cuối 2027)</div>
+                <div class="fin-kpi-card" style="border-top: 2px solid var(--accent-danger); padding: 4px; text-align: center;">
+                  <div class="fin-kpi-label" style="font-size:0.46rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Cash burn max</div>
+                  <div class="fin-kpi-value" style="color:var(--accent-danger); font-size:0.8rem; font-weight:700;">-14,5 tỷ</div>
+                  <div class="fin-kpi-sub" style="font-size:0.42rem;">Cuối năm 2027</div>
                 </div>
               </div>
-              <div class="fin-chart-wrap">
-                <div class="fin-chart-title"><i data-lucide="trending-up" style="width:12px;height:12px;color:var(--accent-success);"></i> Dòng tiền ròng Dự án (tỷ VNĐ)</div>
-                <div class="fin-chart-canvas" style="height:155px;"><canvas id="ch6-cashflow-project"></canvas></div>
-              </div>
-              <div class="fin-chart-wrap">
-                <div class="fin-chart-title"><i data-lucide="building-2" style="width:12px;height:12px;color:var(--accent-primary);"></i> Dòng tiền ròng CIC (tỷ VNĐ)</div>
-                <div class="fin-chart-canvas" style="height:130px;"><canvas id="ch6-cashflow-cic"></canvas></div>
+              <div class="fin-chart-wrap" style="margin-top: 6px;">
+                <div class="fin-chart-title"><i data-lucide="trending-up" style="width:11px;height:11px;color:var(--accent-success);"></i> Dòng tiền Dự án & CIC (tỷ VNĐ)</div>
+                <div class="fin-chart-canvas" style="height:190px; overflow: hidden;"><canvas id="ch6-cashflow-combined"></canvas></div>
               </div>
             </div>
           `;
           setTimeout(() => {
-            const years = ['2026','2027','2028','2029','2030'];
+            const years = ['2026', '2027', '2028', '2029', '2030'];
             const cfProject = [-2.58, -11.93, 0.82, 24.83, 68.56];
             const cumProject = [-2.58, -14.51, -13.69, 11.14, 79.70];
             const cfCIC = [-1.87, -8.90, 1.43, 24.83, 68.56];
             const cumCIC = [-1.87, -10.77, -9.34, 15.45, 84.05];
-            function makeFlowChart(id, cf, cum, label) {
-              new Chart(document.getElementById(id).getContext('2d'), {
-                type: 'bar',
-                data: {
-                  labels: years,
-                  datasets: [
-                    { label: 'Dòng tiền ròng', data: cf, backgroundColor: cf.map(v => v >= 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'), borderRadius: 3 },
-                    { label: 'Tích lũy', data: cum, type: 'line', borderColor: 'rgba(59,130,246,1)', backgroundColor: 'rgba(59,130,246,0.08)', borderWidth: 2, tension: 0.2, fill: true, pointRadius: 3, pointBackgroundColor: 'rgba(59,130,246,1)' }
-                  ]
-                },
-                options: {
-                  responsive: true, maintainAspectRatio: false,
-                  scales: {
-                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 7 } } }
+
+            new Chart(document.getElementById('ch6-cashflow-combined').getContext('2d'), {
+              type: 'bar',
+              data: {
+                labels: years,
+                datasets: [
+                  {
+                    label: 'Ròng Dự án',
+                    type: 'bar',
+                    data: cfProject,
+                    backgroundColor: 'rgba(0, 212, 170, 0.7)',
+                    borderRadius: 2
                   },
-                  plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 7 }, boxWidth: 8, padding: 4 } } }
+                  {
+                    label: 'Ròng CIC',
+                    type: 'bar',
+                    data: cfCIC,
+                    backgroundColor: 'rgba(0, 148, 255, 0.7)',
+                    borderRadius: 2
+                  },
+                  {
+                    label: 'Tích lũy Dự án',
+                    type: 'line',
+                    data: cumProject,
+                    borderColor: '#00D4AA',
+                    backgroundColor: 'rgba(0, 212, 170, 0.05)',
+                    borderWidth: 1.5,
+                    tension: 0.25,
+                    fill: false,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#00D4AA'
+                  },
+                  {
+                    label: 'Tích lũy CIC',
+                    type: 'line',
+                    data: cumCIC,
+                    borderColor: '#0094FF',
+                    backgroundColor: 'rgba(0, 148, 255, 0.05)',
+                    borderWidth: 1.5,
+                    tension: 0.25,
+                    fill: false,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#0094FF'
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }
+                },
+                plugins: {
+                  legend: {
+                    labels: { color: '#cbd5e1', font: { size: 7.5 }, boxWidth: 7, padding: 4 }
+                  }
                 }
-              });
-            }
-            makeFlowChart('ch6-cashflow-project', cfProject, cumProject, 'Dự án');
-            makeFlowChart('ch6-cashflow-cic', cfCIC, cumCIC, 'CIC');
+              }
+            });
             if (window.lucide) lucide.createIcons();
           }, 150);
           return;
@@ -5602,15 +5809,15 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               data: {
                 labels: ['Hiệu năng I/O', 'Hệ sinh thái AI', 'Type Safety', 'Concurrency', 'DevEx Frontend', 'BIM Libraries'],
                 datasets: [
-                  { label: 'Go', data: [95, 30, 85, 98, 20, 10], borderColor: 'rgba(59,130,246,0.8)', backgroundColor: 'rgba(59,130,246,0.1)', pointRadius: 2 },
-                  { label: 'Python', data: [40, 98, 50, 45, 15, 95], borderColor: 'rgba(245,158,11,0.8)', backgroundColor: 'rgba(245,158,11,0.1)', pointRadius: 2 },
-                  { label: 'TypeScript', data: [60, 40, 90, 50, 98, 30], borderColor: 'rgba(16,185,129,0.8)', backgroundColor: 'rgba(16,185,129,0.1)', pointRadius: 2 }
+                  { label: 'Go', data: [95, 30, 85, 98, 20, 10], borderColor: 'rgba(0, 148, 255, 0.8)', backgroundColor: 'rgba(0, 148, 255, 0.1)', pointRadius: 2 },
+                  { label: 'Python', data: [40, 98, 50, 45, 15, 95], borderColor: 'rgba(0, 212, 170, 0.8)', backgroundColor: 'rgba(0, 212, 170, 0.1)', pointRadius: 2 },
+                  { label: 'TypeScript', data: [60, 40, 90, 50, 98, 30], borderColor: 'rgba(124, 58, 237, 0.8)', backgroundColor: 'rgba(124, 58, 237, 0.1)', pointRadius: 2 }
                 ]
               },
               options: {
                 responsive: true, maintainAspectRatio: false,
-                scales: { r: { grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#9ca3af', font: { size: 8 } }, ticks: { display: false }, suggestedMin: 0, suggestedMax: 100 } },
-                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+                scales: { r: { grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#9ca3af', font: { family: 'Inter', size: 8 } }, ticks: { display: false }, suggestedMin: 0, suggestedMax: 100 } },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Inter', size: 8 }, boxWidth: 8, padding: 6 } } }
               }
             });
             if (window.lucide) lucide.createIcons();
@@ -5659,14 +5866,14 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               data: {
                 labels: ['Load 500MB IFC', 'First Paint', 'Memory (GB)', 'FPS (orbit)'],
                 datasets: [
-                  { label: 'ThatOpen+Frag', data: [8, 2.5, 1.2, 60], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 },
-                  { label: 'Naive IFC.js', data: [45, 15, 4.5, 25], backgroundColor: 'rgba(239,68,68,0.4)', borderRadius: 3 }
+                  { label: 'ThatOpen+Frag', data: [8, 2.5, 1.2, 60], backgroundColor: 'rgba(0, 212, 170, 0.7)', borderRadius: 3 },
+                  { label: 'Naive IFC.js', data: [45, 15, 4.5, 25], backgroundColor: 'rgba(239, 68, 68, 0.4)', borderRadius: 3 }
                 ]
               },
               options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } } },
-                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+                scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 8 } } }, y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 8 } } } },
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Inter', size: 8 }, boxWidth: 8, padding: 6 } } }
               }
             });
             if (window.lucide) lucide.createIcons();
@@ -5762,11 +5969,11 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               type: 'bar',
               data: {
                 labels: ['Load 100 tòa nhà', 'Pan/Zoom FPS', 'Tile cache hit'],
-                datasets: [{ label: '3D Tiles + LOD', data: [3.2, 55, 92], backgroundColor: ['rgba(59,130,246,0.7)','rgba(16,185,129,0.7)','rgba(139,92,246,0.7)'], borderRadius: 3 }]
+                datasets: [{ label: '3D Tiles + LOD', data: [3.2, 55, 92], backgroundColor: ['rgba(0, 148, 255, 0.7)','rgba(0, 212, 170, 0.7)','rgba(124, 58, 237, 0.7)'], borderRadius: 3 }]
               },
               options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } } },
+                scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 8 } } }, y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 8 } } } },
                 plugins: { legend: { display: false } }
               }
             });
@@ -5867,11 +6074,11 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               type: 'bar',
               data: {
                 labels: ['Kết cấu', 'Kiến trúc', 'MEP', 'Hoàn thiện'],
-                datasets: [{ data: [96, 94, 88, 91], backgroundColor: ['rgba(59,130,246,0.7)','rgba(139,92,246,0.7)','rgba(245,158,11,0.7)','rgba(16,185,129,0.7)'], borderRadius: 3 }]
+                datasets: [{ data: [96, 94, 88, 91], backgroundColor: ['rgba(0, 212, 170, 0.7)','rgba(124, 58, 237, 0.7)','rgba(245, 158, 11, 0.7)','rgba(16, 185, 129, 0.7)'], borderRadius: 3 }]
               },
               options: {
                 responsive: true, maintainAspectRatio: false,
-                scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } }, y: { min: 80, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { size: 8 }, callback: v => v+'%' } } },
+                scales: { x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 8 } } }, y: { min: 80, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', font: { family: 'Inter', size: 8 }, callback: v => v+'%' } } },
                 plugins: { legend: { display: false } }
               }
             });
@@ -5979,26 +6186,45 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
             <div style="padding-top:4px;">
               <div class="fin-chart-wrap">
                 <div class="fin-chart-title"><i data-lucide="award" style="width:12px;height:12px;color:var(--accent-primary);"></i> Lộ trình chứng nhận QCVN 12:2026/BCA</div>
-                <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:32px;height:32px;background:rgba(59,130,246,0.15);border:2px solid var(--accent-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-primary);">1</div>
-                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Xác định & Phê duyệt Cấp độ</div><div style="font-size:0.48rem;color:var(--text-muted);">T7/2026 • Cấp 3 (dữ liệu quan trọng)</div></div>
+                
+                <div class="stepper-container" style="display: flex; flex-direction: row; justify-content: space-between; position: relative; margin-top: 14px; padding: 10px 0; min-height: 120px;">
+                  <!-- Horizontal connector line behind -->
+                  <div style="position: absolute; top: 26px; left: 30px; right: 30px; height: 2px; background: rgba(255,255,255,0.06); z-index: 1;"></div>
+                  <div style="position: absolute; top: 26px; left: 30px; right: 40px; height: 2px; background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary), var(--accent-warning), var(--accent-success)); z-index: 2; opacity: 0.6;"></div>
+
+                  <!-- Step 1 -->
+                  <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; z-index: 3; position: relative;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #0A0E1A; border: 2px solid var(--accent-primary); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; color: var(--accent-primary); box-shadow: 0 0 10px rgba(0, 212, 170, 0.4); margin-bottom: 8px;">01</div>
+                    <div style="font-weight: 700; font-size: 0.58rem; color: var(--text-primary); margin-bottom: 2px; max-width: 100px; line-height: 1.25;">Phê duyệt Cấp độ</div>
+                    <div style="font-size: 0.46rem; color: var(--text-muted); max-width: 90px; line-height: 1.3;">T7/2026 • Cấp độ 3 (Bộ Công an)</div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:32px;height:32px;background:rgba(139,92,246,0.15);border:2px solid var(--accent-secondary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-secondary);">2</div>
-                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Xây dựng Hồ sơ ĐBBM</div><div style="font-size:0.48rem;color:var(--text-muted);">T8–T10/2026 • 12 tài liệu bắt buộc</div></div>
+
+                  <!-- Step 2 -->
+                  <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; z-index: 3; position: relative;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #0A0E1A; border: 2px solid var(--accent-secondary); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; color: var(--accent-secondary); margin-bottom: 8px; box-shadow: 0 0 8px rgba(0, 148, 255, 0.2);">02</div>
+                    <div style="font-weight: 700; font-size: 0.58rem; color: var(--text-primary); margin-bottom: 2px; max-width: 100px; line-height: 1.25;">Xây dựng Hồ sơ</div>
+                    <div style="font-size: 0.46rem; color: var(--text-muted); max-width: 90px; line-height: 1.3;">T8-T10/2026 • 12 tài liệu ĐBBM</div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:32px;height:32px;background:rgba(245,158,11,0.15);border:2px solid var(--accent-warning);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-warning);">3</div>
-                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Triển khai biện pháp kỹ thuật</div><div style="font-size:0.48rem;color:var(--text-muted);">T9–T12/2026 • SOC + SIEM + PKI</div></div>
+
+                  <!-- Step 3 -->
+                  <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; z-index: 3; position: relative;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #0A0E1A; border: 2px solid var(--accent-warning); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; color: var(--accent-warning); margin-bottom: 8px; box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);">03</div>
+                    <div style="font-weight: 700; font-size: 0.58rem; color: var(--text-primary); margin-bottom: 2px; max-width: 100px; line-height: 1.25;">Biện pháp Kỹ thuật</div>
+                    <div style="font-size: 0.46rem; color: var(--text-muted); max-width: 90px; line-height: 1.3;">T9-T12/2026 • SOC + SIEM + PKI</div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:32px;height:32px;background:rgba(16,185,129,0.15);border:2px solid var(--accent-success);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-success);">4</div>
-                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Đánh giá & Kiểm thử xâm nhập</div><div style="font-size:0.48rem;color:var(--text-muted);">T1/2027 • Pentest + VA scan</div></div>
+
+                  <!-- Step 4 -->
+                  <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; z-index: 3; position: relative;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #0A0E1A; border: 2px solid var(--accent-success); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; color: var(--accent-success); margin-bottom: 8px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);">04</div>
+                    <div style="font-weight: 700; font-size: 0.58rem; color: var(--text-primary); margin-bottom: 2px; max-width: 100px; line-height: 1.25;">Đánh giá Pentest</div>
+                    <div style="font-size: 0.46rem; color: var(--text-muted); max-width: 90px; line-height: 1.3;">T1/2027 • Đơn vị đo kiểm chuyên dụng</div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:32px;height:32px;background:rgba(239,68,68,0.15);border:2px solid var(--accent-danger);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--accent-danger);">5</div>
-                    <div style="flex:1;"><div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">Nộp hồ sơ & Cấp Giấy chứng nhận</div><div style="font-size:0.48rem;color:var(--text-muted);">T2/2027 • Bộ Công an cấp</div></div>
+
+                  <!-- Step 5 -->
+                  <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; z-index: 3; position: relative;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #0A0E1A; border: 2px solid var(--accent-danger); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.75rem; color: var(--accent-danger); margin-bottom: 8px; box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);">05</div>
+                    <div style="font-weight: 700; font-size: 0.58rem; color: var(--text-primary); margin-bottom: 2px; max-width: 100px; line-height: 1.25;">Cấp Chứng nhận</div>
+                    <div style="font-size: 0.46rem; color: var(--text-muted); max-width: 90px; line-height: 1.3;">T2/2027 • Cục An ninh mạng cấp</div>
                   </div>
                 </div>
               </div>
@@ -6255,31 +6481,31 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               <div class="fin-chart-wrap">
                 <div class="fin-chart-title"><i data-lucide="users" style="width:12px;height:12px;color:var(--accent-primary);"></i> So sánh 3 phương án nhân sự</div>
                 <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
-                  <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:8px;">
+                  <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:6px 10px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-danger);">A. Thuê ngoài 100%</div>
-                      <div style="font-size:0.55rem;color:var(--text-muted);">❌ Không chọn</div>
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-danger);">A. Phương án A (Bảo thủ)</div>
+                      <div style="font-size:0.5rem;color:var(--text-muted);">❌ Không chọn</div>
                     </div>
-                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Nhanh nhưng không giữ IP, phụ thuộc vendor, chi phí dài hạn cao</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Đội ngũ lập trình truyền thống (16 người). OPEX cao, phát triển chậm.</div>
                   </div>
-                  <div style="background:rgba(16,185,129,0.12);border:2px solid rgba(16,185,129,0.5);border-radius:8px;padding:8px;">
+                  <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:6px 10px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-success);">B. Hybrid 10 người + AI</div>
-                      <div style="font-size:0.55rem;color:var(--accent-success);font-weight:600;">✓ ĐỀ XUẤT</div>
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-warning);">B. Phương án B (AI-first)</div>
+                      <div style="font-size:0.5rem;color:var(--text-muted);">⚠️ Cân nhắc</div>
                     </div>
-                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Core team nhỏ + AI tools → năng suất tương đương 25-30 dev truyền thống</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Kỹ sư lập trình sử dụng AI (10 người). Năng suất cao nhưng chưa tối ưu.</div>
                   </div>
-                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:8px;">
+                  <div style="background:rgba(16,185,129,0.12);border:2px solid rgba(16,185,129,0.5);border-radius:8px;padding:6px 10px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-warning);">C. Full team 25 người</div>
-                      <div style="font-size:0.55rem;color:var(--text-muted);">⚠️ Chi phí cao</div>
+                      <div style="font-size:0.6rem;font-weight:600;color:var(--accent-success);">C. Phương án C (AI-Conductor)</div>
+                      <div style="font-size:0.5rem;color:var(--accent-success);font-weight:600;">✓ ĐỀ XUẤT</div>
                     </div>
-                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Truyền thống, kiểm soát tốt nhưng OPEX 8-10 tỷ/năm, khó tuyển đủ</div>
+                    <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Nhà quản trị + AI + Chuyên gia (6-7 người). Tiết kiệm 57% chi phí.</div>
                   </div>
                 </div>
               </div>
               <div class="fin-chart-wrap" style="margin-top:8px;">
-                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-secondary);"></i> So sánh chi phí năm (tỷ VNĐ)</div>
+                <div class="fin-chart-title"><i data-lucide="bar-chart-3" style="width:12px;height:12px;color:var(--accent-secondary);"></i> So sánh chi phí R&D (tỷ VNĐ)</div>
                 <div class="fin-chart-canvas" style="height:80px;"><canvas id="ch5-hr-cost"></canvas></div>
               </div>
             </div>
@@ -6288,10 +6514,10 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
             new Chart(document.getElementById('ch5-hr-cost').getContext('2d'), {
               type: 'bar',
               data: {
-                labels: ['PA A (Outsource)', 'PA B (Hybrid+AI)', 'PA C (Full team)'],
+                labels: ['PA A (Bảo thủ)', 'PA B (AI-first)', 'PA C (AI-Conductor)'],
                 datasets: [
-                  { label: 'Lương', data: [0, 4.2, 8.5], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 },
-                  { label: 'Tool/Infra', data: [6.5, 1.8, 1.2], backgroundColor: 'rgba(139,92,246,0.5)', borderRadius: 3 }
+                  { label: 'Lương', data: [18.0, 11.0, 7.0], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 },
+                  { label: 'Tool/Infra', data: [3.1, 2.6, 2.0], backgroundColor: 'rgba(139,92,246,0.5)', borderRadius: 3 }
                 ]
               },
               options: {
@@ -6309,38 +6535,88 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
         if (slideTitle.includes('5.3') && slideTitle.includes('đội hình')) {
           ph.innerHTML = `
             <div style="padding-top:4px;">
-              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr);">
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-primary);">10</div><div class="fin-kpi-label">Nhân sự</div><div class="fin-kpi-sub">Core team</div></div>
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="color:var(--accent-success);">3x</div><div class="fin-kpi-label">AI Multiplier</div><div class="fin-kpi-sub">= 25-30 dev</div></div>
-              </div>
-              <div class="fin-chart-wrap" style="margin-top:8px;">
-                <div class="fin-chart-title"><i data-lucide="users" style="width:12px;height:12px;color:var(--accent-secondary);"></i> Phân bổ đội hình</div>
-                <div class="fin-chart-canvas" style="height:130px;"><canvas id="ch5-team-pie"></canvas></div>
-              </div>
-              <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:6px;padding:6px;">
-                  <div style="font-size:0.55rem;font-weight:600;color:var(--accent-danger);">Rủi ro chính</div>
-                  <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Bus factor thấp, khó tuyển BIM dev VN</div>
+              <!-- Summary info -->
+              <div class="fin-kpi-row" style="grid-template-columns: repeat(2,1fr); margin-bottom:8px;">
+                <div class="fin-kpi-card" style="padding: 6px 10px;">
+                  <div class="fin-kpi-value" style="color:var(--accent-primary); font-size:1.1rem;">7</div>
+                  <div class="fin-kpi-label" style="font-size:0.55rem;">Nhân sự Full-time</div>
+                  <div class="fin-kpi-sub" style="font-size:0.48rem;">+1 Chuyên gia GIS (Part-time)</div>
                 </div>
-                <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:6px;padding:6px;">
-                  <div style="font-size:0.55rem;font-weight:600;color:var(--accent-success);">Giảm thiểu</div>
-                  <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">Cross-training, tài liệu chi tiết, AI pair-programming</div>
+                <div class="fin-kpi-card" style="padding: 6px 10px;">
+                  <div class="fin-kpi-value" style="color:var(--accent-success); font-size:1.1rem;">355tr</div>
+                  <div class="fin-kpi-label" style="font-size:0.55rem;">Quỹ lương/tháng</div>
+                  <div class="fin-kpi-sub" style="font-size:0.48rem;">Tiết kiệm 57% vs Truyền thống</div>
                 </div>
+              </div>
+              
+              <!-- Team Grid -->
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                <!-- CTO Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 212, 170, 0.15); border: 1px solid var(--accent-primary); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-primary); flex-shrink: 0;">CTO</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">CTO / KTS chính</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-primary); font-family: var(--font-mono); margin-top: 1px;">75 tr/tháng • T1-18</div>
+                  </div>
+                </div>
+                <!-- WebGL Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 148, 255, 0.15); border: 1px solid var(--accent-secondary); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-secondary); flex-shrink: 0;">BIM</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Sr WebGL/BIM Dev</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-secondary); font-family: var(--font-mono); margin-top: 1px;">55 tr/tháng • T1-18</div>
+                  </div>
+                </div>
+                <!-- PM Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent-warning); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-warning); flex-shrink: 0;">PM</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">PM kiêm BIM BA</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-warning); font-family: var(--font-mono); margin-top: 1px;">55 tr/tháng • T1-18</div>
+                  </div>
+                </div>
+                <!-- Backend Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 148, 255, 0.15); border: 1px solid var(--accent-secondary); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-secondary); flex-shrink: 0;">BE</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Sr Backend (Go)</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-secondary); font-family: var(--font-mono); margin-top: 1px;">45 tr/tháng • T1-18</div>
+                  </div>
+                </div>
+                <!-- SecOps Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--accent-danger); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-danger); flex-shrink: 0;">SEC</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Sr Security & Pentest</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-danger); font-family: var(--font-mono); margin-top: 1px;">45 tr/tháng • T1-18</div>
+                  </div>
+                </div>
+                <!-- AI Data Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(124, 58, 237, 0.15); border: 1px solid var(--accent-tertiary); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-tertiary); flex-shrink: 0;">AI</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">AI & Data Engineer</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-tertiary); font-family: var(--font-mono); margin-top: 1px;">45 tr/tháng • T1-18</div>
+                  </div>
+                </div>
+                <!-- FE QA Card -->
+                <div class="highlight-card" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0; min-height: 48px; grid-column: span 2;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--accent-success); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; font-size: 0.58rem; color: var(--accent-success); flex-shrink: 0;">FE</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.58rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Senior Frontend & QA Engineer</div>
+                    <div style="font-size: 0.46rem; color: var(--accent-success); font-family: var(--font-mono); margin-top: 1px;">35 tr/tháng • Tháng 1 - 18</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- GIS Part time notice -->
+              <div style="margin-top: 6px; background: rgba(0, 212, 170, 0.04); border: 1px dashed rgba(0, 212, 170, 0.2); border-radius: 6px; padding: 5px 8px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="font-size: 0.5rem; color: var(--text-muted);"><i data-lucide="map" style="width:10px;height:10px;color:var(--accent-primary);display:inline-block;vertical-align:middle;margin-right:3px;"></i> Chuyên gia GIS (Part-time):</div>
+                <div style="font-size: 0.5rem; font-weight: 600; color: var(--accent-primary); font-family: var(--font-mono);">35 tr/tháng • Onboard: Tháng 7 - 16</div>
               </div>
             </div>
           `;
           setTimeout(() => {
-            new Chart(document.getElementById('ch5-team-pie').getContext('2d'), {
-              type: 'doughnut',
-              data: {
-                labels: ['Backend (Go+Python)', 'Frontend (React)', 'BIM/GIS Specialist', 'DevOps/Security', 'PM/QA'],
-                datasets: [{ data: [3, 2, 2, 2, 1], backgroundColor: ['rgba(59,130,246,0.8)','rgba(16,185,129,0.8)','rgba(139,92,246,0.8)','rgba(239,68,68,0.7)','rgba(245,158,11,0.7)'] }]
-              },
-              options: {
-                responsive: true, maintainAspectRatio: false, cutout: '55%',
-                plugins: { legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 4 } } }
-              }
-            });
             if (window.lucide) lucide.createIcons();
           }, 150);
           return;
@@ -6353,38 +6629,55 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
           ph.innerHTML = `
             <div style="padding-top:4px;">
               <div class="fin-chart-wrap">
-                <div class="fin-chart-title"><i data-lucide="activity" style="width:12px;height:12px;color:var(--accent-primary);"></i> Quality Gate Metrics</div>
-                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px;">
-                  <div style="text-align:center;padding:10px 6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;">
-                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-success);">≥80%</div>
+                <div class="fin-chart-title"><i data-lucide="activity" style="width:12px;height:12px;color:var(--accent-primary);"></i> Quality Gate Metrics (SonarQube)</div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px;">
+                  <div style="text-align:center;padding:8px 4px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:8px;">
+                    <div style="font-size:1.0rem;font-weight:700;color:var(--accent-success);font-family:var(--font-heading);">≥80%</div>
                     <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Code Coverage</div>
                   </div>
-                  <div style="text-align:center;padding:10px 6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
-                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-primary);">A</div>
-                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Maintainability Rating</div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(0,148,255,0.06);border:1px solid rgba(0,148,255,0.15);border-radius:8px;">
+                    <div style="font-size:1.0rem;font-weight:700;color:var(--accent-secondary);font-family:var(--font-heading);">A</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Maintainability</div>
                   </div>
-                  <div style="text-align:center;padding:10px 6px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:10px;">
-                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-secondary);">0</div>
-                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Critical Vulnerabilities</div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;">
+                    <div style="font-size:1.0rem;font-weight:700;color:var(--accent-danger);font-family:var(--font-heading);">0</div>
+                    <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Vulnerabilities</div>
                   </div>
-                  <div style="text-align:center;padding:10px 6px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;">
-                    <div style="font-size:1.1rem;font-weight:700;color:var(--accent-warning);"><5%</div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:8px;">
+                    <div style="font-size:1.0rem;font-weight:700;color:var(--accent-warning);font-family:var(--font-heading);"><5%</div>
                     <div style="font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Duplicated Lines</div>
                   </div>
                 </div>
               </div>
               <div class="fin-chart-wrap" style="margin-top:8px;">
-                <div class="fin-chart-title"><i data-lucide="shield" style="width:12px;height:12px;color:var(--accent-danger);"></i> CI/CD Pipeline Gates</div>
-                <div style="display:flex;align-items:center;gap:3px;margin-top:6px;flex-wrap:wrap;">
-                  <div style="padding:4px 8px;background:rgba(59,130,246,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-primary);font-weight:600;">Lint</div>
-                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
-                  <div style="padding:4px 8px;background:rgba(139,92,246,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-secondary);font-weight:600;">Unit Test</div>
-                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
-                  <div style="padding:4px 8px;background:rgba(16,185,129,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-success);font-weight:600;">SonarQube</div>
-                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
-                  <div style="padding:4px 8px;background:rgba(245,158,11,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-warning);font-weight:600;">SAST/DAST</div>
-                  <div style="color:var(--text-muted);font-size:0.5rem;">→</div>
-                  <div style="padding:4px 8px;background:rgba(239,68,68,0.15);border-radius:12px;font-size:0.5rem;color:var(--accent-danger);font-weight:600;">Deploy</div>
+                <div class="fin-chart-title"><i data-lucide="shield" style="width:12px;height:12px;color:var(--accent-danger);"></i> CI/CD Pipeline Gates (Auto-Check)</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;position:relative;padding:0 4px;">
+                  <div style="position:absolute;top:14px;left:20px;right:20px;height:2px;background:rgba(255,255,255,0.05);z-index:1;"></div>
+                  
+                  <div style="display:flex;flex-direction:column;align-items:center;z-index:2;position:relative;">
+                    <div style="width:26px;height:26px;border-radius:50%;background:#0A0E1A;border:1.5px solid var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:var(--accent-primary);font-weight:700;box-shadow:0 0 6px rgba(0,212,170,0.2);">Lint</div>
+                    <span style="font-size:0.42rem;color:var(--text-muted);margin-top:3px;">Format</span>
+                  </div>
+                  
+                  <div style="display:flex;flex-direction:column;align-items:center;z-index:2;position:relative;">
+                    <div style="width:26px;height:26px;border-radius:50%;background:#0A0E1A;border:1.5px solid var(--accent-secondary);display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:var(--accent-secondary);font-weight:700;box-shadow:0 0 6px rgba(0,148,255,0.2);">Unit</div>
+                    <span style="font-size:0.42rem;color:var(--text-muted);margin-top:3px;">Test</span>
+                  </div>
+                  
+                  <div style="display:flex;flex-direction:column;align-items:center;z-index:2;position:relative;">
+                    <div style="width:26px;height:26px;border-radius:50%;background:#0A0E1A;border:1.5px solid var(--accent-success);display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:var(--accent-success);font-weight:700;box-shadow:0 0 6px rgba(16,185,129,0.2);">Sonar</div>
+                    <span style="font-size:0.42rem;color:var(--text-muted);margin-top:3px;">Quality</span>
+                  </div>
+                  
+                  <div style="display:flex;flex-direction:column;align-items:center;z-index:2;position:relative;">
+                    <div style="width:26px;height:26px;border-radius:50%;background:#0A0E1A;border:1.5px solid var(--accent-warning);display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:var(--accent-warning);font-weight:700;box-shadow:0 0 6px rgba(245,158,11,0.2);">SAST</div>
+                    <span style="font-size:0.42rem;color:var(--text-muted);margin-top:3px;">Security</span>
+                  </div>
+                  
+                  <div style="display:flex;flex-direction:column;align-items:center;z-index:2;position:relative;">
+                    <div style="width:26px;height:26px;border-radius:50%;background:#0A0E1A;border:1.5px solid var(--accent-danger);display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:var(--accent-danger);font-weight:700;box-shadow:0 0 6px rgba(239,68,68,0.2);">CD</div>
+                    <span style="font-size:0.42rem;color:var(--text-muted);margin-top:3px;">Deploy</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -6399,37 +6692,62 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
             <div style="padding-top:4px;">
               <div class="fin-chart-wrap">
                 <div class="fin-chart-title"><i data-lucide="git-branch" style="width:12px;height:12px;color:var(--accent-primary);"></i> GitFlow Branching Strategy</div>
-                <div style="display:flex;flex-direction:column;gap:3px;margin-top:8px;">
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-danger);">main</div>
-                    <div style="flex:1;height:4px;background:var(--accent-danger);border-radius:2px;"></div>
-                    <div style="font-size:0.45rem;color:var(--text-muted);">Production</div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-warning);">release</div>
-                    <div style="flex:1;height:4px;background:var(--accent-warning);border-radius:2px;opacity:0.7;"></div>
-                    <div style="font-size:0.45rem;color:var(--text-muted);">Staging</div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-success);">develop</div>
-                    <div style="flex:1;height:4px;background:var(--accent-success);border-radius:2px;"></div>
-                    <div style="font-size:0.45rem;color:var(--text-muted);">Integration</div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <div style="width:60px;font-size:0.55rem;font-weight:600;color:var(--accent-primary);">feature/*</div>
-                    <div style="flex:1;height:4px;background:var(--accent-primary);border-radius:2px;opacity:0.5;"></div>
-                    <div style="font-size:0.45rem;color:var(--text-muted);">Dev branches</div>
-                  </div>
+                
+                <div style="margin-top:8px; margin-bottom:8px;">
+                  <svg viewBox="0 0 320 100" style="width: 100%; height: 95px; background: rgba(15, 22, 41, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 4px;">
+                    <!-- Branch lines -->
+                    <path d="M 20 20 L 300 20" stroke="var(--accent-danger)" stroke-width="2" fill="none" /> <!-- main -->
+                    <path d="M 40 45 L 280 45" stroke="var(--accent-warning)" stroke-width="2" fill="none" /> <!-- release -->
+                    <path d="M 60 70 L 260 70" stroke="var(--accent-success)" stroke-width="2" fill="none" /> <!-- develop -->
+                    <path d="M 120 90 L 180 90" stroke="var(--accent-primary)" stroke-width="2" fill="none" /> <!-- feature -->
+                    
+                    <!-- Splits & Merges -->
+                    <path d="M 40 45 Q 50 70 60 70" stroke="var(--accent-success)" stroke-width="1.5" fill="none" />
+                    <path d="M 100 70 Q 110 90 120 90" stroke="var(--accent-primary)" stroke-width="1.5" fill="none" stroke-dasharray="2,2" /> 
+                    <path d="M 180 90 Q 190 70 200 70" stroke="var(--accent-primary)" stroke-width="1.5" fill="none" stroke-dasharray="2,2" /> 
+                    
+                    <path d="M 220 70 Q 230 45 240 45" stroke="var(--accent-warning)" stroke-width="1.5" fill="none" stroke-dasharray="2,2" />
+                    <path d="M 270 45 Q 280 20 290 20" stroke="var(--accent-danger)" stroke-width="1.5" fill="none" stroke-dasharray="2,2" />
+
+                    <!-- Commit circles -->
+                    <!-- main -->
+                    <circle cx="30" cy="20" r="3" fill="var(--accent-danger)" />
+                    <circle cx="290" cy="20" r="3.5" fill="var(--accent-danger)" stroke="#fff" stroke-width="1" />
+                    <text x="260" y="15" fill="var(--accent-danger)" font-size="5" font-weight="bold">v1.0.0 (Prod)</text>
+
+                    <!-- release -->
+                    <circle cx="50" cy="45" r="3" fill="var(--accent-warning)" />
+                    <circle cx="240" cy="45" r="3" fill="var(--accent-warning)" />
+                    <circle cx="270" cy="45" r="3" fill="var(--accent-warning)" />
+
+                    <!-- develop -->
+                    <circle cx="80" cy="70" r="3" fill="var(--accent-success)" />
+                    <circle cx="200" cy="70" r="3" fill="var(--accent-success)" />
+                    <circle cx="220" cy="70" r="3" fill="var(--accent-success)" />
+
+                    <!-- feature -->
+                    <circle cx="120" cy="90" r="3" fill="var(--accent-primary)" />
+                    <circle cx="150" cy="90" r="3" fill="var(--accent-primary)" />
+                    <circle cx="180" cy="90" r="3" fill="var(--accent-primary)" />
+                    
+                    <!-- Labels -->
+                    <text x="25" y="13" fill="var(--accent-danger)" font-size="5" font-family="var(--font-mono)">main</text>
+                    <text x="25" y="38" fill="var(--accent-warning)" font-size="5" font-family="var(--font-mono)">release</text>
+                    <text x="25" y="63" fill="var(--accent-success)" font-size="5" font-family="var(--font-mono)">develop</text>
+                    <text x="120" y="84" fill="var(--accent-primary)" font-size="5" font-family="var(--font-mono)">feature/*</text>
+                  </svg>
                 </div>
               </div>
-              <div class="fin-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-primary);"><i data-lucide="git-pull-request" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">PR Required</div><div class="fin-kpi-sub">≥2 reviewers</div></div>
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-success);"><i data-lucide="check-circle" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">Auto CI</div><div class="fin-kpi-sub">Block on fail</div></div>
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-warning);"><i data-lucide="tag" style="width:14px;height:14px;"></i></div><div class="fin-kpi-label">SemVer</div><div class="fin-kpi-sub">Auto changelog</div></div>
+              
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-top:6px;">
+                <div class="fin-kpi-card" style="padding: 4px;"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-primary);"><i data-lucide="git-pull-request" style="width:12px;height:12px;"></i></div><div class="fin-kpi-label" style="font-size:0.46rem;">PR Review</div><div class="fin-kpi-sub" style="font-size:0.4rem;">&ge;2 reviewers</div></div>
+                <div class="fin-kpi-card" style="padding: 4px;"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-success);"><i data-lucide="check-circle" style="width:12px;height:12px;"></i></div><div class="fin-kpi-label" style="font-size:0.46rem;">Auto CI Gate</div><div class="fin-kpi-sub" style="font-size:0.4rem;">Block on fail</div></div>
+                <div class="fin-kpi-card" style="padding: 4px;"><div class="fin-kpi-value" style="font-size:0.75rem;color:var(--accent-warning);"><i data-lucide="tag" style="width:12px;height:12px;"></i></div><div class="fin-kpi-label" style="font-size:0.46rem;">Versioning</div><div class="fin-kpi-sub" style="font-size:0.4rem;">Auto SemVer</div></div>
               </div>
-              <div style="margin-top:8px;background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px;">
-                <div style="font-size:0.55rem;font-weight:600;color:var(--accent-primary);"><i data-lucide="key" style="width:10px;height:10px;"></i> IAM & Access Control</div>
-                <div style="font-size:0.48rem;color:var(--text-muted);margin-top:2px;">RBAC: Admin / Maintainer / Developer / Reporter. Branch protection trên main & release.</div>
+              
+              <div style="margin-top:6px;background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.15);border-radius:6px;padding:6px;">
+                <div style="font-size:0.52rem;font-weight:600;color:var(--accent-primary);"><i data-lucide="key" style="width:9px;height:9px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> IAM & Access Control</div>
+                <div style="font-size:0.46rem;color:var(--text-muted);margin-top:2px;line-height:1.25;">RBAC: Admin / Maintainer / Developer / Reporter. Branch protection trên main & release.</div>
               </div>
             </div>
           `;
@@ -6445,13 +6763,13 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
             <div style="padding-top:4px;">
               <div class="fin-chart-wrap">
                 <div class="fin-chart-title"><i data-lucide="calendar" style="width:12px;height:12px;color:var(--accent-primary);"></i> Sprint Timeline (12 sprints × 2 tuần)</div>
-                <div class="fin-chart-canvas" style="height:150px;"><canvas id="ch8-sprint-timeline"></canvas></div>
+                <div class="fin-chart-canvas" style="height:140px; overflow: hidden;"><canvas id="ch8-sprint-timeline"></canvas></div>
               </div>
-              <div class="fin-kpi-row" style="grid-template-columns:repeat(4,1fr);margin-top:8px;">
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-primary);">12</div><div class="fin-kpi-label">Sprints</div></div>
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-success);">6 th</div><div class="fin-kpi-label">Tổng thời gian</div></div>
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-warning);">MVP</div><div class="fin-kpi-label">Sprint 6</div></div>
-                <div class="fin-kpi-card"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-danger);">GA</div><div class="fin-kpi-label">Sprint 12</div></div>
+              <div class="fin-kpi-row" style="grid-template-columns:repeat(4,1fr);margin-top:6px;">
+                <div class="fin-kpi-card" style="padding: 4px; text-align: center;"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-primary);font-weight:700;">12</div><div class="fin-kpi-label" style="font-size:0.46rem;">Sprints</div></div>
+                <div class="fin-kpi-card" style="padding: 4px; text-align: center;"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-success);font-weight:700;">6 tháng</div><div class="fin-kpi-label" style="font-size:0.46rem;">Tổng TG R&D</div></div>
+                <div class="fin-kpi-card" style="padding: 4px; text-align: center;"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-warning);font-weight:700;">Sprint 6</div><div class="fin-kpi-label" style="font-size:0.46rem;">Ship MVP</div></div>
+                <div class="fin-kpi-card" style="padding: 4px; text-align: center;"><div class="fin-kpi-value" style="font-size:0.8rem;color:var(--accent-danger);font-weight:700;">Sprint 12</div><div class="fin-kpi-label" style="font-size:0.46rem;">Full GA</div></div>
               </div>
             </div>
           `;
@@ -6461,10 +6779,10 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
               data: {
                 labels: ['S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12'],
                 datasets: [
-                  { label: 'Core Platform', data: [1,1,1,1,0,0,0,0,0,0,0,0], backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 2 },
-                  { label: 'BIM Engine', data: [0,1,1,1,1,1,0,0,0,0,0,0], backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 2 },
-                  { label: 'GIS/4D/5D', data: [0,0,0,0,1,1,1,1,0,0,0,0], backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 2 },
-                  { label: 'Security/Polish', data: [0,0,0,0,0,0,0,1,1,1,1,1], backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 2 }
+                  { label: 'Core Platform', data: [1,1,1,1,0,0,0,0,0,0,0,0], backgroundColor: 'rgba(0, 148, 255, 0.8)', borderRadius: 2 },
+                  { label: 'BIM Engine', data: [0,1,1,1,1,1,0,0,0,0,0,0], backgroundColor: 'rgba(124, 58, 237, 0.8)', borderRadius: 2 },
+                  { label: 'GIS/4D/5D', data: [0,0,0,0,1,1,1,1,0,0,0,0], backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 2 },
+                  { label: 'Security/Polish', data: [0,0,0,0,0,0,0,1,1,1,1,1], backgroundColor: 'rgba(245, 158, 11, 0.8)', borderRadius: 2 }
                 ]
               },
               options: {
@@ -6473,7 +6791,7 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
                   x: { stacked: true, grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 8 } } },
                   y: { stacked: true, display: false }
                 },
-                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 8 }, boxWidth: 8, padding: 6 } } }
+                plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 7.5 }, boxWidth: 7, padding: 4 } } }
               }
             });
             if (window.lucide) lucide.createIcons();

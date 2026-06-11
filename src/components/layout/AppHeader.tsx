@@ -60,7 +60,7 @@ export function AppHeader({
   const getHeaderTitle = () => {
     switch (activeModule) {
       case 'overview':
-        return 'Cổng Thông tin Tổng quan CDE';
+        return 'Trung tâm Điều hành CDE';
       case 'gis':
         return 'Bản đồ số Quy hoạch GeoBIM / GIS';
       case 'settings':
