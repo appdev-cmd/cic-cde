@@ -112,8 +112,9 @@ Nghị định số 217/2026/NĐ-CP (ban hành ngày 15/06/2026) quy định chi
 * **Điều 8 Khoản 4** — CDE bắt buộc: Yêu cầu Chủ đầu tư thiết lập và vận hành **Môi trường dữ liệu chung (CDE)** để quản lý, lưu trữ tập tin gốc của mô hình BIM đối với công trình **cấp I trở lên thuộc dự án đầu tư công**. Các cấp công trình khác được **khuyến khích** áp dụng.
 * **Điều 8 Khoản 5 Điểm b** — Số hóa hồ sơ: BIM có thể **thay thế hồ sơ giấy** truyền thống khi đáp ứng điều kiện pháp lý về chữ ký số.
 * **Điều 8 Khoản 5 Điểm đ** — Nộp BIM hoàn công: Chủ đầu tư phải thực hiện việc **cập nhật mô hình BIM hoàn công đã được chuẩn hóa vào Cơ sở dữ liệu quốc gia** về hoạt động xây dựng.
+* **Điều 8 Khoản 5 Điểm c** — Thẩm định bằng dữ liệu BIM: Cho phép và khuyến khích cơ quan chuyên môn về xây dựng sử dụng dữ liệu BIM để phục vụ công tác thẩm định thiết kế cơ sở và kiểm tra nghiệm thu. Nội dung thẩm định bằng dữ liệu BIM bao gồm: vị trí, hình khối, kích thước chủ yếu; phương án kiến trúc, kết cấu chính; tổ chức không gian, hệ thống kỹ thuật; kiểm tra sự tuân thủ quy chuẩn kỹ thuật, tiêu chuẩn áp dụng; kiểm tra xung đột kỹ thuật và trích xuất các chỉ tiêu chủ yếu.
 
-> **Ý nghĩa**: NĐ 217 tạo ra **thị trường bắt buộc** cho CDE CIC tại phân khúc B2G — mọi công trình cấp I trở lên của dự án đầu tư công đều **phải có CDE**. Đồng thời, yêu cầu định dạng IFC phù hợp hoàn hảo với chiến lược OpenBIM của CDE CIC.
+> **Ý nghĩa**: NĐ 217 tạo ra **thị trường bắt buộc** cho CDE CIC tại phân khúc B2G — mọi công trình cấp I trở lên của dự án đầu tư công đều **phải có CDE**. Đặc biệt, quy định tại **Khoản 5 Điểm c Điều 8** mở ra cơ hội thương mại cực lớn cho CIC trong việc cung cấp **Phân hệ hỗ trợ thẩm định tự động** cho các Sở Xây dựng và cơ quan chuyên môn về xây dựng cấp Bộ/tỉnh, trực tiếp phục vụ công tác thẩm định thiết kế cơ sở không dùng giấy theo lộ trình chuyển đổi số quốc gia.
 
 ### 2.4. CSDL Quốc gia & Hạ tầng CNTT Số — Nghị định số 212/2026/NĐ-CP
 
@@ -732,6 +733,29 @@ Theo **Nghị định số 212/2026/NĐ-CP** (Khoản 3 Điều 4) và **Nghị 
 * **Liên thông LGSP/NDXP**: Kiến trúc sẵn sàng kết nối với Nền tảng tích hợp, chia sẻ dữ liệu quốc gia (NDXP) và Trục liên thông cấp tỉnh (LGSP) theo quy định tại Điều 6 NĐ 212.
 
 
+### 4.8. Phân hệ Hỗ trợ Cơ quan QLNN Thẩm định Thiết kế Cơ sở (State Appraisal Assistant Module)
+
+Để đáp ứng quy định tại **Khoản 5 Điểm c Điều 8 Nghị định số 217/2026/NĐ-CP**, CDE CIC phát triển một phân hệ chuyên biệt phục vụ các cơ quan chuyên môn về xây dựng (Sở Xây dựng, Bộ quản lý chuyên ngành) thực hiện thẩm định thiết kế cơ sở dựa trên mô hình thông tin công trình (BIM). Phân hệ này ứng dụng công nghệ **Kiểm tra sự tuân thủ tự động (Automated Compliance Checking - ACC)** nhằm nâng cao 80% hiệu suất thẩm định và giảm thiểu sai sót chủ quan.
+
+#### 4.8.1. Kiến trúc Kỹ thuật của Bộ máy Thẩm định Tự động (ACC Engine)
+Bộ máy thẩm định tự động được xây dựng trên nền tảng Python (FastAPI + IfcOpenShell) kết hợp thư viện quy luật số hóa (Rule Engine):
+1. **Số hóa Quy chuẩn & Tiêu chuẩn Việt Nam (Digitalized Codes)**: Số hóa các quy chuẩn cốt lõi thành các bộ luật logic máy đọc được (JSON/XML Rules):
+   - **QCVN 01:2026/BXD (Quy chuẩn Quy hoạch)**: Số hóa các công thức và ràng buộc về mật độ xây dựng tối đa, hệ số sử dụng đất, khoảng lùi công trình tối thiểu, khoảng cách an toàn phòng cháy.
+   - **QCVN 06:2026/BXD (An toàn cháy cho nhà và công trình)**: Số hóa các quy định về khoảng cách lối thoát nạn, số lượng và kích thước lối thoát nạn, giới hạn chịu lửa của cấu kiện, giải pháp ngăn cháy lan.
+   - **QCVN 09:2026/BXD (Công trình hiệu quả năng lượng)**: Số hóa các yêu cầu về tỷ lệ truyền nhiệt của vỏ bao che, chiếu sáng và hiệu suất thiết bị điều hòa không khí.
+2. **Hình học Không gian & Phân tích Thuộc tính (Spatial & Semantic Analyzer)**:
+   - Trích xuất dữ liệu hình học (BRep, Mesh) từ tệp IFC bằng **IfcOpenShell** để xác định tọa độ thực, hình khối và kích thước vật lý của công trình.
+   - Truy vấn bảng thuộc tính đối tượng (Property Sets) để kiểm tra mác vật liệu, giới hạn chịu lửa đăng ký, và thông số kỹ thuật thiết bị.
+3. **Bộ máy Suy diễn Quy luật (Rete-based Rule Engine)**: Đối chiếu các thuộc tính trích xuất được từ mô hình BIM với bộ luật quy chuẩn. Hệ thống tự động gắn nhãn (Pass/Fail) và xuất báo cáo không tuân thủ (Non-compliance Report) kèm tọa độ 3D của cấu kiện vi phạm.
+
+#### 4.8.2. Các Tính năng Cốt lõi hỗ trợ Thẩm định theo Điều 8 Khoản 5 Điểm c NĐ 217
+* **Kiểm tra tự động Chỉ giới & Quy hoạch**: Tự động chiếu mô hình GeoBIM 3D lên ranh giới đất và chỉ giới đường đỏ được số hóa trên bản đồ nền GIS để kiểm tra khoảng lùi và hành lang an toàn đô thị.
+* **Thẩm duyệt Thiết kế Phòng cháy Chữa cháy (PCCC) tự động**: Tự động tính toán đường đi thoát nạn ngắn nhất (Pathfinding Algorithm) từ mọi điểm trong tòa nhà đến buồng thang bộ thoát hiểm, đối chiếu với giới hạn quy định của QCVN 06:2026/BXD.
+* **Trích xuất Tự động các Chỉ tiêu Quy hoạch chủ yếu**: Tự động tính toán tổng diện tích sàn (GFA), diện tích hữu dụng (NFA), diện tích xây dựng tầng 1 để đối chiếu chính xác với Giấy phép quy hoạch hoặc Quy hoạch 1/500 được duyệt, ngăn chặn sai số do tính toán thủ công.
+* **Kiểm tra Xung đột Kỹ thuật liên ngành (Clash Detection)**: Phát hiện các lỗi xung đột không gian nghiêm trọng giữa Kết cấu và Hệ thống cơ điện (MEP) (ví dụ: ống thông gió đâm qua dầm chịu lực mà không có lỗ mở gia cường), giúp ngăn ngừa lãng phí và rủi ro an toàn kết cấu.
+* **Báo cáo và Phê duyệt Số hóa**: Cung cấp giao diện làm việc trực quan cho chuyên viên thẩm định, cho phép tạo các ghi chú lỗi trực tiếp trên mô hình 3D bằng định dạng chuẩn mở **BCF (BIM Collaboration Format)**. Khi hồ sơ đạt yêu cầu, hệ thống hỗ trợ **ký số điện tử** trực tiếp vào tệp mô hình BIM hoàn thành thẩm định, làm cơ sở cấp phép xây dựng số mà không cần hồ sơ giấy (tuân thủ Điều 8 Khoản 5 Điểm b NĐ 217).
+
+
 ---
 
 ## Chương 5: Kế hoạch Nhân sự & Mô hình R&D Tinh gọn phối hợp AI (Lean R&D & Operations Model)
@@ -869,10 +893,11 @@ CAPEX được phân bổ tập trung trong 18 tháng R&D để hoàn thiện c�
 
 | STT | Phân hệ nhiệm vụ R&D chính | Phần vốn NSNN | Phần vốn CIC tự đầu tư | Tổng vốn đầu tư | Thời gian thực hiện |
 |:---:|:---|:---:|:---:|:---:|:---:|
-| 1 | Engine đồ họa IFC & OpenBIM Viewer (Phân hệ 1 + 3) | 0,00 | 1,50 | **1,50** | 18 tháng |
-| 2 | Quản lý tài liệu dự án số theo ISO 19650 (Phân hệ 2) | 0,00 | 0,80 | **0,80** | 14 tháng |
-| 3 | Bộ cài đặt an ninh đạt chuẩn QCVN 12 & SSO (Phân hệ 7) | 0,00 | 0,70 | **0,70** | 18 tháng |
-| 4 | Thương mại hóa, đóng gói SaaS và đào tạo chuyển giao | 0,00 | 0,50 | **0,50** | 12 tháng |
+| 1 | Engine đồ họa IFC & OpenBIM Viewer (Phân hệ 1) | 0,00 | 1,00 | **1,00** | 18 tháng |
+| 2 | Quản lý tài liệu dự án số theo ISO 19650 (Phân hệ 2) | 0,00 | 0,70 | **0,70** | 12 tháng |
+| 3 | Cổng liên thông CSDL Quốc gia & Hỗ trợ Thẩm định QLNN (Phân hệ 3) | 0,00 | 0,60 | **0,60** | 11 tháng |
+| 4 | Bộ cài đặt an ninh đạt chuẩn QCVN 12 & SSO VNeID (Phân hệ 4) | 0,00 | 0,70 | **0,70** | 13 tháng |
+| 5 | Đóng gói SaaS thương mại hóa, đào tạo và chuyển giao (Phân hệ 5) | 0,00 | 0,50 | **0,50** | 9 tháng |
 | | **TỔNG CỘNG** | **0,00** | **3,50** | **3,50** | |
 
 #### 6.2.2. Báo cáo Chi phí Vận hành OPEX 5 năm (tỷ VNĐ):
@@ -962,13 +987,11 @@ Tổng chi phí vận hành OPEX trong 5 năm đầu là **33,30 tỷ VNĐ**, đ
 
 | Phân hệ R&D / Tháng | T1 | T2 | T3 | T4 | T5 | T6 | T7 | T8 | T9 | T10 | T11 | T12 | T13 | T14 | T15 | T16 | T17 | T18 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Phân hệ 1**: Đồ họa & Viewer (4.0 tỷ) | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
-| **Phân hệ 2**: Quản lý tài liệu (2.0 tỷ) | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | | | | |
-| **Phân hệ 3**: 4D/5D Định mức BXD (1.5 tỷ)| | | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | | | | |
-| **Phân hệ 4a**: GeoBIM/GIS (3D Tiles) (1.5 tỷ) | | | | | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | | |
-| **Phân hệ 4b**: Vận hành FM & CMMS (1.0 tỷ) | | | | | | | | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | |
-| **Phân hệ 5**: An ninh QCVN 12 (2.5 tỷ) | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
-| **Phân hệ 6**: Đóng gói & Thương mại (2.0 tỷ)| | | | | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
+| **Phân hệ 1**: Đồ họa IFC & Viewer (1.0 tỷ) | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
+| **Phân hệ 2**: Quản lý tài liệu ISO 19650 (0.7 tỷ) | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | | | | | | |
+| **Phân hệ 3**: Thẩm định QLNN & CSDL QG (0.6 tỷ)| | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | | | | |
+| **Phân hệ 4**: An ninh QCVN 12 & VNeID (0.7 tỷ) | | | | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
+| **Phân hệ 5**: Đóng gói SaaS & Chuyển giao (0.5 tỷ)| | | | | | | | | | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 | 🟩 |
 
 *Chú thích:* 🟩: Giai đoạn phát triển, tích hợp và kiểm thử.
 
