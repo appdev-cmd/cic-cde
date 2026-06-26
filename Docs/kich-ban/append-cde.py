@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Generate Docs/01.Ban_HCM_Van_ban_de_xuat (1).docx from Docs/01.Ban_HCM_De_xuat_CDE_CIC.md
+# Append CDE CIC sections to Docs/01.Ban_HCM_Van_ban_de_xuat.docx
 import re, sys, os
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 from docx import Document
 from docx.shared import Pt, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
@@ -15,25 +17,45 @@ JJ = WD_ALIGN_PARAGRAPH.JUSTIFY
 LL = WD_ALIGN_PARAGRAPH.LEFT
 
 # Read source markdown
-md_path = os.path.join(os.path.dirname(__file__) or ".", "01.Ban_HCM_De_xuat_CDE_CIC.md")
+md_path = os.path.join(os.path.dirname(__file__) or ".", "..", "de-xuat", "01-ban-hcm-de-xuat-cde-cic.md")
 with open(md_path, "r", encoding="utf-8") as fh:
     lines = fh.read().split("\n")
 
-doc = Document()
-sec = doc.sections[0]
-sec.page_width = Mm(210); sec.page_height = Mm(297)
-sec.top_margin = Mm(20); sec.bottom_margin = Mm(20)
-sec.left_margin = Mm(30); sec.right_margin = Mm(15) # NĐ30 standard: left 30mm, right 15-20mm, top/bottom 20-25mm
-sec.different_first_page_header_footer = True
+# Find where Section V starts (line with "## V. ĐỀ XUẤT NỀN TẢNG MÔI TRƯỜNG DỮ LIỆU CHUNG")
+start_idx = 0
+for idx, line in enumerate(lines):
+    if line.strip().startswith("## V. ĐỀ XUẤT NỀN TẢNG MÔI TRƯỜNG DỮ LIỆU CHUNG"):
+        start_idx = idx
+        break
 
-ns = doc.styles["Normal"]
-ns.font.name = F; ns.font.size = Pt(13)
-ns.element.rPr.rFonts.set(qn("w:eastAsia"), F)
-pf = ns.paragraph_format
-pf.line_spacing_rule = WD_LINE_SPACING.MULTIPLE; pf.line_spacing = 1.15
-pf.space_after = Pt(0); pf.space_before = Pt(0)
+if start_idx == 0:
+    # fallback if not found
+    for idx, line in enumerate(lines):
+        if line.strip().startswith("## V."):
+            start_idx = idx
+            break
 
+print(f"Parsing CDE sections from line {start_idx + 1}: '{lines[start_idx]}'")
 
+# Load the original docx document
+doc_path = os.path.join(os.path.dirname(__file__) or ".", "..", "de-xuat", "01-ban-hcm-van-ban-de-xuat.docx")
+doc = Document(doc_path)
+
+# Remove the signature table at the end of the document
+# The signature table is the last table in the document
+if len(doc.tables) > 0:
+    sig_table = doc.tables[-1]
+    # Verify it is indeed the signature table
+    # It has 1 row and 2 columns, and cell 1 contains "CÔNG TY CỔ PHẦN CÔNG NGHỆ"
+    cell_txt = sig_table.cell(0, 1).text if len(sig_table.columns) > 1 else ""
+    if "CÔNG TY" in cell_txt or "CIC" in cell_txt:
+        print("Removing original signature table from docx...")
+        p = sig_table._element.getparent()
+        p.remove(sig_table._element)
+    else:
+        print("Warning: Last table does not look like the signature block. Not removing.")
+
+# Styling helper functions
 def sf(r, sz=13, b=False, it=False):
     r.font.name = F; r.font.size = Pt(sz); r.bold = b; r.italic = it
     rPr = r._element.get_or_add_rPr()
@@ -51,7 +73,7 @@ def ap(text, sz=13, b=False, it=False, align=JJ, ind=True, bef=2, aft=2, li=None
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
     p.paragraph_format.line_spacing = 1.15
     if ind:
-        p.paragraph_format.first_line_indent = Pt(36) # ~1.27cm indent
+        p.paragraph_format.first_line_indent = Pt(36)
     if li:
         p.paragraph_format.left_indent = Pt(li)
     
@@ -103,7 +125,6 @@ def ct(cell, text, sz=11, b=False, it=False, align=LL):
     p.paragraph_format.space_before = Pt(1); p.paragraph_format.space_after = Pt(1)
     p.paragraph_format.line_spacing = 1.15
     
-    # Inline formatting for table cells
     parts = re.split(r"(\*\*.*?\*\*|\*[^*]+?\*)", text)
     for part in parts:
         if not part:
@@ -122,56 +143,11 @@ def clean(text):
     return text.strip()
 
 
-# ========== HEADER TABLE ==========
-ht = doc.add_table(rows=1, cols=2)
-ht.alignment = WD_TABLE_ALIGNMENT.CENTER; ht.autofit = False
-ht.columns[0].width = Mm(80); ht.columns[1].width = Mm(85); nbt(ht)
+# Spacing paragraph before appending CDE
+ap("", sz=13, align=JJ, ind=False, bef=12, aft=12)
 
-lc = ht.cell(0, 0); lc.paragraphs[0].clear()
-# Parse header left side: Org Name
-org_lines = [
-    "CÔNG TY CỔ PHẦN CÔNG NGHỆ",
-    "VÀ TƯ VẤN CIC"
-]
-p = lc.paragraphs[0]; p.alignment = CC
-sf(p.add_run(org_lines[0]), sz=11.5, b=True)
-p2 = lc.add_paragraph(); p2.alignment = CC
-sf(p2.add_run(org_lines[1]), sz=11.5, b=True); bb(p2)
-p3 = lc.add_paragraph(); p3.alignment = CC
-sf(p3.add_run("Số: …./……"), sz=11)
-p4 = lc.add_paragraph(); p4.alignment = CC
-sf(p4.add_run("Vv: Đánh giá và đề xuất lựa chọn phần mềm,"), sz=11, it=True)
-p5 = lc.add_paragraph(); p5.alignment = CC
-sf(p5.add_run("máy tính phục vụ công tác triển khai BIM"), sz=11, it=True)
-
-rc = ht.cell(0, 1); rc.paragraphs[0].clear()
-# Parse header right side: Nation
-p = rc.paragraphs[0]; p.alignment = CC
-sf(p.add_run("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"), sz=11.5, b=True)
-p2 = rc.add_paragraph(); p2.alignment = CC
-sf(p2.add_run("Độc lập – Tự do – Hạnh phúc"), sz=12, b=True); bb(p2)
-p3 = rc.add_paragraph(); p3.alignment = CC
-sf(p3.add_run("TP.HCM, ngày … tháng … năm 2026"), sz=12, it=True)
-
-# Spacing
-doc.add_paragraph()
-
-# Title
-title_p = doc.add_paragraph(); title_p.alignment = CC
-r = title_p.add_run("BÁO CÁO ĐỀ XUẤT LỰA CHỌN PHẦN MỀM, MÁY TÍNH PHỤC VỤ CÔNG TÁC TRIỂN KHAI MÔ HÌNH THÔNG TIN CÔNG TRÌNH (BIM)")
-sf(r, sz=14, b=True)
-
-subtitle_p = doc.add_paragraph(); subtitle_p.alignment = CC
-r2 = subtitle_p.add_run("TRONG HOẠT ĐỘNG XÂY DỰNG TẠI BAN QUẢN LÝ DỰ ÁN ĐẦU TƯ XÂY DỰNG CÁC CÔNG TRÌNH DÂN DỤNG VÀ CÔNG NGHIỆP")
-sf(r2, sz=13, b=True)
-
-# Kính gửi
-kg_p = doc.add_paragraph(); kg_p.alignment = CC
-r3 = kg_p.add_run("Kính gửi: Giám Đốc Ban Quản Lý Dự Án Đầu Tư Xây Dựng Các Công Trình Dân Dụng Và Công Nghiệp")
-sf(r3, sz=13, b=True)
-
-# ========== BODY PARSING ==========
-i = 18  # Skip markdown header table lines
+# ========== PARSING LOOP ==========
+i = start_idx
 in_table = False
 table_rows = []
 
@@ -184,15 +160,15 @@ while i < len(lines):
 
     # Headers
     if s.startswith("## "):
-        p = ap(s[3:].strip(), sz=13, b=True, align=LL, ind=False, bef=12, aft=4)
+        p = ap(s[3:].strip(), sz=13, b=True, align=LL, ind=False, bef=14, aft=4)
         i += 1; continue
 
     if s.startswith("### "):
-        p = ap(s[4:].strip(), sz=13, b=True, align=LL, ind=False, bef=8, aft=3)
+        p = ap(s[4:].strip(), sz=13, b=True, align=LL, ind=False, bef=10, aft=3)
         i += 1; continue
 
     if s.startswith("#### "):
-        p = ap(s[5:].strip(), sz=13, b=True, it=True, align=LL, ind=False, bef=6, aft=2)
+        p = ap(s[5:].strip(), sz=13, b=True, it=True, align=LL, ind=False, bef=8, aft=2)
         i += 1; continue
 
     # Table parsing
@@ -225,7 +201,6 @@ while i < len(lines):
                 for r_idx, dr in enumerate(data[1:]):
                     row = tbl.rows[r_idx + 1]
                     for j, val in enumerate(dr[:nc]):
-                        # Alignment based on content type
                         al = LL
                         if j == 0 and nc > 3: # STT col
                             al = CC
@@ -243,19 +218,15 @@ while i < len(lines):
         p.paragraph_format.space_before = Pt(2)
         p.paragraph_format.space_after = Pt(2)
         
-        # Clean blockquote marker
         txt = clean(s[2:])
-        # Process inner markdown table or bullet in blockquotes if any
         if txt.startswith("|"):
-            # If blockquote contains table, we skip compiling it as blockquote text
-            # and let the table parser handle it
             pass
         else:
             r = p.add_run(txt)
             sf(r, sz=12, it=True)
         i += 1; continue
 
-    # Bullet with bold label: - **...**
+    # Bullet lists
     if s.startswith("- **"):
         text = s[2:].strip()
         m = re.match(r"^(\*\*.*?\*\*\s*:?\s*)(.*)", text)
@@ -267,10 +238,9 @@ while i < len(lines):
         if m:
             label = m.group(1)
             content_txt = m.group(2)
-            # Add label in bold
             r1 = p.add_run("• " + label)
             sf(r1, sz=13, b=True)
-            # Add content in normal
+            
             parts = re.split(r"(\*\*.*?\*\*|\*[^*]+?\*)", content_txt)
             for part in parts:
                 if not part: continue
@@ -285,7 +255,6 @@ while i < len(lines):
             sf(r, sz=13)
         i += 1; continue
 
-    # Regular bullet list: - ...
     if s.startswith("- "):
         p = doc.add_paragraph(); p.alignment = JJ
         p.paragraph_format.left_indent = Pt(18)
@@ -306,7 +275,7 @@ while i < len(lines):
                 r2 = p.add_run(part); sf(r2, sz=13)
         i += 1; continue
 
-    # Numbered list: 1. ... or 1) ...
+    # Numbered list
     if re.match(r"^(\d+[\.\)])\s+(.*)", s):
         m = re.match(r"^(\d+[\.\)])\s+(.*)", s)
         num_prefix = m.group(1)
@@ -341,35 +310,19 @@ doc.add_paragraph() # spacing
 st = doc.add_table(rows=1, cols=2)
 st.autofit = False; st.columns[0].width = Mm(80); st.columns[1].width = Mm(85); nbt(st)
 
-# Left column empty
 st.cell(0, 0).paragraphs[0].clear()
 
-# Right column signature
 right = st.cell(0, 1); right.paragraphs[0].clear()
 p = right.paragraphs[0]; p.alignment = CC
 sf(p.add_run("CÔNG TY CỔ PHẦN CÔNG NGHỆ VÀ TƯ VẤN CIC"), sz=11.5, b=True)
 p2 = right.add_paragraph(); p2.alignment = CC
 sf(p2.add_run("(Ký tên, đóng dấu)"), sz=11.5, it=True)
 
-# Add page numbering
-section = doc.sections[0]
-footer = section.footer; footer.is_linked_to_previous = False
-p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
-p.alignment = CC
-for tag in ['begin', None, 'end']:
-    run = p.add_run(); sf(run, 10)
-    if tag == 'begin':
-        run._element.append(OxmlElement('w:fldChar'))
-        run._element.find(qn('w:fldChar')).set(qn('w:fldCharType'), 'begin')
-    elif tag is None:
-        instr = OxmlElement('w:instrText')
-        instr.set(qn('xml:space'), 'preserve')
-        instr.text = "PAGE"
-        run._element.append(instr)
-    else:
-        run._element.append(OxmlElement('w:fldChar'))
-        run._element.find(qn('w:fldChar')).set(qn('w:fldCharType'), 'end')
+# Save document back to original path
+doc.save(doc_path)
+print(f"SUCCESS: Appended CDE to {doc_path}")
 
-out_path = os.path.join(os.path.dirname(__file__) or ".", "01.Ban_HCM_Van_ban_de_xuat (1).docx")
-doc.save(out_path)
-print(f"SUCCESS: Generated {out_path}")
+# Save copy to 01-ban-hcm-van-ban-de-xuat-1.docx as well
+copy_path = os.path.join(os.path.dirname(__file__) or ".", "..", "de-xuat", "01-ban-hcm-van-ban-de-xuat-1.docx")
+doc.save(copy_path)
+print(f"SUCCESS: Copied to {copy_path}")

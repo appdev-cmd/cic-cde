@@ -849,7 +849,8 @@ wb._sheets.sort(key=lambda s: order.index(s.title))
 wb['Gia_Dinh'].freeze_panes = 'D4'
 wb['Doanh_Thu'].freeze_panes = 'D4'
 wb.calculation.fullCalcOnLoad = True
-out = 'D:\\01_Projects\\cic-cde\\Ke hoach tai chinh CDE CIC (mo hinh dong).xlsx'
+import os
+out = os.path.join(os.path.dirname(__file__) or ".", "..", "kinh-doanh-tai-chinh", "ke-hoach-tai-chinh-cde-cic-mo-hinh-dong.xlsx")
 wb.save(out)
 import sys
 sys.stdout.buffer.write(('Saved: ' + out + '\n').encode('utf-8'))

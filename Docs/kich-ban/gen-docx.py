@@ -15,9 +15,7 @@ JJ = WD_ALIGN_PARAGRAPH.JUSTIFY
 LL = WD_ALIGN_PARAGRAPH.LEFT
 
 # Read source markdown
-md_path = os.path.join(os.path.dirname(__file__) or ".",
-    "Đề xuất nhiệm vụ phát triển "
-    "công nghệ chiến lược - CDE CIC.md")
+md_path = os.path.join(os.path.dirname(__file__) or ".", "..", "de-xuat", "de-xuat-nhiem-vu-phat-trien-cong-nghe-chien-luoc-cde-cic.md")
 with open(md_path, "r", encoding="utf-8") as fh:
     lines = fh.read().split("\n")
 
@@ -293,6 +291,6 @@ f2 = OxmlElement("w:fldChar"); f2.set(qn("w:fldCharType"), "end")
 run._r.append(f1); run._r.append(instr); run._r.append(f2)
 sec.first_page_footer.is_linked_to_previous = False
 
-out = "De xuat nhiem vu CDE CIC (ND30).docx"
+out = os.path.join(os.path.dirname(__file__) or ".", "..", "de-xuat", "de-xuat-nhiem-vu-cde-cic-nd30.docx")
 doc.save(out)
 sys.stdout.buffer.write(("OK: " + out + " | " + str(len(doc.paragraphs)) + " paragraphs, " + str(len(doc.tables)) + " tables\n").encode("utf-8"))

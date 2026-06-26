@@ -479,9 +479,10 @@ def convert(md_path, docx_path):
     print(f"  ✅ Đã tạo: {os.path.basename(docx_path)} ({sz:,} bytes)")
 
 if __name__ == "__main__":
-    base = r"d:\01_Projects\cic-cde"
+    import os
+    base_dir = os.path.join(os.path.dirname(__file__) or ".", "..", "kinh-doanh-tai-chinh")
     convert(
-        os.path.join(base, "Kế hoạch kinh doanh 5 năm CDE CIC.md"),
-        os.path.join(base, "Kế hoạch kinh doanh 5 năm CDE CIC.docx")
+        os.path.join(base_dir, "ke-hoach-kinh-doanh-5-nam-cde-cic.md"),
+        os.path.join(base_dir, "ke-hoach-kinh-doanh-5-nam-cde-cic.docx")
     )
     print("\n🎉 Hoàn thành!")
