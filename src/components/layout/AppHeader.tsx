@@ -5,7 +5,7 @@ import { ProjectItem } from '../project/ProjectList';
 import { ActivityItem } from '../../types';
 
 interface AppHeaderProps {
-  activeModule: 'overview' | 'projects' | 'gis' | 'settings';
+  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents';
   selectedProject: ProjectItem | null;
   activeTab: TabContext;
   setActiveTab: (t: TabContext) => void;
@@ -67,6 +67,8 @@ export function AppHeader({
         return 'Cấu hình Hệ thống';
       case 'projects':
         return selectedProject ? selectedProject.name : 'Danh sách Dự án CDE';
+      case 'legal-documents':
+        return 'Thư viện Văn bản Pháp luật Xây dựng';
       default:
         return 'CDE CIC';
     }

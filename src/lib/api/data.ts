@@ -360,3 +360,20 @@ export async function logActivity(
   });
   if (error) console.error('logActivity error:', error.message);
 }
+
+// ---------------- Element Properties (Phương án B) ----------------
+export async function fetchElementProperties(documentId: string, expressId: number): Promise<any | null> {
+  const { data, error } = await supabase
+    .from('elements')
+    .select('properties')
+    .eq('document_id', documentId)
+    .eq('express_id', expressId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchElementProperties error:', error.message);
+    return null;
+  }
+  return data?.properties ?? null;
+}
+

@@ -5,6 +5,8 @@ import * as OBF from '@thatopen/components-front';
 import * as FRAG from '@thatopen/fragments';
 import { Loader2 } from 'lucide-react';
 import JSZip from 'jszip';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import CameraControls from 'camera-controls';
 // @ts-ignore
 import workerUrl from '@thatopen/fragments/worker?url';
 
@@ -197,11 +199,16 @@ export interface BimViewerRef {
   removeModel: (modelId: string) => void;
   setRenderingEnabled: (enabled: boolean) => void;
   setFlyMode: (enabled: boolean) => void;
+  setWalkMode: (active: boolean) => void;
   getCameraState: () => { position: number[]; target: number[] } | null;
   setCameraState: (state: { position: number[]; target: number[] }) => void;
   captureScreenshot: () => string | null;
   detectClashes: (tolerance?: number, maxResults?: number) => Promise<ClashResult[]>;
   focusClash: (clash: ClashResult) => Promise<void>;
+  compareModels: (modelIdV1: string, modelIdV2: string) => Promise<{ added: number; deleted: number; modified: number; unchanged: number } | null>;
+  clearCompare: () => Promise<void>;
+  toggleMinimap: (active: boolean) => void;
+  toggleViewCube: (active: boolean) => void;
 }
 
 export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoaded, onElementSelected }, ref) => {
@@ -209,6 +216,10 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState('');
   const [modelCount, setModelCount] = useState(0);
+  const viewCubeContainerRef = useRef<HTMLDivElement>(null);
+  const minimapContainerRef = useRef<HTMLDivElement>(null);
+  const [minimapActive, setMinimapActive] = useState(false);
+  const [viewCubeActive, setViewCubeActive] = useState(true);
   
   // Keep references to components for cleanup and imperative actions
   const componentsRef = useRef<OBC.Components | null>(null);
@@ -221,6 +232,11 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
   const loadedModelsRef = useRef<LoadedModelInfo[]>([]);
   const catMapsRef = useRef<Record<string, Record<string, number[]>>>({}); // modelId -> category -> localIds
   const flyEnabledRef = useRef(false);
+  const walkEnabledRef = useRef(false);
+  const sectionBoxEnabledRef = useRef(false);
+  const boxMeshRef = useRef<THREE.Mesh | null>(null);
+  const transformControlsRef = useRef<TransformControls | null>(null);
+  const clippingPlanesRef = useRef<THREE.Plane[]>([]);
   const propsDictRef = useRef<Record<number, any>>({});
 
   // Hàng đợi tác vụ nặng chạy nền (trích thuộc tính, xuất .frag) — chạy TUẦN TỰ
@@ -265,12 +281,27 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     // Initialize scene, renderer, and camera
     world.scene = new OBC.SimpleScene(components);
     // preserveDrawingBuffer: true để chụp screenshot (viewpoint/BCF) không bị trắng
-    world.renderer = new OBC.SimpleRenderer(components, containerRef.current, { preserveDrawingBuffer: true });
+    world.renderer = new OBC.SimpleRenderer(components, containerRef.current, { 
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance", // Ép trình duyệt sử dụng card đồ họa rời hiệu năng cao
+      antialias: false                     // Tắt khử răng cưa phần cứng để tăng fill-rate cho GPU
+    });
     // Fix: Force pixel ratio to 1 so FastModelPicker's scissor coordinates
     // match its readPixelAt coordinates (ThatOpen bug: renderPickPass divides
     // scissor by dpr but readPixelAt doesn't).
     world.renderer.three.setPixelRatio(1);
     world.camera = new OBC.SimpleCamera(components);
+
+    // Enable right-click panning (truck)
+    const controls = world.camera.controls;
+    if (controls && controls.mouseButtons) {
+      controls.mouseButtons.right = CameraControls.ACTION.TRUCK;
+    }
+
+    // Prevent default context menu on the canvas to allow smooth right-click panning
+    const domElement = world.renderer.three.domElement;
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    domElement.addEventListener('contextmenu', handleContextMenu);
 
     components.init();
 
@@ -292,6 +323,32 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
         transparent: true,
         renderedFaces: FRAG.RenderedFaces.TWO,
       }
+    });
+
+    // Register custom styles for 3D Version Compare
+    highlighter.styles.set('added', {
+      color: new THREE.Color('#22c55e'),
+      opacity: 0.8,
+      transparent: true,
+      renderedFaces: FRAG.RenderedFaces.TWO,
+    });
+    highlighter.styles.set('deleted', {
+      color: new THREE.Color('#ef4444'),
+      opacity: 0.8,
+      transparent: true,
+      renderedFaces: FRAG.RenderedFaces.TWO,
+    });
+    highlighter.styles.set('modified', {
+      color: new THREE.Color('#eab308'),
+      opacity: 0.8,
+      transparent: true,
+      renderedFaces: FRAG.RenderedFaces.TWO,
+    });
+    highlighter.styles.set('unchanged', {
+      color: new THREE.Color('#9ca3af'),
+      opacity: 0.15,
+      transparent: true,
+      renderedFaces: FRAG.RenderedFaces.TWO,
     });
 
     // Setup Hoverer for hover feedback
@@ -318,24 +375,69 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     // 6. Handle Element Selection Event
     highlighter.events.select.onHighlight.add(async (fragmentMap) => {
-      if (!onElementSelectedRef.current || !currentModelRef.current) return;
+      if (!onElementSelectedRef.current) return;
 
       let selectedExpressId: number | null = null;
-      for (const key in fragmentMap) {
-        const expressIds = fragmentMap[key];
+      let selectedModelId: string | null = null;
+
+      for (const fragId in fragmentMap) {
+        const expressIds = fragmentMap[fragId];
         if (expressIds && expressIds.size > 0) {
           for (const id of expressIds) {
             selectedExpressId = id;
             break;
           }
+          // Xác định modelId của cấu kiện được chọn từ FragmentsManager
+          const fragment = fragments.list.get(fragId) as any;
+          if (fragment && fragment.group) {
+            selectedModelId = (fragment.group as any)._cdeModelId || null;
+          }
+          break;
         }
-        if (selectedExpressId !== null) break;
       }
 
       if (selectedExpressId !== null) {
         const props = propsDictRef.current[selectedExpressId];
         if (props) {
           onElementSelectedRef.current(props);
+        } else if (selectedModelId) {
+          // Trạng thái đang tải thuộc tính từ Database
+          onElementSelectedRef.current({
+            expressID: selectedExpressId,
+            expressId: selectedExpressId,
+            Name: `Đang tải thuộc tính [ID: ${selectedExpressId}]...`,
+            ObjectType: 'IFC ELEMENT',
+            GlobalId: 'N/A',
+            _loading: true
+          });
+
+          // Tải động API truy vấn database để tránh phụ thuộc vòng và tối ưu bundle
+          import('../../lib/api/data').then(async (api) => {
+            try {
+              const dbProps = await api.fetchElementProperties(selectedModelId!, selectedExpressId!);
+              if (dbProps) {
+                propsDictRef.current[selectedExpressId!] = dbProps;
+                onElementSelectedRef.current?.(dbProps);
+              } else {
+                onElementSelectedRef.current?.({
+                  expressID: selectedExpressId,
+                  expressId: selectedExpressId,
+                  Name: `Cấu kiện [ID: ${selectedExpressId}]`,
+                  ObjectType: 'IFC ELEMENT',
+                  GlobalId: 'N/A'
+                });
+              }
+            } catch (err) {
+              console.error('Lỗi truy vấn thuộc tính từ DB:', err);
+              onElementSelectedRef.current?.({
+                expressID: selectedExpressId,
+                expressId: selectedExpressId,
+                Name: `Cấu kiện [ID: ${selectedExpressId}] (Lỗi tải thuộc tính)`,
+                ObjectType: 'IFC ELEMENT',
+                GlobalId: 'N/A'
+              });
+            }
+          });
         } else {
           onElementSelectedRef.current({
             expressID: selectedExpressId,
@@ -363,29 +465,170 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     // Walk/Fly mode: di chuyển camera bằng WASD/QE (giữ Shift để nhanh 2x)
     const handleFlyKey = (e: KeyboardEvent) => {
-      if (!flyEnabledRef.current) return;
+      const isFly = flyEnabledRef.current;
+      const isWalk = walkEnabledRef.current;
+      if (!isFly && !isWalk) return;
+
       const controls = world.camera?.controls as any;
       if (!controls) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      const base = Math.max(controls.distance * 0.05, 0.5);
+
+      const base = isWalk ? 0.3 : Math.max(controls.distance * 0.05, 0.5);
       const step = base * (e.shiftKey ? 2 : 1);
       let handled = true;
-      switch (e.code) {
-        case 'KeyW': controls.forward(step, true); break;
-        case 'KeyS': controls.forward(-step, true); break;
-        case 'KeyA': controls.truck(-step, 0, true); break;
-        case 'KeyD': controls.truck(step, 0, true); break;
-        case 'KeyE': case 'PageUp': controls.elevate(step, true); break;
-        case 'KeyQ': case 'PageDown': controls.elevate(-step, true); break;
-        default: handled = false;
+
+      if (isFly) {
+        switch (e.code) {
+          case 'KeyW': controls.forward(step, true); break;
+          case 'KeyS': controls.forward(-step, true); break;
+          case 'KeyA': controls.truck(-step, 0, true); break;
+          case 'KeyD': controls.truck(step, 0, true); break;
+          case 'KeyE': case 'PageUp': controls.elevate(step, true); break;
+          case 'KeyQ': case 'PageDown': controls.elevate(-step, true); break;
+          default: handled = false;
+        }
+      } else if (isWalk) {
+        // Chế độ Đi bộ (Walk Mode) góc nhìn thứ nhất
+        const currentPos = new THREE.Vector3();
+        const currentTarget = new THREE.Vector3();
+        controls.getPosition(currentPos);
+        controls.getTarget(currentTarget);
+
+        // Tính hướng nhìn ngang (X-Z plane)
+        const dir = new THREE.Vector3().subVectors(currentTarget, currentPos);
+        dir.y = 0;
+        if (dir.lengthSq() < 0.0001) {
+          dir.set(0, 0, -1);
+        } else {
+          dir.normalize();
+        }
+
+        // Hướng vuông góc bên phải
+        const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const moveVec = new THREE.Vector3();
+        switch (e.code) {
+          case 'KeyW': moveVec.add(dir); break;
+          case 'KeyS': moveVec.sub(dir); break;
+          case 'KeyA': moveVec.sub(right); break;
+          case 'KeyD': moveVec.add(right); break;
+          default: handled = false;
+        }
+
+        if (handled && moveVec.lengthSq() > 0) {
+          moveVec.normalize().multiplyScalar(step);
+
+          // Vị trí đề xuất di chuyển
+          const proposedPos = currentPos.clone().add(moveVec);
+          let vx = moveVec.x;
+          let vz = moveVec.z;
+
+          // Danh sách các mô hình 3D để kiểm tra va chạm
+          const targets = loadedModelsRef.current.map(m => m.model?.object).filter(Boolean);
+
+          if (targets.length > 0) {
+            const raycaster = new THREE.Raycaster();
+            
+            // 1. Kiểm tra va chạm hướng di chuyển tổng hợp
+            raycaster.set(currentPos, moveVec.clone().normalize());
+            const intersects = raycaster.intersectObjects(targets, true);
+            
+            if (intersects.length > 0 && intersects[0].distance < 0.8) {
+              // Bị cản! Thử thuật toán va chạm trượt (Sliding) theo X hoặc Z độc lập
+              let canMoveX = false;
+              let canMoveZ = false;
+
+              if (Math.abs(vx) > 0.001) {
+                const dirX = new THREE.Vector3(vx, 0, 0).normalize();
+                raycaster.set(currentPos, dirX);
+                const intersectsX = raycaster.intersectObjects(targets, true);
+                if (intersectsX.length === 0 || intersectsX[0].distance >= 0.8) {
+                  canMoveX = true;
+                }
+              }
+
+              if (Math.abs(vz) > 0.001) {
+                const dirZ = new THREE.Vector3(0, 0, vz).normalize();
+                raycaster.set(currentPos, dirZ);
+                const intersectsZ = raycaster.intersectObjects(targets, true);
+                if (intersectsZ.length === 0 || intersectsZ[0].distance >= 0.8) {
+                  canMoveZ = true;
+                }
+              }
+
+              if (canMoveX && !canMoveZ) {
+                moveVec.set(vx, 0, 0);
+              } else if (!canMoveX && canMoveZ) {
+                moveVec.set(0, 0, vz);
+              } else if (canMoveX && canMoveZ) {
+                if (Math.abs(vx) > Math.abs(vz)) {
+                  moveVec.set(vx, 0, 0);
+                } else {
+                  moveVec.set(0, 0, vz);
+                }
+              } else {
+                moveVec.set(0, 0, 0); // Bị chặn hoàn toàn
+              }
+              
+              proposedPos.copy(currentPos).add(moveVec);
+            }
+            
+            // 2. Trọng lực & Bám sàn (Gravity): Bắn tia thẳng đứng xuống từ vị trí đề xuất
+            if (moveVec.lengthSq() > 0) {
+              raycaster.set(proposedPos, new THREE.Vector3(0, -1, 0));
+              const intersectsFloor = raycaster.intersectObjects(targets, true);
+              if (intersectsFloor.length > 0) {
+                const dist = intersectsFloor[0].distance;
+                // Chỉ bám sàn nếu chênh lệch cao độ trong khoảng 1.2m (bậc thang/dốc)
+                if (Math.abs(1.6 - dist) < 1.2) {
+                  proposedPos.y = proposedPos.y - dist + 1.6;
+                }
+              }
+            }
+          }
+
+          // Cập nhật vị trí camera và target sát camera (0.01m)
+          const newTarget = proposedPos.clone().add(new THREE.Vector3().subVectors(currentTarget, currentPos).setLength(0.01));
+          controls.setLookAt(proposedPos.x, proposedPos.y, proposedPos.z, newTarget.x, newTarget.y, newTarget.z, false);
+        }
       }
+
       if (handled) e.preventDefault();
     };
     window.addEventListener('keydown', handleFlyKey);
 
-    // Refresh culling/LOD khi camera dừng di chuyển
-    const handleCameraRest = () => { fragmentsRef.current?.core?.update?.(true); };
+    // Tối ưu hóa động: Tự động giảm chi tiết (LOD = DEFAULT) khi bắt đầu xoay/di chuyển camera để đạt 60 FPS
+    const handleCameraMoveStart = async () => {
+      const models = loadedModelsRef.current;
+      if (models.length === 0) return;
+      let needsUpdate = false;
+      for (const info of models) {
+        if (info.model) {
+          await info.model.setLodMode(FRAG.LodMode.DEFAULT);
+          needsUpdate = true;
+        }
+      }
+      if (needsUpdate) {
+        fragmentsRef.current?.core?.update?.(true);
+      }
+    };
+
+    // Khôi phục chi tiết đầy đủ (LOD = ALL_GEOMETRY) khi camera dừng di chuyển hẳn để click chọn hoạt động đúng
+    const handleCameraRest = async () => {
+      const models = loadedModelsRef.current;
+      if (models.length === 0) return;
+      let needsUpdate = false;
+      for (const info of models) {
+        if (info.model) {
+          await info.model.setLodMode(FRAG.LodMode.ALL_GEOMETRY);
+          needsUpdate = true;
+        }
+      }
+      await fragmentsRef.current?.core?.update?.(true);
+    };
+
+    world.camera.controls.addEventListener('controlstart', handleCameraMoveStart);
     world.camera.controls.addEventListener('rest', handleCameraRest);
 
     // Handle container resizing
@@ -398,13 +641,284 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleFlyKey);
+      world.camera.controls.removeEventListener('controlstart', handleCameraMoveStart);
       world.camera.controls.removeEventListener('rest', handleCameraRest);
+      domElement.removeEventListener('contextmenu', handleContextMenu);
       if (containerRef.current) {
         containerRef.current.removeEventListener('dblclick', handleDoubleClick);
       }
+      
+      // Cleanup Section Box elements
+      if (world.renderer?.three) {
+        world.renderer.three.clippingPlanes = [];
+      }
+      if (boxMeshRef.current) {
+        boxMeshRef.current.geometry.dispose();
+        if (Array.isArray(boxMeshRef.current.material)) {
+          boxMeshRef.current.material.forEach(m => m.dispose());
+        } else {
+          boxMeshRef.current.material.dispose();
+        }
+      }
+      if (transformControlsRef.current) {
+        transformControlsRef.current.dispose();
+      }
+
       components.dispose();
     };
   }, []);
+
+  // Effect setup for ViewCube
+  useEffect(() => {
+    if (!viewCubeActive || !viewCubeContainerRef.current || !worldRef.current) return;
+    
+    const container = viewCubeContainerRef.current;
+    const world = worldRef.current;
+    const w = 80, h = 80;
+    
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.set(0, 0, 3);
+    
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    container.appendChild(renderer.domElement);
+    
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(1, 2, 3);
+    scene.add(dirLight);
+    
+    const createFaceTexture = (text: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#f8f9fc';
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(0, 0, 128, 128);
+      ctx.fillStyle = '#0c59a9';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 64, 64);
+      return new THREE.CanvasTexture(canvas);
+    };
+    
+    const materials = [
+      new THREE.MeshBasicMaterial({ map: createFaceTexture('PHẢI') }),
+      new THREE.MeshBasicMaterial({ map: createFaceTexture('TRÁI') }),
+      new THREE.MeshBasicMaterial({ map: createFaceTexture('TRÊN') }),
+      new THREE.MeshBasicMaterial({ map: createFaceTexture('DƯỚI') }),
+      new THREE.MeshBasicMaterial({ map: createFaceTexture('TRƯỚC') }),
+      new THREE.MeshBasicMaterial({ map: createFaceTexture('SAU') })
+    ];
+    
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), materials);
+    scene.add(cube);
+    
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    
+    const onClick = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / w) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / h) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(cube);
+      if (intersects.length > 0) {
+        const faceIndex = intersects[0].faceIndex;
+        if (faceIndex !== undefined) {
+          const faceIdx = Math.floor(faceIndex / 2);
+          const views = ['right', 'left', 'top', 'bottom', 'front', 'back'] as const;
+          const clickedView = views[faceIdx];
+          
+          const mainControls = world.camera.controls;
+          if (mainControls && loadedModelsRef.current.length > 0) {
+            const bounds = new THREE.Box3();
+            for (const info of loadedModelsRef.current) {
+              if (info.model && info.model.object) {
+                bounds.expandByObject(info.model.object);
+              }
+            }
+            if (!bounds.isEmpty()) {
+              const center = new THREE.Vector3(); bounds.getCenter(center);
+              const size = new THREE.Vector3(); bounds.getSize(size);
+              const maxDim = Math.max(size.x, size.y, size.z);
+              
+              switch (clickedView) {
+                case 'top': mainControls.setLookAt(center.x, center.y + maxDim * 1.5, center.z, center.x, center.y, center.z, true); break;
+                case 'bottom': mainControls.setLookAt(center.x, center.y - maxDim * 1.5, center.z, center.x, center.y, center.z, true); break;
+                case 'front': mainControls.setLookAt(center.x, center.y, center.z + maxDim * 1.5, center.x, center.y, center.z, true); break;
+                case 'back': mainControls.setLookAt(center.x, center.y, center.z - maxDim * 1.5, center.x, center.y, center.z, true); break;
+                case 'right': mainControls.setLookAt(center.x + maxDim * 1.5, center.y, center.z, center.x, center.y, center.z, true); break;
+                case 'left': mainControls.setLookAt(center.x - maxDim * 1.5, center.y, center.z, center.x, center.y, center.z, true); break;
+              }
+            }
+          }
+        }
+      }
+    };
+    
+    renderer.domElement.addEventListener('click', onClick);
+    
+    let active = true;
+    const animate = () => {
+      if (!active) return;
+      requestAnimationFrame(animate);
+      
+      if (world.camera && world.camera.three) {
+        const dir = new THREE.Vector3();
+        world.camera.three.getWorldDirection(dir);
+        
+        // Position the ViewCube camera in the opposite direction of the world camera direction
+        camera.position.copy(dir).multiplyScalar(-3);
+        camera.up.copy(world.camera.three.up);
+        camera.lookAt(0, 0, 0);
+      }
+      
+      renderer.render(scene, camera);
+    };
+    animate();
+    
+    return () => {
+      active = false;
+      renderer.domElement.removeEventListener('click', onClick);
+      renderer.dispose();
+      materials.forEach(m => {
+        m.map?.dispose();
+        m.dispose();
+      });
+      cube.geometry.dispose();
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+    };
+  }, [viewCubeActive, modelCount]);
+
+  // Effect setup for Minimap
+  useEffect(() => {
+    if (!minimapActive || !minimapContainerRef.current || !worldRef.current) return;
+    
+    const container = minimapContainerRef.current;
+    const world = worldRef.current;
+    const w = 160, h = 160;
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(1);
+    container.appendChild(renderer.domElement);
+    
+    const orthoCam = new THREE.OrthographicCamera(-15, 15, 15, -15, 49, 51);
+    orthoCam.up.set(0, 0, -1);
+    
+    const overlay = document.createElement('canvas');
+    overlay.width = w; overlay.height = h;
+    overlay.className = "absolute inset-0 z-20 pointer-events-auto cursor-crosshair";
+    container.appendChild(overlay);
+    const ctx = overlay.getContext('2d')!;
+    
+    const onTeleport = (e: MouseEvent) => {
+      const rect = overlay.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      
+      const dx = clickX - w / 2;
+      const dy = clickY - h / 2;
+      
+      const worldScale = 30 / w;
+      const mainCam = world.camera.three;
+      const targetX = mainCam.position.x + dx * worldScale;
+      const targetZ = mainCam.position.z - dy * worldScale;
+      
+      const mainControls = world.camera.controls;
+      if (mainControls) {
+        const pos = new THREE.Vector3();
+        const target = new THREE.Vector3();
+        mainControls.getPosition(pos);
+        mainControls.getTarget(target);
+        const dir = new THREE.Vector3().subVectors(target, pos).setLength(0.01);
+        
+        mainControls.setLookAt(
+          targetX, pos.y, targetZ,
+          targetX + dir.x, pos.y + dir.y, targetZ + dir.z,
+          true
+        );
+      }
+    };
+    
+    overlay.addEventListener('click', onTeleport);
+    
+    let active = true;
+    const animate = () => {
+      if (!active) return;
+      requestAnimationFrame(animate);
+      
+      const mainCam = world.camera.three;
+      const mainControls = world.camera.controls;
+      if (!mainCam || !mainControls) return;
+      
+      orthoCam.position.set(mainCam.position.x, mainCam.position.y + 50, mainCam.position.z);
+      orthoCam.lookAt(mainCam.position.x, mainCam.position.y, mainCam.position.z);
+      
+      renderer.render(world.scene.three, orthoCam);
+      
+      ctx.clearRect(0, 0, w, h);
+      
+      const pos = new THREE.Vector3();
+      const target = new THREE.Vector3();
+      mainControls.getPosition(pos);
+      mainControls.getTarget(target);
+      const dir = new THREE.Vector3().subVectors(target, pos);
+      dir.y = 0;
+      if (dir.lengthSq() > 0.0001) {
+        dir.normalize();
+      } else {
+        dir.set(0, 0, -1);
+      }
+      
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      const angle = Math.atan2(dir.x, -dir.z);
+      ctx.rotate(angle);
+      
+      ctx.fillStyle = 'rgba(12, 89, 169, 0.2)';
+      ctx.strokeStyle = 'rgba(12, 89, 169, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, 35, -Math.PI / 6 - Math.PI / 2, Math.PI / 6 - Math.PI / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      
+      ctx.fillStyle = '#ef4444';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    };
+    animate();
+    
+    return () => {
+      active = false;
+      overlay.removeEventListener('click', onTeleport);
+      renderer.dispose();
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+      if (container.contains(overlay)) {
+        container.removeChild(overlay);
+      }
+    };
+  }, [minimapActive, modelCount]);
 
   // Shared helper: process a loaded model (extract props, spatial, fit camera)
   const processLoadedModel = async (model: any, modelName: string, explicitId?: string) => {
@@ -827,6 +1341,147 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     setFlyMode: (enabled: boolean) => {
       flyEnabledRef.current = enabled;
+      if (enabled) {
+        walkEnabledRef.current = false;
+        const controls = worldRef.current?.camera?.controls;
+        if (controls) {
+          controls.minDistance = 0;
+          controls.maxDistance = Infinity;
+        }
+      }
+    },
+
+    setWalkMode: (active: boolean) => {
+      walkEnabledRef.current = active;
+      if (active) {
+        flyEnabledRef.current = false;
+        const controls = worldRef.current?.camera?.controls;
+        if (controls) {
+          const pos = new THREE.Vector3();
+          const target = new THREE.Vector3();
+          controls.getPosition(pos);
+          controls.getTarget(target);
+          const dir = new THREE.Vector3().subVectors(target, pos).normalize();
+          
+          controls.setLookAt(pos.x, pos.y, pos.z, pos.x + dir.x * 0.01, pos.y + dir.y * 0.01, pos.z + dir.z * 0.01, false);
+          controls.minDistance = 0.01;
+          controls.maxDistance = 0.01;
+        }
+      } else {
+        const controls = worldRef.current?.camera?.controls;
+        if (controls) {
+          controls.minDistance = 0;
+          controls.maxDistance = Infinity;
+        }
+      }
+    },
+
+    setSectionBox: (active: boolean) => {
+      sectionBoxEnabledRef.current = active;
+      const world = worldRef.current;
+      if (!world) return;
+
+      if (boxMeshRef.current) {
+        world.scene.three.remove(boxMeshRef.current);
+        boxMeshRef.current.geometry.dispose();
+        if (Array.isArray(boxMeshRef.current.material)) {
+          boxMeshRef.current.material.forEach(m => m.dispose());
+        } else {
+          boxMeshRef.current.material.dispose();
+        }
+        boxMeshRef.current = null;
+      }
+      if (transformControlsRef.current) {
+        transformControlsRef.current.detach();
+        world.scene.three.remove(transformControlsRef.current);
+        transformControlsRef.current.dispose();
+        transformControlsRef.current = null;
+      }
+
+      if (active) {
+        const allBounds = new THREE.Box3();
+        for (const info of loadedModelsRef.current) {
+          if (info.model && info.model.object) {
+            allBounds.expandByObject(info.model.object);
+          }
+        }
+        if (allBounds.isEmpty()) {
+          allBounds.set(new THREE.Vector3(-10, -10, -10), new THREE.Vector3(10, 10, 10));
+        }
+
+        const center = new THREE.Vector3();
+        const size = new THREE.Vector3();
+        allBounds.getCenter(center);
+        allBounds.getSize(size);
+
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0x0c59a9,
+          transparent: true,
+          opacity: 0.08,
+          depthWrite: false
+        });
+        const boxMesh = new THREE.Mesh(geometry, material);
+        boxMesh.position.copy(center);
+        boxMesh.scale.copy(size);
+        boxMeshRef.current = boxMesh;
+        world.scene.three.add(boxMesh);
+
+        const edges = new THREE.EdgesGeometry(geometry);
+        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0c59a9, linewidth: 2 }));
+        boxMesh.add(line);
+
+        const planes = [
+          new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1),
+          new THREE.Plane(new THREE.Vector3(1, 0, 0), 1),
+          new THREE.Plane(new THREE.Vector3(0, -1, 0), 1),
+          new THREE.Plane(new THREE.Vector3(0, 1, 0), 1),
+          new THREE.Plane(new THREE.Vector3(0, 0, -1), 1),
+          new THREE.Plane(new THREE.Vector3(0, 0, 1), 1)
+        ];
+        clippingPlanesRef.current = planes;
+
+        const updatePlanes = () => {
+          boxMesh.updateMatrixWorld(true);
+          const currentBounds = new THREE.Box3().setFromObject(boxMesh);
+          const min = currentBounds.min;
+          const max = currentBounds.max;
+
+          planes[0].constant = max.x;
+          planes[1].constant = -min.x;
+          planes[2].constant = max.y;
+          planes[3].constant = -min.y;
+          planes[4].constant = max.z;
+          planes[5].constant = -min.z;
+          
+          fragmentsRef.current?.core?.update?.(true);
+        };
+
+        updatePlanes();
+        world.renderer.three.clippingPlanes = planes;
+
+        const transformControls = new TransformControls(world.camera.three, world.renderer.three.domElement);
+        transformControls.size = 0.75;
+        transformControls.attach(boxMesh);
+        transformControls.setMode('scale');
+        
+        transformControls.addEventListener('change', () => {
+          updatePlanes();
+        });
+
+        transformControls.addEventListener('dragging-changed', (event) => {
+          const controls = world.camera?.controls;
+          if (controls) {
+            controls.enabled = !event.value;
+          }
+        });
+
+        transformControlsRef.current = transformControls;
+        world.scene.three.add(transformControls);
+      } else {
+        world.renderer.three.clippingPlanes = [];
+        fragmentsRef.current?.core?.update?.(true);
+      }
     },
 
     getCameraState: () => {
@@ -1085,6 +1740,143 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       }
       // Rebuild propsDictRef from remaining models would be complex;
       // for now properties from removed model remain accessible (harmless)
+    },
+
+    compareModels: async (modelIdV1: string, modelIdV2: string) => {
+      if (!highlighterRef.current) return null;
+      const m1Info = loadedModelsRef.current.find(m => m.id === modelIdV1);
+      const m2Info = loadedModelsRef.current.find(m => m.id === modelIdV2);
+      if (!m1Info || !m2Info) return null;
+      const modelV1 = m1Info.model;
+      const modelV2 = m2Info.model;
+      
+      const getModelGuidMap = async (model: any) => {
+        const guidToExpressId = new Map<string, number>();
+        const localIds = Array.from(await model.getLocalIds()) as number[];
+        const BATCH = 5000;
+        for (let i = 0; i < localIds.length; i += BATCH) {
+          const items = await model.getItemsData(localIds.slice(i, i + BATCH));
+          for (const item of items) {
+            if (!item) continue;
+            const id = item._localId ? item._localId.value : null;
+            const guid = item._guid ? item._guid.value : null;
+            if (id !== null && guid) {
+              guidToExpressId.set(guid, id);
+            }
+          }
+        }
+        return guidToExpressId;
+      };
+
+      try {
+        const guidMapV1 = await getModelGuidMap(modelV1);
+        const guidMapV2 = await getModelGuidMap(modelV2);
+        const addedIdsV2: number[] = [];
+        const deletedIdsV1: number[] = [];
+        const commonGuids: string[] = [];
+
+        for (const [guid, id] of guidMapV2.entries()) {
+          if (!guidMapV1.has(guid)) {
+            addedIdsV2.push(id);
+          } else {
+            commonGuids.push(guid);
+          }
+        }
+        for (const [guid, id] of guidMapV1.entries()) {
+          if (!guidMapV2.has(guid)) {
+            deletedIdsV1.push(id);
+          }
+        }
+
+        const modifiedIdsV2: number[] = [];
+        const unchangedIdsV2: number[] = [];
+
+        if (commonGuids.length > 0) {
+          const idsV1 = commonGuids.map(g => guidMapV1.get(g)!);
+          const idsV2 = commonGuids.map(g => guidMapV2.get(g)!);
+          const boxesV1 = await modelV1.getBoxes(idsV1);
+          const boxesV2 = await modelV2.getBoxes(idsV2);
+
+          for (let i = 0; i < commonGuids.length; i++) {
+            const box1 = boxesV1[i];
+            const box2 = boxesV2[i];
+            const id2 = idsV2[i];
+            let isModified = false;
+            if (box1 && box2 && !box1.isEmpty() && !box2.isEmpty()) {
+              const center1 = box1.getCenter(new THREE.Vector3());
+              const center2 = box2.getCenter(new THREE.Vector3());
+              const size1 = box1.getSize(new THREE.Vector3());
+              const size2 = box2.getSize(new THREE.Vector3());
+              if (center1.distanceTo(center2) > 0.01 || size1.distanceTo(size2) > 0.01) {
+                isModified = true;
+              }
+            } else if ((box1 && !box2) || (!box1 && box2)) {
+              isModified = true;
+            }
+            if (isModified) {
+              modifiedIdsV2.push(id2);
+            } else {
+              unchangedIdsV2.push(id2);
+            }
+          }
+        }
+
+        const allIdsV1 = Array.from(await modelV1.getLocalIds()) as number[];
+        await modelV1.setVisible(allIdsV1, false);
+        if (deletedIdsV1.length > 0) {
+          await modelV1.setVisible(deletedIdsV1, true);
+        }
+        const allIdsV2 = Array.from(await modelV2.getLocalIds()) as number[];
+        await modelV2.setVisible(allIdsV2, true);
+        await fragmentsRef.current?.core?.update?.(true);
+
+        const modelV1Uuid = modelV1.modelId || modelV1.uuid;
+        const modelV2Uuid = modelV2.modelId || modelV2.uuid;
+
+        await highlighterRef.current.clear();
+        if (addedIdsV2.length > 0) {
+          await highlighterRef.current.highlightByID('added', { [modelV2Uuid]: new Set(addedIdsV2) }, false, false);
+        }
+        if (deletedIdsV1.length > 0) {
+          await highlighterRef.current.highlightByID('deleted', { [modelV1Uuid]: new Set(deletedIdsV1) }, false, false);
+        }
+        if (modifiedIdsV2.length > 0) {
+          await highlighterRef.current.highlightByID('modified', { [modelV2Uuid]: new Set(modifiedIdsV2) }, false, false);
+        }
+        if (unchangedIdsV2.length > 0) {
+          await highlighterRef.current.highlightByID('unchanged', { [modelV2Uuid]: new Set(unchangedIdsV2) }, false, false);
+        }
+
+        return {
+          added: addedIdsV2.length,
+          deleted: deletedIdsV1.length,
+          modified: modifiedIdsV2.length,
+          unchanged: unchangedIdsV2.length
+        };
+      } catch (err) {
+        console.error('Model comparison failed:', err);
+        return null;
+      }
+    },
+
+    clearCompare: async () => {
+      if (!highlighterRef.current) return;
+      await highlighterRef.current.clear();
+      for (const info of loadedModelsRef.current) {
+        if (info.model) {
+          const ids = Array.from(await info.model.getLocalIds()) as number[];
+          await info.model.setVisible(ids, info.model.object?.visible !== false);
+        }
+      }
+      await fragmentsRef.current?.core?.update?.(true);
+    },
+
+    toggleMinimap: (active: boolean) => {
+      setMinimapActive(active);
+    },
+
+    toggleViewCube: (active: boolean) => {
+      setViewCubeActive(active);
     }
   }));
 
@@ -1159,6 +1951,23 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
             </label>
           </div>
         </div>
+      )}
+
+      {/* ViewCube Overlay */}
+      {viewCubeActive && (
+        <div 
+          ref={viewCubeContainerRef} 
+          className="absolute top-4 right-4 w-[80px] h-[80px] z-10 bg-surface-container-lowest/95 backdrop-blur border border-outline-variant/60 rounded-xl shadow-md cursor-pointer select-none overflow-hidden transition-all duration-200" 
+          title="Hộp xoay góc nhìn ViewCube"
+        />
+      )}
+
+      {/* Minimap Overlay */}
+      {minimapActive && (
+        <div 
+          ref={minimapContainerRef} 
+          className="absolute bottom-4 left-4 w-[160px] h-[160px] z-10 bg-surface-container-lowest/95 backdrop-blur border border-outline-variant/60 rounded-2xl shadow-lg overflow-hidden select-none"
+        />
       )}
     </div>
   );

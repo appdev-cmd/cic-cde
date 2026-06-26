@@ -54,7 +54,7 @@ export function ViewerTab({
 
   // Sidebar controls
   const [leftSidebarTab, setLeftSidebarTab] = useState<'models' | 'spatial' | 'classes'>('models');
-  const [rightPanelTab, setRightPanelTab] = useState<'properties' | 'bcf'>('properties');
+  const [rightPanelTab, setRightPanelTab] = useState<'properties' | 'bcf' | 'ids'>('properties');
   
   // Issues (Vấn đề) — module riêng IssuesPanel quản lý dữ liệu
   const issuesPanelRef = useRef<IssuesPanelHandle>(null);
@@ -118,10 +118,31 @@ export function ViewerTab({
 
   // Walk/Fly mode
   const [flyMode, setFlyMode] = useState(false);
+  const [walkMode, setWalkMode] = useState(false);
+  const [minimapActive, setMinimapActive] = useState(false);
+  const [viewpointsCollapsed, setViewpointsCollapsed] = useState(true);
   const handleToggleFly = () => {
     const next = !flyMode;
     setFlyMode(next);
+    if (next) {
+      setWalkMode(false);
+    }
     viewerRef.current?.setFlyMode(next);
+  };
+
+  const handleToggleWalk = () => {
+    const next = !walkMode;
+    setWalkMode(next);
+    if (next) {
+      setFlyMode(false);
+    }
+    viewerRef.current?.setWalkMode(next);
+  };
+
+  const handleToggleMinimap = () => {
+    const next = !minimapActive;
+    setMinimapActive(next);
+    viewerRef.current?.toggleMinimap(next);
   };
 
   // Viewpoints (góc nhìn đã lưu)
@@ -954,73 +975,85 @@ export function ViewerTab({
             onElementSelected={handleElementSelected}
          />
 
-         {/* Floating Camera Angles Selector + Fly toggle */}
-         <div className="absolute top-4 right-4 bg-surface-container-lowest/90 backdrop-blur border border-outline-variant/60 p-1 rounded-xl shadow-md flex gap-1 z-10 items-center">
-           {([
-             { id: 'iso', label: 'ISO' },
-             { id: 'top', label: 'TOP' },
-             { id: 'front', label: 'FRONT' },
-             { id: 'right', label: 'RIGHT' }
-           ] as const).map(view => (
-             <button
-               key={view.id}
-               onClick={() => viewerRef.current?.setCameraView(view.id)}
-               className="px-2 py-1 text-[11px] font-bold text-on-surface-variant hover:text-primary hover:bg-surface-container rounded transition-colors cursor-pointer"
-             >
-               {view.label}
-             </button>
-           ))}
-           <div className="w-px h-4 bg-outline-variant/60 mx-0.5"></div>
+         {/* Floating Fly/Walk/Minimap toggles */}
+         <div className="absolute top-[36px] right-[108px] bg-surface-container-lowest/95 backdrop-blur border border-outline-variant/60 p-1.5 rounded-xl shadow-md flex gap-1 z-10 items-center animate-in fade-in duration-150">
            <button
              onClick={handleToggleFly}
-             className={`px-2 py-1 text-[11px] font-bold rounded transition-colors cursor-pointer ${flyMode ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'}`}
+             className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${flyMode ? 'bg-primary text-on-primary font-extrabold shadow-sm' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'}`}
              title="Chế độ bay (WASD di chuyển, Q/E lên xuống, Shift nhanh 2x)"
            >
              ✈ BAY
            </button>
+           <button
+             onClick={handleToggleWalk}
+             className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${walkMode ? 'bg-primary text-on-primary font-extrabold shadow-sm' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'}`}
+             title="Chế độ đi bộ (WASD di chuyển bám sàn, trọng lực, chống va chạm tường)"
+           >
+             🚶 ĐI BỘ
+           </button>
+           <button
+             onClick={handleToggleMinimap}
+             className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${minimapActive ? 'bg-primary text-on-primary font-extrabold shadow-sm' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container'}`}
+             title="Bật/Tắt bản đồ mặt bằng 2D phụ (Minimap)"
+           >
+             🗺 MAP
+           </button>
          </div>
 
          {/* Floating Viewpoints panel */}
-         <div className="absolute top-16 right-4 w-60 bg-surface-container-lowest/95 backdrop-blur border border-outline-variant/60 rounded-xl shadow-md z-10 overflow-hidden">
-           <div className="px-3 py-2 border-b border-outline-variant/50 flex items-center justify-between">
-             <span className="text-[11px] font-bold text-on-surface flex items-center gap-1.5"><Eye size={13} className="text-primary" /> Góc nhìn ({viewpoints.length})</span>
-           </div>
-           <div className="p-2 flex gap-1.5 border-b border-outline-variant/30">
-             <input
-               value={newVpName}
-               onChange={e => setNewVpName(e.target.value)}
-               placeholder="Tên góc nhìn..."
-               className="flex-1 px-2 py-1 bg-surface border border-outline-variant/60 rounded text-[11px] focus:outline-none focus:border-primary min-w-0"
-             />
-             <button
-               onClick={handleSaveViewpoint}
-               disabled={savingVp}
-               className="bg-primary text-on-primary text-[11px] font-bold px-2 py-1 rounded hover:bg-primary/95 disabled:opacity-50 shrink-0"
-               title="Lưu góc nhìn hiện tại"
-             >
-               {savingVp ? '...' : 'Lưu'}
+         <div className="absolute top-[108px] right-4 w-60 bg-surface-container-lowest/95 backdrop-blur border border-outline-variant/60 rounded-xl shadow-md z-10 overflow-hidden transition-all duration-200">
+           <div 
+             onClick={() => setViewpointsCollapsed(!viewpointsCollapsed)}
+             className="px-3 py-2 border-b border-outline-variant/50 flex items-center justify-between cursor-pointer hover:bg-surface-container/30 transition-colors select-none"
+           >
+             <span className="text-[11px] font-bold text-on-surface flex items-center gap-1.5">
+               <Eye size={13} className="text-primary" /> Góc nhìn ({viewpoints.length})
+             </span>
+             <button className="text-on-surface-variant hover:text-primary transition-colors">
+               {viewpointsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
              </button>
            </div>
-           <div className="max-h-56 overflow-y-auto custom-scrollbar">
-             {viewpoints.length === 0 ? (
-               <div className="px-3 py-4 text-center text-[10.5px] text-outline">Chưa có góc nhìn. Lưu góc nhìn hiện tại để quay lại nhanh.</div>
-             ) : viewpoints.map(vp => (
-               <div key={vp.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-container/50 border-b border-outline-variant/20 group">
-                 <button onClick={() => handleRestoreViewpoint(vp)} className="flex items-center gap-2 flex-1 min-w-0 text-left" title="Khôi phục góc nhìn">
-                   {vp.screenshot
-                     ? <img src={vp.screenshot} alt="" className="w-9 h-7 object-cover rounded border border-outline-variant/40 shrink-0" />
-                     : <div className="w-9 h-7 rounded bg-surface-container flex items-center justify-center shrink-0"><Eye size={12} className="text-outline" /></div>}
-                   <span className="text-[11px] font-semibold text-on-surface truncate">{vp.name}</span>
-                 </button>
-                 <button onClick={() => handleSetAsCover(vp)} disabled={coverSavingId === vp.id} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-primary p-0.5 shrink-0 disabled:opacity-50" title="Đặt làm ảnh đại diện dự án">
-                   {coverSavingId === vp.id ? <RefreshCw size={12} className="animate-spin" /> : <ImageIcon size={12} />}
-                 </button>
-                 <button onClick={() => handleDeleteViewpoint(vp.id)} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error p-0.5 shrink-0" title="Xóa">
-                   <X size={12} />
+           
+           {!viewpointsCollapsed && (
+             <>
+               <div className="p-2 flex gap-1.5 border-b border-outline-variant/30 animate-in fade-in duration-150">
+                 <input
+                   value={newVpName}
+                   onChange={e => setNewVpName(e.target.value)}
+                   placeholder="Tên góc nhìn..."
+                   className="flex-1 px-2 py-1 bg-surface border border-outline-variant/60 rounded text-[11px] focus:outline-none focus:border-primary min-w-0"
+                 />
+                 <button
+                   onClick={handleSaveViewpoint}
+                   disabled={savingVp}
+                   className="bg-primary text-on-primary text-[11px] font-bold px-2 py-1 rounded hover:bg-primary/95 disabled:opacity-50 shrink-0"
+                   title="Lưu góc nhìn hiện tại"
+                 >
+                   {savingVp ? '...' : 'Lưu'}
                  </button>
                </div>
-             ))}
-           </div>
+               <div className="max-h-56 overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+                 {viewpoints.length === 0 ? (
+                   <div className="px-3 py-4 text-center text-[10.5px] text-outline">Chưa có góc nhìn. Lưu góc nhìn hiện tại để quay lại nhanh.</div>
+                 ) : viewpoints.map(vp => (
+                   <div key={vp.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-container/50 border-b border-outline-variant/20 group">
+                     <button onClick={() => handleRestoreViewpoint(vp)} className="flex items-center gap-2 flex-1 min-w-0 text-left" title="Khôi phục góc nhìn">
+                       {vp.screenshot
+                         ? <img src={vp.screenshot} alt="" className="w-9 h-7 object-cover rounded border border-outline-variant/40 shrink-0" />
+                         : <div className="w-9 h-7 rounded bg-surface-container flex items-center justify-center shrink-0"><Eye size={12} className="text-outline" /></div>}
+                       <span className="text-[11px] font-semibold text-on-surface truncate">{vp.name}</span>
+                     </button>
+                     <button onClick={() => handleSetAsCover(vp)} disabled={coverSavingId === vp.id} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-primary p-0.5 shrink-0 disabled:opacity-50" title="Đặt làm ảnh đại diện dự án">
+                       {coverSavingId === vp.id ? <RefreshCw size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                     </button>
+                     <button onClick={() => handleDeleteViewpoint(vp.id)} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error p-0.5 shrink-0" title="Xóa">
+                       <X size={12} />
+                     </button>
+                   </div>
+                 ))}
+               </div>
+             </>
+           )}
          </div>
 
          {/* Floating Pill Toolbar */}
@@ -1084,6 +1117,16 @@ export function ViewerTab({
                 }`}
               >
                 Thuộc tính
+              </button>
+              <button 
+                onClick={() => setRightPanelTab('ids')}
+                className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
+                  rightPanelTab === 'ids' 
+                    ? 'bg-surface-container-highest text-primary shadow-sm' 
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Kiểm tra (IDS)
               </button>
               <button 
                 onClick={() => setRightPanelTab('bcf')}

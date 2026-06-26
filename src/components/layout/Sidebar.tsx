@@ -1,9 +1,8 @@
-import React from 'react';
-import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut } from 'lucide-react';
+import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut, Scale } from 'lucide-react';
 
 interface SidebarProps {
-  activeModule: 'overview' | 'projects' | 'gis' | 'settings';
-  setActiveModule: (module: 'overview' | 'projects' | 'gis' | 'settings') => void;
+  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents';
+  setActiveModule: (module: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents') => void;
   isCollapsed: boolean;
   darkMode: boolean;
   toggleTheme: () => void;
@@ -61,6 +60,14 @@ export function Sidebar({ activeModule, setActiveModule, isCollapsed, darkMode, 
         >
           <Map size={20} className={iconClasses(activeModule === 'gis')} />
           {!isCollapsed && <span>GIS/GeoBIM</span>}
+        </div>
+        <div 
+          onClick={() => setActiveModule('legal-documents')}
+          className={`group ${itemClasses(activeModule === 'legal-documents')} ${isCollapsed ? 'justify-center !px-2' : ''}`} 
+          title="Văn bản pháp luật"
+        >
+          <Scale size={20} className={iconClasses(activeModule === 'legal-documents')} />
+          {!isCollapsed && <span>Văn bản pháp luật</span>}
         </div>
       </nav>
 

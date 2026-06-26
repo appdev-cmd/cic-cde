@@ -1,0 +1,23 @@
+{
+  "name": "cde-cic-converter-worker",
+  "version": "1.0.0",
+  "description": "Headless background worker to convert IFC files to ThatOpen Fragments (.frag) and extract metadata to Supabase",
+  "main": "dist/worker.js",
+  "scripts": {
+    "start": "ts-node worker.ts",
+    "build": "tsc",
+    "serve": "node dist/worker.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "@thatopen/components": "^3.4.6",
+    "dotenv": "^16.4.5",
+    "jszip": "^3.10.1",
+    "web-ifc": "^0.0.77"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

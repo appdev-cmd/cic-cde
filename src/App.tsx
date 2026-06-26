@@ -20,6 +20,7 @@ import { ProjectList, ProjectItem, PROJECTS_LIST } from './components/project/Pr
 import { ProjectFormModal } from './components/project/ProjectFormModal';
 import { GeoBimMap } from './components/gis/GeoBimMap';
 import { OverviewDashboard } from './components/overview/OverviewDashboard';
+import LegalDocumentSearch from './components/legal-documents/LegalDocumentSearch';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from './types';
 import { Sun, Moon } from 'lucide-react';
 
@@ -164,7 +165,7 @@ export default function App() {
 
   const handleSignOut = async () => { await signOut(); };
 
-  const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings'>('projects');
+  const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents'>('projects');
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [activeTab, setActiveTab] = useState<TabContext>('dashboard');
   
@@ -493,6 +494,11 @@ export default function App() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Module 3.5: Legal Documents */}
+          {activeModule === 'legal-documents' && (
+            <LegalDocumentSearch isEmbedded={false} userRole={profile?.role} />
           )}
 
           {/* Module 4: Projects */}
