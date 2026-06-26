@@ -453,6 +453,7 @@ graph TB
 
     subgraph "🟨 Phân lớp Tính toán Nặng & Phân tích (Python)"
         IFC["Bộ phân tích File IFC<br/>(IfcOpenShell Core)"]
+        ACC["Bộ máy Thẩm duyệt Tự động<br/>(ACC Engine)"]
     end
 
     subgraph "💾 Phân lớp Lưu trữ Dữ liệu"
@@ -462,17 +463,25 @@ graph TB
         WORM["Nhật ký kiểm toán bất biến<br/>(WORM Storage)"]
     end
 
+    subgraph "🌐 Hệ thống bên ngoài (External B2G)"
+        CSDL_QG["Cơ sở Dữ liệu Quốc gia về Xây dựng<br/>(csdlhdxd.gov.vn)"]
+    end
+
     FE --> GW
     VIEWER --> GW
     GW --> AUTH
     GW --> DOC
     GW --> NOTIF
     GW -->|"gRPC"| IFC
+    GW -->|"gRPC"| ACC
     DOC --> PG
     DOC --> S3
     IFC --> S3
+    ACC --> PG
+    ACC --> S3
     NOTIF --> REDIS
     DOC --> WORM
+    GW <-->|"REST API / Sync"| CSDL_QG
 
     style FE fill:#3178c6,color:#fff
     style VIEWER fill:#3178c6,color:#fff
@@ -481,11 +490,13 @@ graph TB
     style DOC fill:#00ADD8,color:#fff
     style NOTIF fill:#00ADD8,color:#fff
     style IFC fill:#FFD43B,color:#000
+    style ACC fill:#FFD43B,color:#000
+    style CSDL_QG fill:#ea4335,color:#fff
 ```
 
 #### Phân bổ ngôn ngữ lập trình chi tiết theo dịch vụ:
-1. **Golang (Go)**: Chọn làm ngôn ngữ cốt lõi cho phân lớp API Gateway, Quản lý tài liệu (Document Service) và Thông báo (Notification Service). Go sở hữu khả năng xử lý đồng thời vượt trội thông qua cơ chế Goroutines (chỉ tốn ~2KB bộ nhớ trên mỗi kết nối, so với 1MB của Java), giúp hệ thống hoạt động mượt mà khi hàng ngàn người dùng tải file đồng thời.
-2. **Python**: Sử dụng cho bộ phân tích file IFC (IfcOpenShell). Thư viện IfcOpenShell là công cụ mã nguồn mở xử lý IFC mạnh mẽ nhất thế giới hiện nay và chỉ hỗ trợ tối ưu trên Python/C++.
+1. **Golang (Go)**: Chọn làm ngôn ngữ cốt lõi cho phân lớp API Gateway, Quản lý tài liệu (Document Service), Thông báo (Notification Service) và Cổng liên thông dữ liệu quốc gia (Integration Gateway). Go sở hữu khả năng xử lý đồng thời vượt trội thông qua cơ chế Goroutines (chỉ tốn ~2KB bộ nhớ trên mỗi kết nối, so với 1MB của Java), giúp hệ thống hoạt động mượt mà khi hàng ngàn người dùng tải file đồng thời và giữ kết nối thời gian thực ổn định đến cổng CSDL quốc gia.
+2. **Python**: Sử dụng cho bộ phân tích file IFC (IfcOpenShell) và Bộ máy thẩm duyệt tự động (ACC Engine). Thư viện IfcOpenShell là công cụ mã nguồn mở xử lý IFC mạnh mẽ nhất thế giới hiện nay và chỉ hỗ trợ tối ưu trên Python/C++. Python đóng vai trò là động cơ tính toán hình học không gian, chạy các thuật toán tìm đường thoát nạn (pathfinding) cho PCCC và tính toán các chỉ tiêu quy hoạch (GFA, NFA, mật độ xây dựng) dựa trên các quy luật số hóa quy chuẩn Việt Nam (QCVN 01, QCVN 06, QCVN 09).
 3. **TypeScript**: Đồng bộ hóa toàn bộ mã nguồn phía giao diện người dùng (Next.js) giúp mã nguồn sạch, dễ bảo trì và dễ tuyển dụng nhân sự tại Việt Nam.
 4. **Rust (Không nằm trong kế hoạch chính thức)**: Ghi nhận là lựa chọn tối ưu hóa trong tương lai xa nếu cần hiệu năng tính toán đồ họa cực đoan. Tuy nhiên, do nguồn nhân sự Rust tại Việt Nam cực kỳ khan hiếm và team đã sử dụng 3 ngôn ngữ (Go + Python + TypeScript), việc thêm ngôn ngữ thứ 4 sẽ tạo rủi ro phức tạp hóa quá mức cho đội ngũ tinh gọn. Nếu cần tối ưu hiệu năng, ưu tiên dùng Go hoặc tận dụng thư viện C++ biên dịch sẵn (IfcOpenShell Core) thay vì đưa Rust vào stack.
 
@@ -976,6 +987,23 @@ Tổng chi phí vận hành OPEX trong 5 năm đầu là **33,30 tỷ VNĐ**, đ
 
 **3. Khả năng dự phòng thảm họa (Disaster Recovery) & Băng thông:**
 * Ngân sách tường lửa và DevOps (2,60 tỷ VNĐ) cùng bản quyền DB HA/SSL (3,20 tỷ VNĐ) đủ để triển khai cơ chế nhân bản cơ sở dữ liệu thời gian thực (Active-Standby) giữa Viettel Cloud (Hà Nội) và VNPT Cloud (TP.HCM) đảm bảo hệ thống hoạt động liên tục 24/7 với cam kết SLA đạt 99.9%.
+
+**4. Kiểm chứng Thực tế bằng Báo giá Chính thức từ Viettel IDC (Ngày 16/06/2026):**
+Để bảo đảm tính thực tế và chính xác của kế hoạch tài chính, chúng tôi đã đối chiếu dự toán vận hành với Báo giá chính thức số `260616-BoM-CIC-v1 (1)` do Viettel IDC (Viettel - CHT) cung cấp cho CIC phục vụ giai đoạn vận hành thử nghiệm ban đầu (quy mô ~150 người dùng đăng ký, ~50 người dùng đồng thời CCU và 500GB lưu trữ đối tượng Gold hỗ trợ Object Lock/WORM):
+* **Phương án 1: Tối giản (Vận hành trên 01 VM chính dùng IP Public tĩnh)**:
+  - *Cấu hình*: 01 VM (4 vCPU, 8GB RAM, 100GB SSD), 01 license Cloud Backup + 120GB dung lượng sao lưu, 500GB Object Storage Gold (hỗ trợ Object Lock đạt chuẩn QCVN 12).
+  - *Chi phí (OpenStack)*: 2.248.000 VNĐ/tháng (chưa VAT) -> Gói 12 tháng (đã gồm 10% VAT và chiết khấu 10% dành riêng cho CIC): **26.706.240 VNĐ/năm**.
+  - *Chi phí (VMware)*: 2.498.000 VNĐ/tháng (chưa VAT) -> Gói 12 tháng (đã gồm 10% VAT và chiết khấu 10% dành riêng cho CIC): **29.676.240 VNĐ/năm**.
+* **Phương án 2: Tiêu chuẩn (Vận hành trên 02 VM, bảo mật qua vFirewall pfSense riêng biệt)**:
+  - *Cấu hình*: VM ứng dụng chính (8 vCPU, 16GB RAM, 200GB SSD), VM Firewall (2 vCPU, 4GB RAM, 50GB SSD, 01 IP Public tĩnh), vFirewall chuyên dụng, 01 license Cloud Backup + 240GB dung lượng sao lưu, 500GB Object Storage Gold.
+  - *Chi phí (OpenStack + vFirewall Compact)*: 3.462.000 VNĐ/tháng (chưa VAT) -> Gói 12 tháng (đã gồm 10% VAT và chiết khấu 10% dành riêng cho CIC): **41.128.560 VNĐ/năm**.
+  - *Chi phí (VMware + vFirewall Standard)*: 3.736.000 VNĐ/tháng (chưa VAT) -> Gói 12 tháng (đã gồm 10% VAT và chiết khấu 10% dành riêng cho CIC): **44.383.680 VNĐ/năm**.
+
+**Đánh giá sự tương thích và Biên an toàn tài chính (Safety Buffer):**
+* So sánh với ngân sách hạ tầng phân bổ cho năm 2026 (**200 triệu VNĐ**) và năm 2027 (**600 triệu VNĐ**) tại Bảng 6.2d:
+  - Ngay cả khi áp dụng cấu hình cao nhất là **Phương án 2 (VMware)** với chi phí **44.383.680 VNĐ/năm**, tổng chi phí hạ tầng thực tế chỉ chiếm **22,2%** ngân sách của năm 2026 và **7,4%** ngân sách của năm 2027.
+  - Biên an toàn tài chính (Safety Margin) đạt tới **77,8%** đối với năm đầu tiên. Khoản thặng dư ngân sách này tạo ra dư địa cực kỳ lớn để CIC nâng cấp tài nguyên (CPU/RAM/SSD/Băng thông) hoặc mở rộng dung lượng Object Storage lên mức 2TB - 10TB khi số lượng dự án thực tế gia tăng mà hoàn toàn không có rủi ro vượt chi phí dự toán.
+
 
 
 
