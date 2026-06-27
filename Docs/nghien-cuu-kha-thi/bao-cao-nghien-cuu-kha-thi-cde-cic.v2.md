@@ -477,6 +477,75 @@ Theo hệ thống văn bản pháp lý mới ban hành năm 2026, chi phí tri�
 * **Thông tư số 12/2021/TT-BXD**: Định mức chi phí áp dụng BIM — tham chiếu bảng định mức trong file `Docs/phap-ly/dinh-muc-tt12-2021-bxd.xlsx` để xác định mức giá dịch vụ BIM cạnh tranh.
 
 
+### 5.1bis. Cơ sở, Giả định & Phương pháp luận Tài chính (Financial Basis & Methodology)
+
+Mục này minh bạch hóa **toàn bộ cơ sở, giả định và công thức** của mô hình tài chính, để mọi con số đều **truy vết được tới một căn cứ** (dữ liệu nội bộ CIC-ERP hoặc benchmark ngành) thay vì áp đặt. Mô hình xây theo nguyên tắc **bottom-up**: doanh thu được dựng từ số lượng hợp đồng/người dùng × đơn giá, *không* scale ngược từ một con số tổng.
+
+#### 5.1bis.1. Bảng giả định gốc & căn cứ (Assumptions Register)
+
+| Giả định | Giá trị dùng | Căn cứ / Benchmark đối chiếu | Đánh giá |
+|:---|:---|:---|:---:|
+| **ARPU SaaS** | 0,4 → 0,6 tr/user/tháng (~$16-24) | Autodesk ACC $45-120/user/th; thấp hơn nhiều để định vị giá phổ cập B2G/SME | Thận trọng |
+| **Biên LN gộp (GM)** | 55-61% (COGS 39-45%) | SaaS 2026: thuần SaaS GM 78-82%; **SaaS+Services GM ~65%** (median Benchmarkit/SaaSRise) | Hợp lý¹ |
+| **Phí bảo trì AMC** | 15%/năm giá trị HĐ On-Prem lũy kế | On-Prem chuẩn 15-25% (Oracle/SAP 22%; **vendor nhỏ/mã nguồn mở 12-18%** — Forrester) | Thận trọng |
+| **Suất chiết khấu WACC** | 12% | CAPM IT Việt Nam: FPT 11,2%, cost of equity 12,45% (valueinvesting.io) | Có cơ sở² |
+| **Thuế TNDN** | 0% (giả định ưu đãi R&D) | NĐ 353/2025; **cần xác minh điều kiện** — nếu không, áp 20% | Cần kiểm chứng |
+| **Số user/HĐ mục tiêu** | Bottom-up theo năm | Neo vào tệp 89 khách hàng độc bản + 13 khách quay lại (CIC-ERP 6/2026) | Cần khảo sát³ |
+
+> ¹ *Biên gộp 60% (thấp hơn chuẩn SaaS thuần 78%) phản ánh đúng đặc thù CDE CIC: nặng triển khai On-Premise, đào tạo, customization nghiệp vụ cho từng khách hàng B2G — các khoản này chiếm 30-40% giá trị HĐ On-Prem (đúng nhóm "SaaS+Services" GM ~65%). Kênh SaaS thuần của CDE CIC vẫn đạt ~75%.*
+> ² *Với một dự án mới (rủi ro cao hơn doanh nghiệp niêm yết), suất chiết khấu thận trọng hơn có thể 15-18%. Báo cáo cho phép điều chỉnh WACC trực tiếp ở tab Tài chính để kiểm thử độ nhạy.*
+> ³ *Số lượng user/HĐ mục tiêu là biến rủi ro lớn nhất — cần khảo sát thị trường củng cố (xem Kịch bản B/C ở §5.5bis). Đây là giả định "mỏng" nhất của mô hình.*
+
+#### 5.1bis.2. Hệ thống công thức tính toán (Formula Reference)
+
+| Chỉ tiêu | Công thức | Ghi chú |
+|:---|:---|:---|
+| **User cuối kỳ (năm t)** | `User_cuối_kỳ(t-1) × (1 − churn) + User_mới(t)` | Mô hình churn tường minh (mặc định churn 10%/năm) |
+| **DT SaaS (năm t)** | `User_TB(t) × ARPU(t) × Số_tháng(t)` | User_TB = trung bình đầu kỳ & cuối kỳ |
+| **User TB (năm t)** | `(User_đầu_kỳ + User_cuối_kỳ) / 2` | Tính thận trọng (không lấy cuối kỳ) |
+| **DT On-Prem (năm t)** | `HĐ_mới(t) × Giá_HĐ(t) + AMC(t)` | Theo từng phân khúc PMU/Sở XD/DN |
+| **AMC (năm t)** | `Σ giá_trị_HĐ_lũy_kế_trước(t) × 15%` | Doanh thu tái diễn từ năm sau |
+| **Tổng doanh thu** | `DT_SaaS + DT_PMU + DT_SởXD + DT_DN` | |
+| **Giá vốn COGS (năm t)** | `Doanh_thu(t) × tỷ_lệ_giá_vốn(t)` | Tỷ lệ 45/40/39/40% (2027-2030) |
+| **Lợi nhuận gộp** | `Doanh_thu − COGS` | Biên gộp = GP / Doanh_thu |
+| **Dòng tiền ròng (năm t)** | `LN_gộp(t) − CAPEX(t) − OPEX(t) − Thuế(t)` | Thuế = max(0, EBT) × thuế_suất |
+| **NPV** | `Σ [ CF(t) / (1+WACC)^t ]`, t=0..4 | Năm gốc 2026 |
+| **IRR** | mức `r` sao cho `NPV(r) = 0` | Giải số học trên chuỗi CF |
+| **Thời gian hoàn vốn** | năm mà `dòng tiền tích lũy ≥ 0` | Nội suy trong năm |
+| **LTV (đơn vị KT)** | `(ARPU / tỷ_lệ_rời_bỏ) × biên_gộp` | Tham khảo, chưa đưa vào dòng tiền |
+| **CAC payback** | `CAC / (ARPU × biên_gộp)` | Mục tiêu < 18 tháng (B2B) |
+
+#### 5.1bis.3. Đối chiếu Benchmark ngành (Industry Benchmarking)
+
+| Chỉ số | CDE CIC | Benchmark ngành 2026 | Kết luận |
+|:---|:---:|:---|:---:|
+| Biên LN gộp | ~60% | SaaS+Services median ~65%; thuần SaaS 75-82% | ✅ Sát, thiên thận trọng |
+| AMC | 15% | On-Prem 15-25% (vendor nhỏ 12-18%) | ✅ Thận trọng |
+| WACC | 12% | IT Việt Nam 8-12% (FPT 11,2%) | ✅ Hợp lý |
+| ARPU (SaaS) | $16-24/user/th | Autodesk $45-120; nội địa thấp hơn | ✅ Cạnh tranh |
+| Rule of 40 (tăng trưởng + biên) | rất cao (KB A) | Median 35-40; top >50 | ⚠️ Lạc quan ở KB A — dùng KB B |
+| Churn SaaS | 10%/năm (điều chỉnh được) | SMB 12-15%/năm; Enterprise 5% | ✅ Đã mô hình hóa⁴ |
+
+> ⁴ *Mô hình đã tách tường minh churn: `User_cuối_kỳ = User_đầu_kỳ × (1 − churn) + User_mới`. Người dùng nhập **User mới (gross adds)** và **tỷ lệ churn** (mặc định 10%/năm — pha trộn SMB ~12% và B2G/Enterprise ~5%); user cuối kỳ và doanh thu được suy ra. Có thể điều chỉnh churn trực tiếp tại tab Tài chính để kiểm thử độ nhạy.*
+
+#### 5.1bis.4. Suất chiết khấu WACC — luận giải theo CAPM
+
+Suất chiết khấu 12% được xây theo mô hình **CAPM** cho doanh nghiệp công nghệ Việt Nam:
+
+> `Cost of Equity = Rf + β × ERP(gồm country premium)`
+> `≈ 3,0% (lãi suất phi rủi ro VN) + 1,0 × 9-10% (ERP gồm phần bù rủi ro quốc gia) ≈ 12-13%`
+
+Đối chiếu thực tế: **FPT (IT Services) WACC 11,2%**, cost of equity 12,45%; CMC 7,7%; trung bình ngành IT Việt Nam ~8-12%. Vì CDE CIC 100% vốn tự có (không nợ vay), WACC ≈ cost of equity ≈ **12%**. Với dự án mới rủi ro cao hơn, có thể kiểm thử ở 15-18% (điều chỉnh trực tiếp tại tab Tài chính).
+
+#### 5.1bis.5. Lưu ý phương pháp luận trọng yếu
+
+1. **IRR không phải chỉ số quyết định chính**: do cơ cấu chi phí siêu tinh gọn, IRR ở KB A/B rất cao (>100%) và kém ổn định. Ưu tiên **NPV (Kịch bản B)**, **nhu cầu vốn lưu động đỉnh điểm** và **lợi thế tuân thủ QCVN 12**.
+2. **Biến rủi ro lớn nhất là doanh thu** (số user/HĐ), không phải chi phí. Vì vậy có 3 kịch bản A/B/C (§5.5bis) thay đổi tốc độ thâm nhập thị trường.
+3. **Mọi giả định đều điều chỉnh được** trực tiếp tại **tab Tài chính** (chế độ Giá trị hoặc % Doanh thu), giúp Ban lãnh đạo tự kiểm thử độ nhạy.
+
+> *Nguồn benchmark: SaaSRise 2026 SaaS Benchmarks; Benchmarkit/KeyBanc 2024-2025; Forrester & The Negotiation Experts (software maintenance); valueinvesting.io (WACC FPT/CMC); Damodaran country risk premium. Dữ liệu kinh doanh CDE CIC: hệ thống CIC-ERP (6/2026).*
+
+
 ### 5.2. Dự toán Chi phí Đầu tư (CapEx) & Vận hành (OpEx) 5 năm
 Dự án áp dụng phương án đầu tư tự chủ 100% của CIC với **Tổng vốn đầu tư ban đầu CAPEX là 3,50 tỷ VNĐ** (không có nguồn vốn ngân sách nhà nước hay Bộ Xây dựng góp vốn).
 
@@ -877,54 +946,3 @@ Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công 
 Đặc biệt, hành lang pháp lý mới với **Luật Xây dựng 135/2025/QH15**, **Nghị định 217/2026/NĐ-CP** (BIM bắt buộc cho công trình cấp II trở lên, CDE bắt buộc cho cấp I trở lên thuộc đầu tư công), và **Nghị định 212/2026/NĐ-CP** (CSDL quốc gia về hoạt động xây dựng) đã tạo ra **thị trường bắt buộc** cho nền tảng CDE tại Việt Nam. Cùng với đó, **Nghị định 206/2026/NĐ-CP** (Điều 26 Khoản 2) thiết lập cơ sở pháp lý rõ ràng để chi phí CDE/BIM được đưa vào dự toán tư vấn xây dựng — mở ra mô hình doanh thu bền vững cho CDE CIC tại phân khúc B2G.
 
 Đặc biệt, việc áp dụng mô hình vận hành **AI-Conductor** kết hợp tự chủ công nghệ mã nguồn mở sẽ giúp tối ưu hóa hơn 57% chi phí nhân sự R&D, tiết kiệm tới 66% tổng vốn đầu tư CAPEX và đảm bảo hoàn thiện các tính năng cốt lõi (Phân hệ 1, 2, 3) để đưa vào thương mại hóa chỉ trong vòng 6 tháng đầu. Kính trình Ban giám đốc phê duyệt báo cáo đánh giá kỹ thuật và kế hoạch hành động nêu trên để dự án có thể chính thức khởi động.
-
----
-
-## Phụ lục: Giải thích Thuật ngữ Công nghệ (Appendix: Technology Glossary)
-
-### A. Kiến trúc & Mô hình phát triển
-* **Tech Stack (Bộ công nghệ)**: Tập hợp các ngôn ngữ lập trình, thư viện, cơ sở dữ liệu và công cụ đám mây được lựa chọn để xây dựng nên một ứng dụng phần mềm.
-* **Microservices (Kiến trúc vi dịch vụ)**: Phương pháp thiết kế phần mềm bằng cách chia nhỏ ứng dụng thành các dịch vụ độc lập, giao tiếp với nhau qua API. Giúp hệ thống dễ nâng cấp và mở rộng linh hoạt mà không ảnh hưởng đến toàn bộ hệ thống.
-* **SaaS (Phần mềm dịch vụ - Software as a Service)**: Mô hình phân phối phần mềm trực tuyến, người dùng truy cập qua Internet và trả phí định kỳ thay vì phải cài đặt vật lý trên máy chủ của mình.
-* **On-Premise (Cài đặt tại chỗ)**: Mô hình cài đặt và vận hành phần mềm trực tiếp trên hệ thống máy chủ vật lý đặt tại văn phòng hoặc trung tâm dữ liệu riêng của đơn vị sử dụng.
-* **API (Giao diện lập trình ứng dụng)**: Bộ giao thức kết nối cho phép các ứng dụng phần mềm khác nhau trao đổi dữ liệu tự động với nhau.
-* **gRPC**: Giao thức truyền tin hiệu năng cao của Google, sử dụng định dạng nhị phân (Protocol Buffers) giúp các dịch vụ backend trao đổi thông tin nhanh gấp 5-10 lần so với giao thức REST API truyền thống.
-* **Open-Source (Mã nguồn mở)**: Phần mềm có mã nguồn được công khai rộng rãi, cho phép cộng đồng cùng kiểm tra, chỉnh sửa và phát triển tùy biến theo nhu cầu.
-
-### B. Ngôn ngữ Lập trình & Framework
-* **Golang (Go)**: Ngôn ngữ lập trình do Google phát triển, nổi tiếng nhờ hiệu năng xử lý song song mạnh mẽ, thời gian khởi động nhanh và tiêu tốn cực ít tài nguyên máy chủ.
-* **Rust**: Ngôn ngữ lập trình có hiệu năng cao ngang C++, nổi bật với khả năng kiểm soát an toàn bộ nhớ tuyệt đối tại thời điểm biên dịch mà không cần sử dụng bộ dọn rác (Garbage Collector).
-* **Python**: Ngôn ngữ lập trình có cú pháp ngắn gọn, dễ học, sở hữu hệ sinh thái thư viện xử lý khoa học dữ liệu, hình học 3D và Trí tuệ nhân tạo (AI/ML) phong phú nhất thế giới.
-* **TypeScript**: Ngôn ngữ lập trình nâng cấp từ JavaScript, bổ sung cơ chế kiểm soát kiểu dữ liệu nghiêm ngặt giúp giảm thiểu các lỗi mã nguồn trong quá trình phát triển ứng dụng lớn.
-* **Next.js**: Bộ khung phát triển ứng dụng web hiện đại xây dựng trên React, hỗ trợ tối ưu hóa hiển thị dữ liệu từ phía máy chủ giúp trang web tải nhanh và đạt điểm SEO cao.
-* **FastAPI**: Thư viện Python hiệu năng cao dùng để xây dựng các cổng dịch vụ dữ liệu (APIs) với khả năng tự động tạo tài liệu hướng dẫn sử dụng.
-
-### C. BIM, 3D & Đồ họa
-* **IFC (Industry Foundation Classes)**: Định dạng dữ liệu tiêu chuẩn quốc tế và mở dùng để trao đổi thông tin mô hình BIM giữa các phần mềm khác nhau mà không bị mất mát dữ liệu thuộc tính.
-* **WebGL / WebGPU**: Các chuẩn công nghệ cho phép trình duyệt hiển thị đồ họa 3D tương tác mà không cần cài đặt thêm phần mềm hỗ trợ nào khác. WebGPU là công nghệ thế hệ mới giúp tăng tốc độ dựng hình nhanh hơn WebGL.
-* **ThatOpen Engine (web-ifc)**: Bộ công cụ mã nguồn mở viết bằng C++/WebAssembly hỗ trợ đọc và dựng hình file BIM định dạng IFC trực tiếp trên trình duyệt web với tốc độ cực nhanh.
-* **IfcOpenShell**: Thư viện mã nguồn mở chuyên sâu dùng để phân tích cấu trúc hình học và truy vấn dữ liệu bên trong tệp IFC ở phía máy chủ.
-* **LOD (Level of Detail)**: Kỹ thuật quản lý độ chi tiết của hình ảnh đồ họa dựa trên khoảng cách của góc nhìn, giúp giảm tải cho thiết bị xử lý khi hiển thị các mô hình có dung lượng lớn.
-* **Culling**: Kỹ thuật tối ưu đồ họa bằng cách loại bỏ không dựng hình các vật thể nằm ngoài tầm nhìn hiện tại của camera.
-* **BCF (BIM Collaboration Format)**: Định dạng dữ liệu mở dùng để lưu trữ và trao đổi các ghi chú, lỗi thiết kế trực tiếp trên mô hình BIM giữa các phần mềm cộng tác.
-* **3D Tiles**: Tiêu chuẩn mở của OGC (Open Geospatial Consortium) dùng để truyền và hiển thị dữ liệu địa lý 3D khối lượng lớn (như mô hình GeoBIM, đám mây điểm, địa hình) trên nền web thông qua cơ chế phân tầng dữ liệu (streaming).
-* **Cesium.js**: Thư viện JavaScript mã nguồn mở (Apache 2.0) hàng đầu thế giới dùng để hiển thị bản đồ địa lý 3D tương tác hiệu năng cao trên trình duyệt web không cần cài đặt phần mềm hỗ trợ.
-* **PostGIS**: Tiện ích mở rộng cơ sở dữ liệu cho PostgreSQL bổ sung khả năng lưu trữ, xử lý và truy vấn không gian địa lý dạng GIS chuyên sâu.
-* **VN-2000**: Hệ tọa độ bản đồ quốc gia của Việt Nam, được quy định bắt buộc đối với tất cả các dự án đầu tư công và đo đạc địa lý tại lãnh thổ Việt Nam.
-* **WGS84**: Hệ tọa độ địa lý toàn cầu chuẩn quốc tế, được sử dụng rộng rãi làm nền tảng cho hệ thống định vị GPS và hầu hết các bản đồ trực tuyến toàn cầu (Google Maps, MapBox, v.v.).
-* **Vmap**: Nền tảng bản đồ số chính thức do Cục Đo đạc, Bản đồ và Thông tin địa lý Việt Nam phát triển, đảm bảo dữ liệu lưu trữ 100% trong nước và tuân thủ các quy chuẩn pháp lý bản đồ của Việt Nam.
-
-### D. Hạ tầng & DevOps
-* **Kubernetes (K8s)**: Hệ thống mã nguồn mở tự động hóa việc triển khai, mở rộng quy mô và quản lý các ứng dụng được đóng gói trong container.
-* **Object Storage (S3)**: Mô hình lưu trữ dữ liệu dạng đối tượng (thích hợp cho file thiết kế BIM dung lượng lớn, bản vẽ bản đồ) có khả năng mở rộng dung lượng vô hạn.
-* **Disaster Recovery (DR - Khôi phục sau thảm họa)**: Tập hợp các quy trình kỹ thuật nhằm đảm bảo hệ thống có thể khôi phục và hoạt động bình thường tại một hạ tầng vật lý khác khi hạ tầng chính gặp sự cố nghiêm trọng.
-* **Air-gap**: Phương pháp bảo mật bằng cách ngắt kết nối mạng vật lý hoàn toàn đối với các máy chủ lưu trữ bản sao lưu dữ liệu quan trọng, tránh nguy cơ bị mã độc tống tiền tấn công từ xa.
-* **WORM (Write Once, Read Many)**: Cơ chế lưu trữ cho phép dữ liệu chỉ được ghi duy nhất một lần và không thể bị sửa đổi hoặc xóa bỏ bởi bất kỳ tài khoản nào, dùng để bảo vệ nhật ký kiểm toán hệ thống.
-
-### E. An ninh mạng & An toàn thông tin
-* **QCVN 12:2026/BCA**: Quy chuẩn kỹ thuật quốc gia về an toàn hệ thống lưu trữ tài liệu điện tử, ban hành bởi Bộ Công an và là yêu cầu bắt buộc đối với hệ thống thông tin của các cơ quan nhà nước.
-* **SIEM (Security Information and Event Management)**: Hệ thống giám sát an ninh thông tin tập trung, thu thập nhật ký từ toàn bộ máy chủ để phân tích, phát hiện và cảnh báo sớm các cuộc tấn công mạng.
-* **MFA (Xác thực đa nhân tố)**: Phương thức bảo mật yêu cầu người dùng cung cấp từ hai bằng chứng xác thực trở lên (ví dụ: mật khẩu kèm mã OTP gửi qua điện thoại) mới cho phép truy cập hệ thống.
-* **SSO (Đăng nhập một lần - Single Sign-On)**: Cơ chế xác thực cho phép người dùng chỉ cần đăng nhập một lần duy nhất là có thể truy cập toàn bộ các ứng dụng dịch vụ liên kết trong hệ thống.
-* **Keycloak**: Giải pháp mã nguồn mở hàng đầu thế giới dùng để quản lý định danh và phân quyền, hỗ trợ đầy đủ các giao thức bảo mật hiện đại.
-* **Pentest (Kiểm thử xâm nhập)**: Hoạt động giả lập tấn công mạng thực tế vào hệ thống bởi các chuyên gia bảo mật nhằm tìm kiếm và khắc phục trước các lỗ hổng an ninh mạng.

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Save, Download, Info, TrendingUp, Percent, Settings,
   DollarSign, FileText, Activity, AlertCircle, ArrowUpRight,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import reportMarkdown from '../../../Docs/nghien-cuu-kha-thi/bao-cao-nghien-cuu-kha-thi-cde-cic.md?raw';
 import { FinancialTab } from './FinancialTab';
+import { wrapGlossaryTerms } from './glossary';
 
 const STORAGE_KEY = 'cic_cde_feasibility_inputs';
 
@@ -104,17 +105,20 @@ const fmtPercent = (v: number) => {
   return `${(v * 100).toFixed(0)}%`;
 };
 
-function getTable6_4a(inputs: any) {
+function getTable6_4a(inputs: any, calcs: any) {
   const pmuCum = [0, inputs.onPrem.pmu.newHd[1], inputs.onPrem.pmu.newHd[1]+inputs.onPrem.pmu.newHd[2], inputs.onPrem.pmu.newHd[1]+inputs.onPrem.pmu.newHd[2]+inputs.onPrem.pmu.newHd[3], inputs.onPrem.pmu.newHd[1]+inputs.onPrem.pmu.newHd[2]+inputs.onPrem.pmu.newHd[3]+inputs.onPrem.pmu.newHd[4]];
   const soXdCum = [0, inputs.onPrem.soXd.newHd[1], inputs.onPrem.soXd.newHd[1]+inputs.onPrem.soXd.newHd[2], inputs.onPrem.soXd.newHd[1]+inputs.onPrem.soXd.newHd[2]+inputs.onPrem.soXd.newHd[3], inputs.onPrem.soXd.newHd[1]+inputs.onPrem.soXd.newHd[2]+inputs.onPrem.soXd.newHd[3]+inputs.onPrem.soXd.newHd[4]];
   const entCum = [0, inputs.onPrem.enterprise.newHd[1], inputs.onPrem.enterprise.newHd[1]+inputs.onPrem.enterprise.newHd[2], inputs.onPrem.enterprise.newHd[1]+inputs.onPrem.enterprise.newHd[2]+inputs.onPrem.enterprise.newHd[3], inputs.onPrem.enterprise.newHd[1]+inputs.onPrem.enterprise.newHd[2]+inputs.onPrem.enterprise.newHd[3]+inputs.onPrem.enterprise.newHd[4]];
-  
+  const u = calcs.saasUsers;
+  const r = (x: number) => Math.round(x);
+
   return [
     `| Phân khúc | Tiêu chí đánh giá số lượng | 2026 | 2027 (H2) | 2028 | 2029 | 2030 |`,
     `|:---|:---|:---:|:---:|:---:|:---:|:---:|`,
-    `| **1. Kênh SaaS** | Số user đầu kỳ (người) | — | 0 | ${inputs.saas.users[1]} | ${inputs.saas.users[2]} | ${inputs.saas.users[3]} |`,
-    `| | Số user cuối kỳ (người) | — | ${inputs.saas.users[1]} | ${inputs.saas.users[2]} | ${inputs.saas.users[3]} | ${inputs.saas.users[4]} |`,
-    `| | **Số user hoạt động trung bình (tính DT)**| — | **${(inputs.saas.users[1]/2).toFixed(0)}** | **${((inputs.saas.users[1]+inputs.saas.users[2])/2).toFixed(0)}** | **${((inputs.saas.users[2]+inputs.saas.users[3])/2).toFixed(0)}** | **${((inputs.saas.users[3]+inputs.saas.users[4])/2).toFixed(0)}** |`,
+    `| **1. Kênh SaaS** | User mới (gross adds) | — | ${inputs.saas.grossAdds[1]} | ${inputs.saas.grossAdds[2]} | ${inputs.saas.grossAdds[3]} | ${inputs.saas.grossAdds[4]} |`,
+    `| | User rời bỏ (churn ${(inputs.saas.churn*100).toFixed(0)}%) | — | ${r(calcs.saasChurnedUsers[1])} | ${r(calcs.saasChurnedUsers[2])} | ${r(calcs.saasChurnedUsers[3])} | ${r(calcs.saasChurnedUsers[4])} |`,
+    `| | Số user cuối kỳ (người) | — | ${r(u[1])} | ${r(u[2])} | ${r(u[3])} | ${r(u[4])} |`,
+    `| | **Số user hoạt động trung bình (tính DT)**| — | **${r(calcs.saasAvgUsers[1])}** | **${r(calcs.saasAvgUsers[2])}** | **${r(calcs.saasAvgUsers[3])}** | **${r(calcs.saasAvgUsers[4])}** |`,
     `| **2. On-Prem PMU** | Hợp đồng mới ký trong năm (HĐ) | 0 | ${inputs.onPrem.pmu.newHd[1]} | ${inputs.onPrem.pmu.newHd[2]} | ${inputs.onPrem.pmu.newHd[3]} | ${inputs.onPrem.pmu.newHd[4]} |`,
     `| | Lũy kế số PMU sử dụng hệ thống | 0 | ${pmuCum[1]} | ${pmuCum[2]} | ${pmuCum[3]} | ${pmuCum[4]} |`,
     `| **3. On-Prem Sở XD**| Hợp đồng mới ký trong năm (HĐ) | 0 | ${inputs.onPrem.soXd.newHd[1]} | ${inputs.onPrem.soXd.newHd[2]} | ${inputs.onPrem.soXd.newHd[3]} | ${inputs.onPrem.soXd.newHd[4]} |`,
@@ -250,7 +254,9 @@ const DEFAULT_INPUTS = {
   saas: {
     arpu: [0, 0.40, 0.45, 0.50, 0.60],
     months: [0, 6, 12, 12, 12],
-    users: [0, 500, 3000, 7500, 14000]
+    // User MỚI (gross adds) mỗi năm — user cuối kỳ được suy ra theo churn
+    grossAdds: [0, 500, 2550, 4800, 7250],
+    churn: 0.10 // tỷ lệ rời bỏ/năm (mặc định 10% — pha trộn SMB/B2G)
   },
   onPrem: {
     pmu: {
@@ -278,6 +284,24 @@ const DEFAULT_INPUTS = {
     staff: [0.0, 1.40, 2.00, 2.80, 3.00],
     cloud: [0.20, 0.60, 2.50, 4.00, 5.80],
     others: [0.0, 1.00, 2.50, 3.50, 4.00]
+  },
+  // Chế độ nhập chi phí: 'value' = giá trị tuyệt đối (tỷ); 'pct' = % doanh thu
+  costMode: 'value' as 'value' | 'pct',
+  // COGS luôn là % doanh thu theo năm (giá vốn)
+  cogsPct: [0.0, 0.45, 0.40, 0.39, 0.40],
+  // OPEX theo % doanh thu từng năm (dùng khi costMode === 'pct'); 2026 doanh thu ≈ 0
+  opexPct: {
+    staff: [0.0, 0.2500, 0.0614, 0.0366, 0.0188],
+    cloud: [0.0, 0.1071, 0.0768, 0.0522, 0.0363],
+    others: [0.0, 0.1786, 0.0768, 0.0457, 0.0251]
+  },
+  // CAPEX theo % TỔNG doanh thu 5 năm (đầu tư trả trước — không dùng % doanh thu từng năm)
+  capexPct: {
+    cap01_RD_staff: 0.00729,
+    cap02_equip: 0.000365,
+    cap03_license: 0.001093,
+    cap04_marketing: 0.001823,
+    cap05_consulting: 0.002187
   }
 };
 
@@ -285,13 +309,32 @@ export function FeasibilityStudyTab() {
   const [inputs, setInputs] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return { ...DEFAULT_INPUTS, ...JSON.parse(saved) };
+      if (saved) {
+        const p = JSON.parse(saved);
+        const merged: any = { ...DEFAULT_INPUTS, ...p };
+        // Deep-merge các nhánh có thể thiếu ở dữ liệu cũ (tránh undefined)
+        merged.saas = { ...DEFAULT_INPUTS.saas, ...(p.saas || {}) };
+        merged.opex = { ...DEFAULT_INPUTS.opex, ...(p.opex || {}) };
+        merged.opexPct = { ...DEFAULT_INPUTS.opexPct, ...(p.opexPct || {}) };
+        merged.capexPct = { ...DEFAULT_INPUTS.capexPct, ...(p.capexPct || {}) };
+        merged.cogsPct = p.cogsPct ?? DEFAULT_INPUTS.cogsPct;
+        merged.costMode = p.costMode ?? DEFAULT_INPUTS.costMode;
+        // Di trú: dữ liệu cũ chỉ có `users` (cuối kỳ) → suy ra `grossAdds` theo churn
+        if (!merged.saas.grossAdds && p.saas?.users) {
+          const u = p.saas.users; const ch = merged.saas.churn ?? 0;
+          merged.saas.grossAdds = u.map((v: number, t: number) => t === 0 ? 0 : v - (u[t - 1] * (1 - ch)));
+        }
+        return merged;
+      }
     } catch { /* ignore corrupt storage */ }
     return DEFAULT_INPUTS;
   });
   const [activeTab, setActiveTab] = useState<'report' | 'financial' | 'analysis'>('report');
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  const [activeId, setActiveId] = useState<string>('');
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Persist manual edits to localStorage (Excel-like adjustments survive reload)
   useEffect(() => {
@@ -318,18 +361,54 @@ export function FeasibilityStudyTab() {
     return items;
   }, []);
 
+  // Scroll-spy: tô sáng mục lục theo phần đang xem trong báo cáo
+  useEffect(() => {
+    if (activeTab !== 'report') return;
+    const root = contentRef.current;
+    if (!root) return;
+    const headings: HTMLElement[] = Array.from(root.querySelectorAll('[id^="heading-"]'));
+    if (headings.length === 0) return;
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries: IntersectionObserverEntry[]) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.add(e.target.id);
+          else visible.delete(e.target.id);
+        }
+        const firstVisible = headings.find((h) => visible.has(h.id));
+        if (firstVisible) setActiveId(firstVisible.id);
+      },
+      { root, rootMargin: '-24px 0px -78% 0px', threshold: 0 }
+    );
+    headings.forEach((h) => observer.observe(h));
+    return () => observer.disconnect();
+  }, [activeTab, tocItems]);
+
   // Financial model calculations
   const calcs = useMemo(() => {
     const years = [2026, 2027, 2028, 2029, 2030];
     const tCount = years.length;
     
-    // 1. SaaS Revenues
+    // 1. SaaS Revenues — mô hình churn tường minh:
+    //    User_cuối_kỳ(t) = User_cuối_kỳ(t-1) × (1 − churn) + User_mới(t)
+    const churn = typeof inputs.saas.churn === 'number' ? inputs.saas.churn : 0;
+    const grossAdds: number[] | undefined = inputs.saas.grossAdds;
+    const saasUsers = new Array(tCount).fill(0);      // user cuối kỳ (đã trừ rời bỏ)
+    const saasChurnedUsers = new Array(tCount).fill(0); // user rời bỏ trong năm
+    for (let t = 1; t < tCount; t++) {
+      if (grossAdds) {
+        saasChurnedUsers[t] = saasUsers[t - 1] * churn;
+        saasUsers[t] = saasUsers[t - 1] - saasChurnedUsers[t] + (grossAdds[t] || 0);
+      } else {
+        // Tương thích dữ liệu cũ: nếu chưa có grossAdds thì dùng user cuối kỳ trực tiếp
+        saasUsers[t] = inputs.saas.users ? inputs.saas.users[t] : 0;
+        saasChurnedUsers[t] = (inputs.saas.users ? inputs.saas.users[t - 1] : 0) * churn;
+      }
+    }
     const saasRevenues = new Array(tCount).fill(0);
     const saasAvgUsers = new Array(tCount).fill(0);
     for (let t = 1; t < tCount; t++) {
-      const prevUsers = inputs.saas.users[t-1];
-      const currUsers = inputs.saas.users[t];
-      saasAvgUsers[t] = (prevUsers + currUsers) / 2;
+      saasAvgUsers[t] = (saasUsers[t - 1] + saasUsers[t]) / 2;
       saasRevenues[t] = saasAvgUsers[t] * inputs.saas.arpu[t] * inputs.saas.months[t] / 1000;
     }
     
@@ -384,21 +463,25 @@ export function FeasibilityStudyTab() {
       totalRevenues[t] = saasRevenues[t] + pmuRevenues[t] + soXdRevenues[t] + entRevenues[t];
     }
     
-    // COGS & GP
-    const cogsRates = [0.0, 0.45, 0.40, 0.39, 0.40];
+    // COGS & GP — giá vốn luôn theo % doanh thu (cogsPct)
+    const cogsRates = inputs.cogsPct;
     const cogs = new Array(tCount).fill(0);
     const grossProfit = new Array(tCount).fill(0);
     for (let t = 0; t < tCount; t++) {
       cogs[t] = totalRevenues[t] * cogsRates[t];
       grossProfit[t] = totalRevenues[t] - cogs[t];
     }
-    
-    // CAPEX
-    const capexRD = inputs.capex.cap01_RD_staff;
-    const capexEquip = inputs.capex.cap02_equip;
-    const capexLicense = inputs.capex.cap03_license;
-    const capexMarketing = inputs.capex.cap04_marketing;
-    const capexConsulting = inputs.capex.cap05_consulting;
+
+    const total5yrRev = totalRevenues.reduce((a, b) => a + b, 0);
+    const capPct = inputs.costMode === 'pct';
+    const opPct = inputs.costMode === 'pct';
+
+    // CAPEX — chế độ 'pct': % TỔNG doanh thu 5 năm (đầu tư trả trước)
+    const capexRD = capPct ? inputs.capexPct.cap01_RD_staff * total5yrRev : inputs.capex.cap01_RD_staff;
+    const capexEquip = capPct ? inputs.capexPct.cap02_equip * total5yrRev : inputs.capex.cap02_equip;
+    const capexLicense = capPct ? inputs.capexPct.cap03_license * total5yrRev : inputs.capex.cap03_license;
+    const capexMarketing = capPct ? inputs.capexPct.cap04_marketing * total5yrRev : inputs.capex.cap04_marketing;
+    const capexConsulting = capPct ? inputs.capexPct.cap05_consulting * total5yrRev : inputs.capex.cap05_consulting;
     const totalCapexVal = capexRD + capexEquip + capexLicense + capexMarketing + capexConsulting;
     
     const capexRD_dist = [0.60/2.00, 1.10/2.00, 0.30/2.00];
@@ -418,10 +501,14 @@ export function FeasibilityStudyTab() {
       totalCapexYearly[t] = capexRD_yearly[t] + capexEquip_yearly[t] + capexLicense_yearly[t] + capexMarketing_yearly[t] + capexConsulting_yearly[t];
     }
     
-    // OPEX
+    // OPEX — chế độ 'pct': % doanh thu TỪNG NĂM; chế độ 'value': giá trị tuyệt đối
+    const opexStaff = totalRevenues.map((r, t) => opPct ? inputs.opexPct.staff[t] * r : inputs.opex.staff[t]);
+    const opexCloud = totalRevenues.map((r, t) => opPct ? inputs.opexPct.cloud[t] * r : inputs.opex.cloud[t]);
+    const opexOthers = totalRevenues.map((r, t) => opPct ? inputs.opexPct.others[t] * r : inputs.opex.others[t]);
+    const opexEffective = { staff: opexStaff, cloud: opexCloud, others: opexOthers };
     const totalOpexYearly = new Array(tCount).fill(0);
     for (let t = 0; t < tCount; t++) {
-      totalOpexYearly[t] = inputs.opex.staff[t] + inputs.opex.cloud[t] + inputs.opex.others[t];
+      totalOpexYearly[t] = opexStaff[t] + opexCloud[t] + opexOthers[t];
     }
     
     // Project Cash Flow (Kịch bản A - Lạc quan)
@@ -469,17 +556,26 @@ export function FeasibilityStudyTab() {
       { name: 'Bi quan', revCoeff: 0.25, opexCoeff: 1.0 }
     ];
     
+    const opexPctSum = totalRevenues.map((_, t) => inputs.opexPct.staff[t] + inputs.opexPct.cloud[t] + inputs.opexPct.others[t]);
+    const capexPctSum = inputs.capexPct.cap01_RD_staff + inputs.capexPct.cap02_equip + inputs.capexPct.cap03_license + inputs.capexPct.cap04_marketing + inputs.capexPct.cap05_consulting;
+
     const scenarioResults = scenarios.map(sc => {
       const scRev = totalRevenues.map(r => r * sc.revCoeff);
       const scCogs = scRev.map((r, t) => r * cogsRates[t]);
       const scGp = scRev.map((r, t) => r - scCogs[t]);
-      const scOpex = totalOpexYearly.map(o => o * sc.opexCoeff);
+      // Ở chế độ %, OPEX & CAPEX co giãn theo doanh thu của kịch bản; ở chế độ giá trị thì giữ cố định
+      const scOpex = opPct
+        ? scRev.map((r, t) => opexPctSum[t] * r)
+        : totalOpexYearly.map(o => o * sc.opexCoeff);
+      const scTotal5 = scRev.reduce((a, b) => a + b, 0);
+      const scCapexTotal = capPct ? capexPctSum * scTotal5 : totalCapexVal;
+      const scCapexYearly = totalCapexYearly.map(v => totalCapexVal > 0 ? (v / totalCapexVal) * scCapexTotal : 0);
       const scNetFlow = new Array(tCount).fill(0);
       const scCumFlow = new Array(tCount).fill(0);
-      
+
       let cum = 0;
       for (let t = 0; t < tCount; t++) {
-        const e = scGp[t] - totalCapexYearly[t] - scOpex[t];
+        const e = scGp[t] - scCapexYearly[t] - scOpex[t];
         const tx = e > 0 ? e * inputs.fin.taxRate : 0;
         scNetFlow[t] = e - tx;
         cum += scNetFlow[t];
@@ -503,6 +599,8 @@ export function FeasibilityStudyTab() {
     
     return {
       saasAvgUsers,
+      saasUsers,
+      saasChurnedUsers,
       saasRevenues,
       pmuRevenues,
       pmuNewRevenues,
@@ -526,6 +624,9 @@ export function FeasibilityStudyTab() {
       capexConsulting_yearly,
       totalCapexYearly,
       totalOpexYearly,
+      opexEffective,
+      total5yrRev,
+      capexEffective: { cap01: capexRD, cap02: capexEquip, cap03: capexLicense, cap04: capexMarketing, cap05: capexConsulting },
       ebit,
       tax,
       netCashFlow,
@@ -755,7 +856,9 @@ export function FeasibilityStudyTab() {
       .replace(/\*(.*?)\*/g, '<em class="text-on-surface-variant italic">$1</em>')
       .replace(/`(.*?)`/g, '<code class="bg-surface-container-high px-1.5 py-0.5 rounded font-mono text-[12px] text-primary">$1</code>');
 
-  const renderMarkdownText = (text: string) => {
+  const renderMarkdownText = (text: string, glossaryUsed?: Set<string>, headingRef?: { n: number }) => {
+    // Wrap technical terms with a hover-tooltip (first occurrence only) inside prose.
+    const fmtProse = (s: string) => glossaryUsed ? wrapGlossaryTerms(inlineFmt(s), glossaryUsed) : inlineFmt(s);
     // Only HTML-escape globally; inline formatting is applied per-line below.
     let html = text
       .replace(/&/g, '&amp;')
@@ -871,11 +974,11 @@ export function FeasibilityStudyTab() {
       if (trimmed.startsWith('# ')) {
         elements.push(<h1 key={i} className="text-2xl font-extrabold text-primary tracking-tight mt-8 mb-4 border-b border-outline-variant pb-2" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(2)) }} />);
       } else if (trimmed.startsWith('## ')) {
-        const id = `heading-${headingCount++}`;
-        elements.push(<h2 id={id} key={i} className="text-xl font-bold text-on-surface tracking-tight mt-8 mb-4 pb-1 border-b border-outline-variant/30 scroll-mt-20" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(3)) }} />);
+        const id = `heading-${headingRef ? headingRef.n++ : headingCount++}`;
+        elements.push(<h2 id={id} key={i} className="text-xl font-bold text-on-surface tracking-tight mt-8 mb-4 pb-1 border-b border-outline-variant/30 scroll-mt-24" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(3)) }} />);
       } else if (trimmed.startsWith('### ')) {
-        const id = `heading-${headingCount++}`;
-        elements.push(<h3 id={id} key={i} className="text-lg font-bold text-primary mt-6 mb-3 scroll-mt-20" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(4)) }} />);
+        const id = `heading-${headingRef ? headingRef.n++ : headingCount++}`;
+        elements.push(<h3 id={id} key={i} className="text-lg font-bold text-primary mt-6 mb-3 scroll-mt-24" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(4)) }} />);
       } else if (trimmed.startsWith('#### ')) {
         elements.push(<h4 key={i} className="text-md font-bold text-secondary mt-5 mb-2" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(5)) }} />);
       } else if (trimmed.startsWith('##### ')) {
@@ -883,13 +986,13 @@ export function FeasibilityStudyTab() {
       } else if (trimmed.startsWith('&gt; ')) {
         elements.push(<blockquote key={i} className="border-l-4 border-primary bg-primary-container/10 px-4 py-3 my-4 rounded-r-xl text-on-surface-variant text-[13px] italic" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(5)) }} />);
       } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-        elements.push(<li key={i} className="ml-6 list-disc text-sm text-on-surface-variant mb-1.5" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(2)) }} />);
+        elements.push(<li key={i} className="ml-6 list-disc text-sm text-on-surface-variant mb-1.5" dangerouslySetInnerHTML={{ __html: fmtProse(trimmed.slice(2)) }} />);
       } else if (trimmed === '---') {
         elements.push(<hr key={i} className="border-outline-variant/30 my-8" />);
       } else if (trimmed === '') {
         elements.push(null);
       } else {
-        elements.push(<p key={i} className="text-sm text-on-surface-variant leading-relaxed mb-4 text-justify" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed) }} />);
+        elements.push(<p key={i} className="text-sm text-on-surface-variant leading-relaxed mb-4 text-justify" dangerouslySetInnerHTML={{ __html: fmtProse(trimmed) }} />);
       }
     }
 
@@ -905,7 +1008,9 @@ export function FeasibilityStudyTab() {
   const parsedReportJSX = useMemo(() => {
     const regex = /(<!-- TABLE_[A-Z0-9_]+_START -->[\s\S]*?<!-- TABLE_[A-Z0-9_]+_END -->)/g;
     const parts = reportMarkdown.split(regex);
-    
+    const glossaryUsed = new Set<string>(); // gắn tooltip thuật ngữ chỉ ở lần xuất hiện đầu tiên
+    const headingRef = { n: 0 }; // bộ đếm heading TOÀN CỤC để id khớp với Mục lục (tocItems)
+
     return parts.map((part, index) => {
       if (part.startsWith('<!-- TABLE_')) {
         const idMatch = part.match(/<!-- TABLE_([A-Z0-9_]+)_START -->/);
@@ -1540,7 +1645,7 @@ export function FeasibilityStudyTab() {
             return <div key={index} className="bg-error/15 border border-error/30 text-error p-3 rounded-lg text-xs my-3">Bảng {id} đang tải…</div>;
         }
       }
-      return <div key={index}>{renderMarkdownText(part)}</div>;
+      return <div key={index}>{renderMarkdownText(part, glossaryUsed, headingRef)}</div>;
     });
   }, [reportMarkdown, calcs, inputs]);
 
@@ -1553,24 +1658,24 @@ export function FeasibilityStudyTab() {
       '6_2A': [
         `| Mã | Hạng mục đầu tư | 2026 (Q3-Q4) | 2027 (Full Year) | 2028 (Q1) | Tổng | Giải trình chi tiết hạng mục |`,
         `|:---|:---|:---:|:---:|:---:|:---:|:---|`,
-        `| CAP-01 | **Nhân sự phát triển lõi** | ${fNum(calcs.capexRD_yearly[0])} | ${fNum(calcs.capexRD_yearly[1])} | ${fNum(calcs.capexRD_yearly[2])} | **${fNum(inputs.capex.cap01_RD_staff)}** | Lương R&D. |`,
-        `| CAP-02 | **Trang thiết bị văn phòng** | ${fNum(calcs.capexEquip_yearly[0])} | ${fNum(calcs.capexEquip_yearly[1])} | ${fNum(calcs.capexEquip_yearly[2])} | **${fNum(inputs.capex.cap02_equip)}** | Thiết bị. |`,
-        `| CAP-03 | **Bản quyền & API tích hợp** | ${fNum(calcs.capexLicense_yearly[0])} | ${fNum(calcs.capexLicense_yearly[1])} | ${fNum(calcs.capexLicense_yearly[2])} | **${fNum(inputs.capex.cap03_license)}** | API, MapBox. |`,
-        `| CAP-04 | **Marketing & Sales ra mắt** | ${fNum(calcs.capexMarketing_yearly[0])} | ${fNum(calcs.capexMarketing_yearly[1])} | ${fNum(calcs.capexMarketing_yearly[2])} | **${fNum(inputs.capex.cap04_marketing)}** | Marketing B2B. |`,
-        `| CAP-05 | **Tư vấn, PM & Pháp lý** | ${fNum(calcs.capexConsulting_yearly[0])} | ${fNum(calcs.capexConsulting_yearly[1])} | ${fNum(calcs.capexConsulting_yearly[2])} | **${fNum(inputs.capex.cap05_consulting)}** | QCVN 12, ISO. |`,
+        `| CAP-01 | **Nhân sự phát triển lõi** | ${fNum(calcs.capexRD_yearly[0])} | ${fNum(calcs.capexRD_yearly[1])} | ${fNum(calcs.capexRD_yearly[2])} | **${fNum(calcs.capexEffective.cap01)}** | Lương R&D. |`,
+        `| CAP-02 | **Trang thiết bị văn phòng** | ${fNum(calcs.capexEquip_yearly[0])} | ${fNum(calcs.capexEquip_yearly[1])} | ${fNum(calcs.capexEquip_yearly[2])} | **${fNum(calcs.capexEffective.cap02)}** | Thiết bị. |`,
+        `| CAP-03 | **Bản quyền & API tích hợp** | ${fNum(calcs.capexLicense_yearly[0])} | ${fNum(calcs.capexLicense_yearly[1])} | ${fNum(calcs.capexLicense_yearly[2])} | **${fNum(calcs.capexEffective.cap03)}** | API, MapBox. |`,
+        `| CAP-04 | **Marketing & Sales ra mắt** | ${fNum(calcs.capexMarketing_yearly[0])} | ${fNum(calcs.capexMarketing_yearly[1])} | ${fNum(calcs.capexMarketing_yearly[2])} | **${fNum(calcs.capexEffective.cap04)}** | Marketing B2B. |`,
+        `| CAP-05 | **Tư vấn, PM & Pháp lý** | ${fNum(calcs.capexConsulting_yearly[0])} | ${fNum(calcs.capexConsulting_yearly[1])} | ${fNum(calcs.capexConsulting_yearly[2])} | **${fNum(calcs.capexEffective.cap05)}** | QCVN 12, ISO. |`,
         `| | **TỔNG CỘNG CAPEX** | **${fNum(calcs.totalCapexYearly[0])}** | **${fNum(calcs.totalCapexYearly[1])}** | **${fNum(calcs.totalCapexYearly[2])}** | **${fNum(calcs.totalCapexYearly.reduce((a,b)=>a+b, 0))}** | 100% vốn CIC |`
       ].join('\n'),
       
       '6_2C': [
         `| Mã OPEX | Hạng mục chi phí vận hành | 2026 | 2027 | 2028 | 2029 | 2030 | Tổng 5 năm |`,
         `|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|`,
-        `| OPX-01 | Nhân sự vận hành | ${fNum(inputs.opex.staff[0])} | ${fNum(inputs.opex.staff[1])} | ${fNum(inputs.opex.staff[2])} | ${fNum(inputs.opex.staff[3])} | ${fNum(inputs.opex.staff[4])} | **${fNum(inputs.opex.staff.reduce((a,b)=>a+b, 0))}** |`,
-        `| OPX-02 | Hạ tầng Cloud | ${fNum(inputs.opex.cloud[0])} | ${fNum(inputs.opex.cloud[1])} | ${fNum(inputs.opex.cloud[2])} | ${fNum(inputs.opex.cloud[3])} | ${fNum(inputs.opex.cloud[4])} | **${fNum(inputs.opex.cloud.reduce((a,b)=>a+b, 0))}** |`,
-        `| OPX-03 | Chi phí vận hành khác | ${fNum(inputs.opex.others[0])} | ${fNum(inputs.opex.others[1])} | ${fNum(inputs.opex.others[2])} | ${fNum(inputs.opex.others[3])} | ${fNum(inputs.opex.others[4])} | **${fNum(inputs.opex.others.reduce((a,b)=>a+b, 0))}** |`,
+        `| OPX-01 | Nhân sự vận hành | ${fNum(calcs.opexEffective.staff[0])} | ${fNum(calcs.opexEffective.staff[1])} | ${fNum(calcs.opexEffective.staff[2])} | ${fNum(calcs.opexEffective.staff[3])} | ${fNum(calcs.opexEffective.staff[4])} | **${fNum(calcs.opexEffective.staff.reduce((a: number, b: number) => a + b, 0))}** |`,
+        `| OPX-02 | Hạ tầng Cloud | ${fNum(calcs.opexEffective.cloud[0])} | ${fNum(calcs.opexEffective.cloud[1])} | ${fNum(calcs.opexEffective.cloud[2])} | ${fNum(calcs.opexEffective.cloud[3])} | ${fNum(calcs.opexEffective.cloud[4])} | **${fNum(calcs.opexEffective.cloud.reduce((a: number, b: number) => a + b, 0))}** |`,
+        `| OPX-03 | Chi phí vận hành khác | ${fNum(calcs.opexEffective.others[0])} | ${fNum(calcs.opexEffective.others[1])} | ${fNum(calcs.opexEffective.others[2])} | ${fNum(calcs.opexEffective.others[3])} | ${fNum(calcs.opexEffective.others[4])} | **${fNum(calcs.opexEffective.others.reduce((a: number, b: number) => a + b, 0))}** |`,
         `| | **TỔNG OPEX** | **${fNum(calcs.totalOpexYearly[0])}** | **${fNum(calcs.totalOpexYearly[1])}** | **${fNum(calcs.totalOpexYearly[2])}** | **${fNum(calcs.totalOpexYearly[3])}** | **${fNum(calcs.totalOpexYearly[4])}** | **${fNum(calcs.totalOpexYearly.reduce((a,b)=>a+b,0))}** |`
       ].join('\n'),
       
-      '6_4A': getTable6_4a(inputs),
+      '6_4A': getTable6_4a(inputs, calcs),
       '6_4B': getTable6_4b(calcs, inputs),
       '6_5_1': getTable6_5_1(calcs),
       '6_5_2': getTable6_5_2(calcs, inputs),
@@ -1856,14 +1961,26 @@ export function FeasibilityStudyTab() {
 
           <div>
             <label className="text-[11px] font-bold text-on-surface-variant flex justify-between">
-              <span>Số user SaaS cuối kỳ (năm 2030)</span>
-              <span className="text-primary font-mono">{inputs.saas.users[4].toLocaleString()} users</span>
+              <span>User mới SaaS năm 2030 (gross adds)</span>
+              <span className="text-primary font-mono">{inputs.saas.grossAdds[4].toLocaleString()} users</span>
             </label>
-            <input 
-              type="range" min="5000" max="30000" step="1000" 
-              value={inputs.saas.users[4]} 
-              onChange={(e) => handleInputChange('saas', 'users', 4, parseInt(e.target.value))}
-              className="w-full mt-1 accent-primary cursor-pointer" 
+            <input
+              type="range" min="1000" max="20000" step="500"
+              value={inputs.saas.grossAdds[4]}
+              onChange={(e) => handleInputChange('saas', 'grossAdds', 4, parseInt(e.target.value))}
+              className="w-full mt-1 accent-primary cursor-pointer"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-bold text-on-surface-variant flex justify-between">
+              <span>Tỷ lệ rời bỏ SaaS (churn/năm)</span>
+              <span className="text-primary font-mono">{(inputs.saas.churn * 100).toFixed(0)}%</span>
+            </label>
+            <input
+              type="range" min="0" max="0.30" step="0.01"
+              value={inputs.saas.churn}
+              onChange={(e) => handleInputChange('saas', 'churn', null, parseFloat(e.target.value))}
+              className="w-full mt-1 accent-primary cursor-pointer"
             />
           </div>
         </div>
@@ -1996,7 +2113,7 @@ export function FeasibilityStudyTab() {
         </div>
 
         {/* Content area */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-surface-container-lowest">
+        <div ref={contentRef} className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-surface-container-lowest">
           
           {/* Saving Status Notification overlay */}
           {saveStatus && (
@@ -2028,24 +2145,28 @@ export function FeasibilityStudyTab() {
                 <ul className="space-y-1">
                   {tocItems.map((item) => {
                     const isChapter = item.level === 2;
+                    const isActive = item.id === activeId;
                     return (
-                      <li 
-                        key={item.id} 
+                      <li
+                        key={item.id}
                         style={{ paddingLeft: `${(item.level - 2) * 10}px` }}
                       >
-                        <a 
+                        <a
                           href={`#${item.id}`}
                           onClick={(e) => {
                             e.preventDefault();
                             const el = document.getElementById(item.id);
                             if (el) {
-                              el.scrollIntoView({ behavior: 'smooth' });
+                              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              setActiveId(item.id);
                             }
                           }}
-                          className={`flex items-start gap-2 py-1.5 px-2.5 -mx-2.5 rounded-lg transition-all hover:bg-primary-container/10 group ${
-                            isChapter 
-                              ? 'text-sm font-bold text-on-surface' 
-                              : 'text-[13px] font-medium text-on-surface-variant'
+                          className={`flex items-start gap-2 py-1.5 px-2.5 -mx-2.5 rounded-lg transition-all group ${
+                            isActive ? 'bg-primary-container/40' : 'hover:bg-primary-container/10'
+                          } ${
+                            isChapter
+                              ? `text-sm font-bold ${isActive ? 'text-primary' : 'text-on-surface'}`
+                              : `text-[13px] font-medium ${isActive ? 'text-primary' : 'text-on-surface-variant'}`
                           }`}
                         >
                           <span className={`rounded-full shrink-0 transition-transform group-hover:scale-125 ${
