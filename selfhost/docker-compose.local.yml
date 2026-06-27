@@ -1,0 +1,15 @@
+# Local development override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:54322:5432"
+
+  kong:
+    ports:
+      - "8000:8000"
+
+  nginx:
+    ports:
+      - "9080:80"

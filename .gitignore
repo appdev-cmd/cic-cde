@@ -6,6 +6,15 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.selfhost
+
+# Selfhost secrets (KHÔNG commit)
+selfhost/.env
+selfhost/nginx/ssl/server.crt
+selfhost/nginx/ssl/server.key
+!selfhost/nginx/ssl/.gitkeep
+selfhost/dist/
+selfhost/api/node_modules/
 
 # Harness durable layer
 harness.db

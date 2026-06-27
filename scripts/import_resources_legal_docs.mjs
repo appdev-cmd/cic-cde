@@ -337,8 +337,9 @@ function parseDocument(content, filename) {
 
     const isQcvn = docType === 'qcvn' || 
                    filename.toLowerCase().includes('qcvn') || 
-                   filename.toLowerCase().includes('tcvn') ||
-                   (filename.includes('31_2026_TT-BXD') && content.includes('QCVN'));
+                   filename.toLowerCase().includes('tcvn');
+
+    const appendixRegex = /^(?:#+\s*)?(?:\*\*)*(Phụ lục|PHỤ LỤC)\s*([A-Za-z0-9IVXLCDM\d\.\-\_]*)\s*(.*)/i;
 
     if (isQcvn) {
         const qcvnChapterRegex = /^([IVXLCDM\d]+)\.\s*(.+)$/;
@@ -347,6 +348,39 @@ function parseDocument(content, filename) {
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             const plainLine = line.replace(/[\*\*\\#]/g, '').trim();
+
+            const apMatch = plainLine.match(appendixRegex);
+            if (apMatch && plainLine.length < 250) {
+                if (currentArticle) {
+                    currentArticle.content = currentContent.join('\n');
+                    currentArticle.full_content = currentContent.join('\n');
+                }
+                
+                const apCode = apMatch[2] ? `Phụ lục ${apMatch[2].trim()}` : 'Phụ lục';
+                const apTitle = apMatch[3] ? apMatch[3].trim() : '';
+                
+                currentChapter = {
+                    id: generateId(),
+                    document_id: doc.id,
+                    code: apCode,
+                    title: apTitle || apCode,
+                    sort_order: chapters.length,
+                    articles: []
+                };
+                chapters.push(currentChapter);
+                
+                currentArticle = {
+                    id: generateId(),
+                    chapter_id: currentChapter.id,
+                    document_id: doc.id,
+                    code: apCode,
+                    title: apTitle || 'Nội dung phụ lục',
+                    sort_order: 0,
+                };
+                currentChapter.articles.push(currentArticle);
+                currentContent = [];
+                continue;
+            }
 
             const chMatch = plainLine.match(qcvnChapterRegex);
             if (chMatch && chMatch[2] === chMatch[2].toUpperCase() && plainLine.length < 200) {
@@ -433,6 +467,39 @@ function parseDocument(content, filename) {
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             const plainLine = line.replace(/\*\*/g, '').trim();
+
+            const apMatch = plainLine.match(appendixRegex);
+            if (apMatch && plainLine.length < 250) {
+                if (currentArticle) {
+                    currentArticle.content = currentContent.join('\n');
+                    currentArticle.full_content = currentContent.join('\n');
+                }
+                
+                const apCode = apMatch[2] ? `Phụ lục ${apMatch[2].trim()}` : 'Phụ lục';
+                const apTitle = apMatch[3] ? apMatch[3].trim() : '';
+                
+                currentChapter = {
+                    id: generateId(),
+                    document_id: doc.id,
+                    code: apCode,
+                    title: apTitle || apCode,
+                    sort_order: chapters.length,
+                    articles: []
+                };
+                chapters.push(currentChapter);
+                
+                currentArticle = {
+                    id: generateId(),
+                    chapter_id: currentChapter.id,
+                    document_id: doc.id,
+                    code: apCode,
+                    title: apTitle || 'Nội dung phụ lục',
+                    sort_order: 0,
+                };
+                currentChapter.articles.push(currentArticle);
+                currentContent = [];
+                continue;
+            }
 
             const chMatch = plainLine.match(chapterRegex);
             if (chMatch && plainLine.length < 200) {

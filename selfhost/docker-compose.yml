@@ -1,0 +1,303 @@
+# Docker Compose - Supabase Self-Hosted cho CDE CIC trên Viettel Cloud (Single VM)
+# vServer CS3: 4 vCPU, 8GB RAM, 100GB SSD
+# Viettel Object Storage Gold: 500GB (S3-compatible)
+
+services:
+  # ── POSTGRESQL DATABASE ────────────────────────────────────────────
+  db:
+    image: supabase/postgres:15.8.1.060
+    container_name: supabase-db
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./volumes/db/99-roles.sh:/docker-entrypoint-initdb.d/zz-custom-roles.sh:Z
+    healthcheck:
+      test: pg_isready -U postgres -h localhost
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── SUPABASE AUTH (GOTRUE) ─────────────────────────────────────────
+  auth:
+    image: supabase/gotrue:v2.172.1
+    container_name: supabase-auth
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-true}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+
+      # JWT
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY:-900}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+
+      # MFA
+      GOTRUE_MFA_ENABLED: "true"
+      GOTRUE_MFA_MAX_FACTORS_PER_USER: 3
+
+      # Brute-force protection
+      GOTRUE_SECURITY_BRUTE_FORCE_DETECTION: "true"
+      GOTRUE_SECURITY_MAX_LOGIN_ATTEMPTS: 5
+      GOTRUE_SECURITY_LOCKOUT_DURATION: 43200
+      GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_REAUTHENTICATION: "true"
+
+      # SMTP
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-CDE CIC Platform}
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── POSTGREST (REST API) ───────────────────────────────────────────
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: supabase-rest
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgresql://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY:-900}
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── REALTIME ───────────────────────────────────────────────────────
+  realtime:
+    image: supabase/realtime:v2.33.70
+    container_name: supabase-realtime
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC: "true"
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      DB_ENC_KEY: ${DB_ENC_KEY}
+      FLY_ALLOC_ID: local
+      FLY_APP_NAME: realtime
+      REPLICATION_MODE: RLS
+      REPLICATION_POLL_INTERVAL: 100
+      SUBSCRIPTION_SYNC_INTERVAL: 60000
+      SLOT_NAME: supabase_realtime_rls
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── STORAGE API ────────────────────────────────────────────────────
+  storage:
+    image: supabase/storage-api:v1.14.3
+    container_name: supabase-storage
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      auth:
+        condition: service_healthy
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      FILE_SIZE_LIMIT: 536870912
+      STORAGE_BACKEND: s3
+      TENANT_ID: stub
+      REGION: ${VIETTEL_STORAGE_REGION:-hn}
+      GLOBAL_S3_BUCKET: ${VIETTEL_S3_BUCKET:-cde-documents}
+      GLOBAL_S3_ENDPOINT: ${VIETTEL_S3_ENDPOINT}
+      GLOBAL_S3_FORCE_PATH_STYLE: "true"
+      GLOBAL_S3_PROTOCOL: https
+      AWS_ACCESS_KEY_ID: ${VIETTEL_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${VIETTEL_S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${VIETTEL_STORAGE_REGION:-hn}
+      UPLOAD_FILE_SIZE_LIMIT: 536870912
+      TUS_URL_PATH: /storage/v1/upload/resumable
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5000/status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── KONG API GATEWAY ───────────────────────────────────────────────
+  kong:
+    image: kong:2.8.1
+    container_name: supabase-kong
+    restart: always
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed "s|\$$DECK_ANON_KEY|$${ANON_KEY}|g; s|\$$DECK_SERVICE_ROLE_KEY|$${SERVICE_ROLE_KEY}|g" /var/lib/kong/kong.yml.tpl > /tmp/kong.yml
+        export KONG_DECLARATIVE_CONFIG=/tmp/kong.yml
+        /docker-entrypoint.sh kong docker-start
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    volumes:
+      - ./volumes/kong/kong.yml:/var/lib/kong/kong.yml.tpl:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      storage:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── NGINX REVERSE PROXY + FRONTEND ────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: supabase-nginx
+    restart: always
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ${FRONTEND_DIST:-./dist}:/usr/share/nginx/html:ro
+    depends_on:
+      kong:
+        condition: service_healthy
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── NODE.JS API (thay the Edge Functions) ──────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: cde-api
+    restart: always
+    environment:
+      PORT: 3001
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+    depends_on:
+      kong:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+networks:
+  supabase-internal:
+    name: supabase_network
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local

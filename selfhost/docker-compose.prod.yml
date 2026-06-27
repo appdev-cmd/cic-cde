@@ -1,0 +1,92 @@
+# Production override - dùng khi deploy lên Viettel Cloud
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  kong:
+    ports:
+      - "${KONG_HTTP_PORT:-8000}:8000/tcp"
+      - "${KONG_HTTPS_PORT:-8443}:8443/tcp"
+
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /opt/cde/certbot-webroot:/var/www/certbot:ro
+
+  # ── ClamAV (quét virus file upload) — chỉ chạy ở production ──
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: supabase-clamav
+    restart: always
+    environment:
+      CLAMAV_NO_MILTERD: "true"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 360s
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── Supabase Studio (quản trị DB) — chỉ bind localhost VM, truy cập qua SSH tunnel ──
+  meta:
+    image: supabase/postgres-meta:v0.84.2
+    container_name: supabase-meta
+    restart: always
+    environment:
+      PG_META_PORT: "8080"
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: "5432"
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  studio:
+    image: supabase/studio:20240729-ce42139
+    container_name: supabase-studio
+    restart: always
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DEFAULT_ORGANIZATION_NAME: CIC
+      DEFAULT_PROJECT_NAME: CDE CIC Platform
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SITE_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      LOGFLARE_API_KEY: ""
+      LOGFLARE_URL: ""
+      NEXT_PUBLIC_ENABLE_LOGS: "false"
+    depends_on:
+      - meta
+    networks:
+      - supabase-internal
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  clamav-db:
+    driver: local

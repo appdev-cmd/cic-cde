@@ -21,6 +21,7 @@ import { ProjectFormModal } from './components/project/ProjectFormModal';
 import { GeoBimMap } from './components/gis/GeoBimMap';
 import { OverviewDashboard } from './components/overview/OverviewDashboard';
 import LegalDocumentSearch from './components/legal-documents/LegalDocumentSearch';
+import { FeasibilityStudyTab } from './components/tabs/FeasibilityStudyTab';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from './types';
 import { Sun, Moon } from 'lucide-react';
 
@@ -165,7 +166,7 @@ export default function App() {
 
   const handleSignOut = async () => { await signOut(); };
 
-  const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents'>('projects');
+  const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study'>('projects');
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [activeTab, setActiveTab] = useState<TabContext>('dashboard');
   
@@ -499,6 +500,11 @@ export default function App() {
           {/* Module 3.5: Legal Documents */}
           {activeModule === 'legal-documents' && (
             <LegalDocumentSearch isEmbedded={false} userRole={profile?.role} />
+          )}
+
+          {/* Module 3.6: Feasibility Study */}
+          {activeModule === 'feasibility-study' && (
+            <FeasibilityStudyTab />
           )}
 
           {/* Module 4: Projects */}

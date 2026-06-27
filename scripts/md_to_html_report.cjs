@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { marked } = require('marked');
 
-const mdPath = path.join(__dirname, '../Docs/bao_cao_nghien_cuu_kha_thi_cde_cic.md');
-const outPath = path.join(__dirname, '../Docs/bao_cao_nghien_cuu_kha_thi_cde_cic_report.html');
+const mdPath = path.join(__dirname, '../Docs/nghien-cuu-kha-thi/bao-cao-nghien-cuu-kha-thi-cde-cic.md');
+const outPath = path.join(__dirname, '../Docs/nghien-cuu-kha-thi/bao-cao-nghien-cuu-kha-thi-cde-cic-report.html');
 
 const md = fs.readFileSync(mdPath, 'utf8');
 

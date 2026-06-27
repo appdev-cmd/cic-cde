@@ -1,8 +1,8 @@
-import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut, Scale } from 'lucide-react';
+import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut, Scale, TrendingUp } from 'lucide-react';
 
 interface SidebarProps {
-  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents';
-  setActiveModule: (module: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents') => void;
+  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study';
+  setActiveModule: (module: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study') => void;
   isCollapsed: boolean;
   darkMode: boolean;
   toggleTheme: () => void;
@@ -68,6 +68,14 @@ export function Sidebar({ activeModule, setActiveModule, isCollapsed, darkMode, 
         >
           <Scale size={20} className={iconClasses(activeModule === 'legal-documents')} />
           {!isCollapsed && <span>Văn bản pháp luật</span>}
+        </div>
+        <div 
+          onClick={() => setActiveModule('feasibility-study')}
+          className={`group ${itemClasses(activeModule === 'feasibility-study')} ${isCollapsed ? 'justify-center !px-2' : ''}`} 
+          title="Nghiên cứu khả thi"
+        >
+          <TrendingUp size={20} className={iconClasses(activeModule === 'feasibility-study')} />
+          {!isCollapsed && <span>Nghiên cứu khả thi</span>}
         </div>
       </nav>
 
