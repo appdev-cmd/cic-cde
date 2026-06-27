@@ -1,10 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Save, Download, Info, TrendingUp, Percent, Settings, 
-  DollarSign, FileText, Activity, AlertCircle, ArrowUpRight, 
-  HelpCircle, CheckCircle, RefreshCw
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Save, Download, Info, TrendingUp, Percent, Settings,
+  DollarSign, FileText, Activity, AlertCircle, ArrowUpRight,
+  HelpCircle, CheckCircle, RefreshCw, Calculator, ArrowRight
 } from 'lucide-react';
 import reportMarkdown from '../../../Docs/nghien-cuu-kha-thi/bao-cao-nghien-cuu-kha-thi-cde-cic.md?raw';
+import { FinancialTab } from './FinancialTab';
+
+const STORAGE_KEY = 'cic_cde_feasibility_inputs';
+
+// Finance table placeholder ids — render as callout in Report tab (chi tiết ở tab Tài chính)
+const FINANCE_TABLE_IDS = new Set(['6_2A', '6_2C', '6_4A', '6_4B', '6_5_1', '6_5_2', '6_5_3', '6_5BIS_B', '6_5BIS_C', '6_5BIS_D']);
+const FINANCE_CALLOUT_ANCHOR_IDS = new Set(['6_2A', '6_4A']);
 
 // Formula Tooltip Component
 interface FormulaInfoProps {
@@ -275,10 +282,21 @@ const DEFAULT_INPUTS = {
 };
 
 export function FeasibilityStudyTab() {
-  const [inputs, setInputs] = useState(DEFAULT_INPUTS);
-  const [activeTab, setActiveTab] = useState<'report' | 'analysis'>('report');
+  const [inputs, setInputs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return { ...DEFAULT_INPUTS, ...JSON.parse(saved) };
+    } catch { /* ignore corrupt storage */ }
+    return DEFAULT_INPUTS;
+  });
+  const [activeTab, setActiveTab] = useState<'report' | 'financial' | 'analysis'>('report');
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Persist manual edits to localStorage (Excel-like adjustments survive reload)
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs)); } catch { /* quota */ }
+  }, [inputs]);
 
   // Extract report headings for Table of Contents
   const tocItems = useMemo(() => {
@@ -583,15 +601,166 @@ export function FeasibilityStudyTab() {
     return `${(v * 100).toFixed(0)}%`;
   };
 
-  // Renders simple markdown string parts into JSX, including table support
-  const renderMarkdownText = (text: string) => {
-    let html = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+  // ── Flowchart Renderers ──
+  const renderAiConductorFlowchart = (key: number) => {
+    return (
+      <div key={`ai-conductor-flow-${key}`} className="my-6 border border-outline-variant bg-surface rounded-3xl p-6 shadow-sm flex flex-col items-center">
+        <h5 className="font-bold text-xs uppercase tracking-wider text-primary mb-6 flex items-center gap-1.5">
+          <Activity size={12} />
+          Sơ đồ cấu trúc Mô hình Nhân sự AI-Conductor (02 người + AI)
+        </h5>
+        <div className="w-full max-w-[600px] aspect-[600/280] bg-surface-container-lowest/40 rounded-2xl p-2 border border-outline-variant/30">
+          <svg viewBox="0 0 600 280" className="w-full h-full">
+            <defs>
+              <marker id="arrow-gray" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" className="fill-outline" />
+              </marker>
+              <marker id="arrow-purple" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" className="fill-primary" />
+              </marker>
+            </defs>
+
+            {/* Connectors */}
+            <g>
+              <line x1={255} y1={60} x2={345} y2={60} className="stroke-outline/60 stroke-2" strokeDasharray="3 3" markerStart="url(#arrow-gray)" markerEnd="url(#arrow-gray)" />
+              <text x={300} y={50} className="text-[9px] fill-on-surface-variant font-medium text-center" textAnchor="middle">Hợp tác & Kiểm soát chéo</text>
+            </g>
+
+            <g>
+              <line x1={200} y1={95} x2={250} y2={175} className="stroke-primary stroke-2" strokeDasharray="4 3" markerEnd="url(#arrow-purple)" />
+              <rect x={125} y={122} width={105} height={16} rx={4} className="fill-surface stroke stroke-outline-variant/30" />
+              <text x={177} y={133} className="text-[9px] fill-primary font-bold text-center" textAnchor="middle">Điều khiển & Code gen</text>
+            </g>
+
+            <g>
+              <line x1={400} y1={95} x2={350} y2={175} className="stroke-primary stroke-2" strokeDasharray="4 3" markerEnd="url(#arrow-purple)" />
+              <rect x={370} y={122} width={105} height={16} rx={4} className="fill-surface stroke stroke-outline-variant/30" />
+              <text x={422} y={133} className="text-[9px] fill-primary font-bold text-center" textAnchor="middle">Tạo unit test & QC</text>
+            </g>
+
+            {/* Node 1: Lead CTO */}
+            <g className="cursor-pointer group">
+              <rect x={30} y={25} width={220} height={70} rx={12} className="fill-error-container/10 stroke-error/50 stroke-2 transition-all group-hover:fill-error-container/20 group-hover:stroke-error" />
+              <circle cx={60} cy={60} r={18} className="fill-error/10 stroke-error/30" />
+              <text x={60} y={65} className="text-sm fill-error text-center" textAnchor="middle">👤</text>
+              <text x={90} y={50} className="text-xs font-bold fill-on-surface">Lead CTO / Full-stack Dev</text>
+              <text x={90} y={65} className="text-[9px] fill-on-surface-variant">Kiến trúc sư & Code Backend chính</text>
+              <text x={90} y={78} className="text-[9px] font-bold fill-error/80">01 người - Lương: 50tr/tháng</text>
+            </g>
+
+            {/* Node 2: Assistant Dev / QA */}
+            <g className="cursor-pointer group">
+              <rect x={350} y={25} width={220} height={70} rx={12} className="fill-success-container/10 stroke-success/50 stroke-2 transition-all group-hover:fill-success-container/20 group-hover:stroke-success" />
+              <circle cx={380} cy={60} r={18} className="fill-success/10 stroke-success/30" />
+              <text x={380} y={65} className="text-sm fill-success text-center" textAnchor="middle">👤</text>
+              <text x={410} y={50} className="text-xs font-bold fill-on-surface">Trợ lý Dev / QA / BA</text>
+              <text x={410} y={65} className="text-[9px] fill-on-surface-variant">Unit test, Data & Technical Support</text>
+              <text x={410} y={78} className="text-[9px] font-bold fill-success/80">01 người - Lương: 30tr/tháng</text>
+            </g>
+
+            {/* Node 3: AI Co-Pilot */}
+            <g className="cursor-pointer group">
+              <rect x={170} y={175} width={260} height={80} rx={16} className="fill-primary-container/10 stroke-primary/70 stroke-2.5 transition-all group-hover:fill-primary-container/20 group-hover:stroke-primary" />
+              <circle cx={210} cy={215} r={20} className="fill-primary/10 stroke-primary/30" />
+              <text x={210} y={220} className="text-lg fill-primary text-center" textAnchor="middle">🤖</text>
+              <text x={245} y={203} className="text-xs font-black fill-primary uppercase tracking-wider">AI Claude Code / Cursor</text>
+              <text x={245} y={220} className="text-[9px] fill-on-surface-variant font-medium">Viết mã, sinh test và dò lỗi tự động 24/7</text>
+              <text x={245} y={235} className="text-[9px] fill-primary font-bold">Trợ lý ảo tăng 3-5x hiệu suất làm việc</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNovaCdeFlowchart = (key: number) => {
+    return (
+      <div key={`novacde-flow-${key}`} className="my-6 border border-outline-variant bg-surface rounded-3xl p-6 shadow-sm flex flex-col items-center">
+        <h5 className="font-bold text-xs uppercase tracking-wider text-primary mb-6 flex items-center gap-1.5">
+          <Activity size={12} />
+          Sơ đồ Kiến trúc Hệ thống đối thủ NovaCDE (Suy luận)
+        </h5>
+        <div className="w-full max-w-[600px] aspect-[600/280] bg-surface-container-lowest/40 rounded-2xl p-2 border border-outline-variant/30">
+          <svg viewBox="0 0 600 280" className="w-full h-full">
+            <defs>
+              <marker id="arrow-gray-novacde" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" className="fill-outline" />
+              </marker>
+            </defs>
+
+            {/* Connectors */}
+            <line x1={300} y1={50} x2={300} y2={75} className="stroke-outline/60 stroke-2" markerEnd="url(#arrow-gray-novacde)" />
+            <line x1={300} y1={120} x2={90} y2={175} className="stroke-outline/40 stroke-1.5" markerEnd="url(#arrow-gray-novacde)" />
+            <line x1={300} y1={120} x2={210} y2={175} className="stroke-outline/40 stroke-1.5" markerEnd="url(#arrow-gray-novacde)" />
+            <line x1={300} y1={120} x2={330} y2={175} className="stroke-outline/40 stroke-1.5" markerEnd="url(#arrow-gray-novacde)" />
+            <line x1={300} y1={120} x2={450} y2={175} className="stroke-outline/40 stroke-1.5" markerEnd="url(#arrow-gray-novacde)" />
+            <line x1={450} y1={220} x2={450} y2={238} className="stroke-outline/60 stroke-2" markerEnd="url(#arrow-gray-novacde)" />
+
+            {/* Node FE */}
+            <g className="cursor-pointer group">
+              <rect x={200} y={15} width={200} height={35} rx={8} className="fill-primary-container/10 stroke-primary/50 stroke-2 transition-all group-hover:fill-primary-container/20 group-hover:stroke-primary" />
+              <text x={300} y={37} className="text-[11px] font-bold fill-primary text-center" textAnchor="middle">Frontend: React/Angular SPA</text>
+            </g>
+
+            {/* Node BE */}
+            <g className="cursor-pointer group">
+              <rect x={190} y={75} width={220} height={45} rx={10} className="fill-secondary-container/10 stroke-secondary/50 stroke-2 transition-all group-hover:fill-secondary-container/20 group-hover:stroke-secondary" />
+              <text x={300} y={102} className="text-xs font-bold fill-secondary text-center" textAnchor="middle">Backend: .NET/Java Microservices</text>
+            </g>
+
+            {/* Sub-node ODA */}
+            <g className="cursor-pointer group">
+              <rect x={30} y={175} width={120} height={45} rx={8} className="fill-surface-container/20 stroke-outline/40 stroke-1.5 transition-all group-hover:fill-surface-container/40 group-hover:stroke-outline" />
+              <text x={90} y={193} className="text-[10px] font-bold fill-on-surface text-center" textAnchor="middle">ODA SDK Library</text>
+              <text x={90} y={207} className="text-[8px] fill-on-surface-variant text-center" textAnchor="middle">Đọc native RVT, DWG</text>
+            </g>
+
+            {/* Sub-node GIS */}
+            <g className="cursor-pointer group">
+              <rect x={160} y={175} width={100} height={45} rx={8} className="fill-surface-container/20 stroke-outline/40 stroke-1.5 transition-all group-hover:fill-surface-container/40 group-hover:stroke-outline" />
+              <text x={210} y={193} className="text-[10px] font-bold fill-on-surface text-center" textAnchor="middle">GIS 3D Maps</text>
+              <text x={210} y={207} className="text-[8px] fill-on-surface-variant text-center" textAnchor="middle">Hạ tầng giao thông</text>
+            </g>
+
+            {/* Sub-node AI */}
+            <g className="cursor-pointer group">
+              <rect x={280} y={175} width={100} height={45} rx={8} className="fill-surface-container/20 stroke-outline/40 stroke-1.5 transition-all group-hover:fill-surface-container/40 group-hover:stroke-outline" />
+              <text x={330} y={193} className="text-[10px] font-bold fill-on-surface text-center" textAnchor="middle">AI/ML Module</text>
+              <text x={330} y={207} className="text-[8px] fill-on-surface-variant text-center" textAnchor="middle">Phân loại & dự báo</text>
+            </g>
+
+            {/* Sub-node DB */}
+            <g className="cursor-pointer group">
+              <rect x={400} y={175} width={100} height={45} rx={8} className="fill-success-container/10 stroke-success/50 stroke-1.5 transition-all group-hover:fill-success-container/20 group-hover:stroke-success" />
+              <text x={450} y={193} className="text-[10px] font-bold fill-success text-center" textAnchor="middle">Database</text>
+              <text x={450} y={207} className="text-[8px] fill-on-surface-variant text-center" textAnchor="middle">PostgreSQL / SQL Server</text>
+            </g>
+
+            {/* Node CLOUD */}
+            <g className="cursor-pointer group">
+              <rect x={390} y={238} width={120} height={32} rx={6} className="fill-primary-container/5 stroke-primary/30 stroke-1.5 transition-all group-hover:fill-primary-container/15 group-hover:stroke-primary/50" />
+              <text x={450} y={258} className="text-[9px] font-bold fill-on-surface-variant text-center" textAnchor="middle">Viettel / VNPT Cloud</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    );
+  };
+
+  // Renders simple markdown string parts into JSX, including table and code block support
+  // Inline formatting (bold/italic/code) applied PER-LINE so it never corrupts ``` code fences.
+  const inlineFmt = (s: string) =>
+    s
       .replace(/\*\*(.*?)\*\*/g, '<strong class="text-on-surface font-bold">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em class="text-on-surface-variant italic">$1</em>')
       .replace(/`(.*?)`/g, '<code class="bg-surface-container-high px-1.5 py-0.5 rounded font-mono text-[12px] text-primary">$1</code>');
+
+  const renderMarkdownText = (text: string) => {
+    // Only HTML-escape globally; inline formatting is applied per-line below.
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
 
     const lines = html.split('\n');
     const elements: (React.ReactNode)[] = [];
@@ -599,6 +768,10 @@ export function FeasibilityStudyTab() {
     
     let inTable = false;
     let tableRows: string[] = [];
+    
+    let inCodeBlock = false;
+    let codeBlockLines: string[] = [];
+    let codeBlockLang = '';
     
     const flushTable = (key: number) => {
       if (tableRows.length === 0) return null;
@@ -621,7 +794,7 @@ export function FeasibilityStudyTab() {
             <thead>
               <tr className="bg-primary text-on-primary">
                 {headerCols.map((col, idx) => (
-                  <th key={idx} className="px-4 py-3 font-semibold border-r border-on-primary/10 last:border-0" dangerouslySetInnerHTML={{ __html: col }} />
+                  <th key={idx} className="px-4 py-3 font-semibold border-r border-on-primary/10 last:border-0" dangerouslySetInnerHTML={{ __html: inlineFmt(col) }} />
                 ))}
               </tr>
             </thead>
@@ -629,7 +802,7 @@ export function FeasibilityStudyTab() {
               {bodyRows.map((row, rowIdx) => (
                 <tr key={rowIdx} className="hover:bg-surface-container-low transition-colors odd:bg-surface-container-lowest/30">
                   {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="px-4 py-2.5 text-on-surface border-r border-outline-variant/30 last:border-0" dangerouslySetInnerHTML={{ __html: cell }} />
+                    <td key={cellIdx} className="px-4 py-2.5 text-on-surface border-r border-outline-variant/30 last:border-0" dangerouslySetInnerHTML={{ __html: inlineFmt(cell) }} />
                   ))}
                 </tr>
               ))}
@@ -642,6 +815,46 @@ export function FeasibilityStudyTab() {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
+      
+      if (trimmed.startsWith('```')) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          codeBlockLang = trimmed.slice(3).trim();
+          codeBlockLines = [];
+          continue;
+        } else {
+          inCodeBlock = false;
+          const blockText = codeBlockLines.join('\n');
+          
+          if (codeBlockLang === 'mermaid' && blockText.includes('Mô hình Nhân sự siêu tinh gọn')) {
+            elements.push(renderAiConductorFlowchart(i));
+          } else if (codeBlockLang === 'mermaid' && blockText.includes('NovaCDE Architecture')) {
+            elements.push(renderNovaCdeFlowchart(i));
+          } else {
+            elements.push(
+              <div key={`code-${i}`} className="my-6 border border-outline-variant rounded-2xl overflow-hidden shadow-sm bg-[#1e1e2e] text-[#cdd6f4] font-mono text-xs">
+                <div className="bg-[#181825] px-4 py-2 border-b border-[#313244] flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-error/70" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-warning/70" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-success/70" />
+                  </div>
+                  <span className="text-[10px] text-outline uppercase tracking-wider">{codeBlockLang || 'terminal'}</span>
+                </div>
+                <pre className="p-4 overflow-x-auto leading-relaxed">
+                  <code>{blockText}</code>
+                </pre>
+              </div>
+            );
+          }
+          continue;
+        }
+      }
+      
+      if (inCodeBlock) {
+        codeBlockLines.push(line);
+        continue;
+      }
       
       if (trimmed.startsWith('|')) {
         inTable = true;
@@ -656,27 +869,27 @@ export function FeasibilityStudyTab() {
       }
 
       if (trimmed.startsWith('# ')) {
-        elements.push(<h1 key={i} className="text-2xl font-extrabold text-primary tracking-tight mt-8 mb-4 border-b border-outline-variant pb-2" dangerouslySetInnerHTML={{ __html: trimmed.slice(2) }} />);
+        elements.push(<h1 key={i} className="text-2xl font-extrabold text-primary tracking-tight mt-8 mb-4 border-b border-outline-variant pb-2" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(2)) }} />);
       } else if (trimmed.startsWith('## ')) {
         const id = `heading-${headingCount++}`;
-        elements.push(<h2 id={id} key={i} className="text-xl font-bold text-on-surface tracking-tight mt-8 mb-4 pb-1 border-b border-outline-variant/30 scroll-mt-20" dangerouslySetInnerHTML={{ __html: trimmed.slice(3) }} />);
+        elements.push(<h2 id={id} key={i} className="text-xl font-bold text-on-surface tracking-tight mt-8 mb-4 pb-1 border-b border-outline-variant/30 scroll-mt-20" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(3)) }} />);
       } else if (trimmed.startsWith('### ')) {
         const id = `heading-${headingCount++}`;
-        elements.push(<h3 id={id} key={i} className="text-lg font-bold text-primary mt-6 mb-3 scroll-mt-20" dangerouslySetInnerHTML={{ __html: trimmed.slice(4) }} />);
+        elements.push(<h3 id={id} key={i} className="text-lg font-bold text-primary mt-6 mb-3 scroll-mt-20" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(4)) }} />);
       } else if (trimmed.startsWith('#### ')) {
-        elements.push(<h4 key={i} className="text-md font-bold text-secondary mt-5 mb-2" dangerouslySetInnerHTML={{ __html: trimmed.slice(5) }} />);
+        elements.push(<h4 key={i} className="text-md font-bold text-secondary mt-5 mb-2" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(5)) }} />);
       } else if (trimmed.startsWith('##### ')) {
-        elements.push(<h5 key={i} className="text-xs font-bold text-tertiary uppercase tracking-wider mt-4 mb-2" dangerouslySetInnerHTML={{ __html: trimmed.slice(6) }} />);
+        elements.push(<h5 key={i} className="text-xs font-bold text-tertiary uppercase tracking-wider mt-4 mb-2" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(6)) }} />);
       } else if (trimmed.startsWith('&gt; ')) {
-        elements.push(<blockquote key={i} className="border-l-4 border-primary bg-primary-container/10 px-4 py-3 my-4 rounded-r-xl text-on-surface-variant text-[13px] italic" dangerouslySetInnerHTML={{ __html: trimmed.slice(5) }} />);
+        elements.push(<blockquote key={i} className="border-l-4 border-primary bg-primary-container/10 px-4 py-3 my-4 rounded-r-xl text-on-surface-variant text-[13px] italic" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(5)) }} />);
       } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-        elements.push(<li key={i} className="ml-6 list-disc text-sm text-on-surface-variant mb-1.5" dangerouslySetInnerHTML={{ __html: trimmed.slice(2) }} />);
+        elements.push(<li key={i} className="ml-6 list-disc text-sm text-on-surface-variant mb-1.5" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed.slice(2)) }} />);
       } else if (trimmed === '---') {
         elements.push(<hr key={i} className="border-outline-variant/30 my-8" />);
       } else if (trimmed === '') {
         elements.push(null);
       } else {
-        elements.push(<p key={i} className="text-sm text-on-surface-variant leading-relaxed mb-4 text-justify" dangerouslySetInnerHTML={{ __html: trimmed }} />);
+        elements.push(<p key={i} className="text-sm text-on-surface-variant leading-relaxed mb-4 text-justify" dangerouslySetInnerHTML={{ __html: inlineFmt(trimmed) }} />);
       }
     }
 
@@ -697,7 +910,26 @@ export function FeasibilityStudyTab() {
       if (part.startsWith('<!-- TABLE_')) {
         const idMatch = part.match(/<!-- TABLE_([A-Z0-9_]+)_START -->/);
         const id = idMatch ? idMatch[1] : '';
-        
+
+        // Financial tables live in the dedicated "Tài chính" tab — show a callout here.
+        if (FINANCE_TABLE_IDS.has(id)) {
+          if (!FINANCE_CALLOUT_ANCHOR_IDS.has(id)) return null;
+          return (
+            <button
+              key={index}
+              onClick={() => setActiveTab('financial')}
+              className="group my-5 w-full flex items-center gap-3 text-left bg-primary-container/15 hover:bg-primary-container/30 border border-primary/30 rounded-xl px-5 py-4 transition-colors cursor-pointer"
+            >
+              <span className="p-2 rounded-lg bg-primary/10 text-primary shrink-0"><Calculator size={18} /></span>
+              <span className="flex-1">
+                <span className="block text-sm font-bold text-on-surface">Bảng số liệu tài chính có thể điều chỉnh</span>
+                <span className="block text-xs text-on-surface-variant">Xem chi tiết & nhập tay điều chỉnh giả định (CAPEX, OPEX, doanh thu, NPV/IRR) tại tab <b>Tài chính</b>.</span>
+              </span>
+              <ArrowRight size={18} className="text-primary shrink-0 group-hover:translate-x-1 transition-transform" />
+            </button>
+          );
+        }
+
         switch (id) {
           case '6_2A':
             return (
@@ -1326,7 +1558,7 @@ export function FeasibilityStudyTab() {
         `| CAP-03 | **Bản quyền & API tích hợp** | ${fNum(calcs.capexLicense_yearly[0])} | ${fNum(calcs.capexLicense_yearly[1])} | ${fNum(calcs.capexLicense_yearly[2])} | **${fNum(inputs.capex.cap03_license)}** | API, MapBox. |`,
         `| CAP-04 | **Marketing & Sales ra mắt** | ${fNum(calcs.capexMarketing_yearly[0])} | ${fNum(calcs.capexMarketing_yearly[1])} | ${fNum(calcs.capexMarketing_yearly[2])} | **${fNum(inputs.capex.cap04_marketing)}** | Marketing B2B. |`,
         `| CAP-05 | **Tư vấn, PM & Pháp lý** | ${fNum(calcs.capexConsulting_yearly[0])} | ${fNum(calcs.capexConsulting_yearly[1])} | ${fNum(calcs.capexConsulting_yearly[2])} | **${fNum(inputs.capex.cap05_consulting)}** | QCVN 12, ISO. |`,
-        `| | **TỔNG CỘNG CAPEX** | **${fNum(calcs.totalCapexYearly[0])}** | **${fNum(calcs.totalCapexYearly[1])}** | **${fNum(calcs.totalCapexYearly[2])}** | **${fNum(calcs.totalCapexYearly.reduce((a,b)=>a+b, 0))}** | CIC góp 70% |`
+        `| | **TỔNG CỘNG CAPEX** | **${fNum(calcs.totalCapexYearly[0])}** | **${fNum(calcs.totalCapexYearly[1])}** | **${fNum(calcs.totalCapexYearly[2])}** | **${fNum(calcs.totalCapexYearly.reduce((a,b)=>a+b, 0))}** | 100% vốn CIC |`
       ].join('\n'),
       
       '6_2C': [
@@ -1342,6 +1574,14 @@ export function FeasibilityStudyTab() {
       '6_4B': getTable6_4b(calcs, inputs),
       '6_5_1': getTable6_5_1(calcs),
       '6_5_2': getTable6_5_2(calcs, inputs),
+      '6_5_3': [
+        `| Chỉ số (Kịch bản A) | Giá trị | Ghi chú |`,
+        `|:---|:---:|:---|`,
+        `| **NPV toàn dự án (= riêng CIC)** | ${fmtVal(calcs.npvProject)} tỷ | Chiết khấu WACC ${(inputs.fin.wacc * 100).toFixed(0)}%, năm gốc 2026 |`,
+        `| **IRR** | ${calcs.irrProject == null ? 'Âm' : calcs.irrProject > 1 ? '>100% (lý thuyết)' : (calcs.irrProject * 100).toFixed(0) + '%'} | Rất cao do chi phí siêu tinh gọn — không dùng làm chỉ số quyết định chính |`,
+        `| **Thời gian hoàn vốn lũy kế** | ${calcs.paybackProject ? 'trong năm ' + Math.floor(2026 + calcs.paybackProject) : 'Sau 2031'} | |`,
+        `| **Đỉnh điểm dòng tiền âm** | ${fmtVal(Math.min(...calcs.cumulativeNetCashFlow))} tỷ | Vốn lưu động cần chuẩn bị (gồm biên an toàn) |`
+      ].join('\n'),
       '6_5BIS_B': getTable6_5bis_b(calcs),
       '6_5BIS_C': getTable6_5bis_c(calcs),
       '6_5BIS_D': getTable6_5bis_d(calcs, inputs)
@@ -1534,7 +1774,8 @@ export function FeasibilityStudyTab() {
   return (
     <div className="flex-1 flex overflow-hidden min-h-0 bg-surface-container-low">
       
-      {/* 1. LEFT ASSUMPTIONS SIDE PANEL */}
+      {/* 1. LEFT ASSUMPTIONS SIDE PANEL — chỉ hiển thị ở tab Tài chính (slider nhanh) */}
+      {activeTab === 'financial' && (
       <aside className="w-[340px] border-r border-outline-variant bg-surface flex flex-col shrink-0 overflow-y-auto custom-scrollbar p-5 space-y-6">
         
         {/* Title */}
@@ -1680,11 +1921,11 @@ export function FeasibilityStudyTab() {
               <span>Nhân sự R&D (CAP-01)</span>
               <span className="text-primary font-mono">{inputs.capex.cap01_RD_staff} tỷ</span>
             </label>
-            <input 
-              type="range" min="6.0" max="15.0" step="0.5" 
-              value={inputs.capex.cap01_RD_staff} 
+            <input
+              type="range" min="0.5" max="5.0" step="0.1"
+              value={inputs.capex.cap01_RD_staff}
               onChange={(e) => handleInputChange('capex', 'cap01_RD_staff', null, parseFloat(e.target.value))}
-              className="w-full mt-1 accent-primary cursor-pointer" 
+              className="w-full mt-1 accent-primary cursor-pointer"
             />
           </div>
 
@@ -1693,15 +1934,16 @@ export function FeasibilityStudyTab() {
               <span>Marketing ra mắt (CAP-04)</span>
               <span className="text-primary font-mono">{inputs.capex.cap04_marketing} tỷ</span>
             </label>
-            <input 
-              type="range" min="1.0" max="4.0" step="0.2" 
-              value={inputs.capex.cap04_marketing} 
+            <input
+              type="range" min="0.1" max="2.0" step="0.05"
+              value={inputs.capex.cap04_marketing}
               onChange={(e) => handleInputChange('capex', 'cap04_marketing', null, parseFloat(e.target.value))}
-              className="w-full mt-1 accent-primary cursor-pointer" 
+              className="w-full mt-1 accent-primary cursor-pointer"
             />
           </div>
         </div>
       </aside>
+      )}
 
       {/* 2. MAIN REPORT AND CHARTS PANEL */}
       <section className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -1717,7 +1959,14 @@ export function FeasibilityStudyTab() {
               <FileText size={14} />
               Báo cáo khả thi
             </button>
-            <button 
+            <button
+              onClick={() => setActiveTab('financial')}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'financial' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+            >
+              <Calculator size={14} />
+              Tài chính
+            </button>
+            <button
               onClick={() => setActiveTab('analysis')}
               className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'analysis' ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
@@ -1833,6 +2082,11 @@ export function FeasibilityStudyTab() {
           )}
 
           {/* TAB 2: Financial Charts and Core Indicators Dashboard */}
+          {/* TAB 2: Editable financial model (Excel-like) */}
+          {activeTab === 'financial' && (
+            <FinancialTab inputs={inputs} setInputs={setInputs} calcs={calcs} defaults={DEFAULT_INPUTS} />
+          )}
+
           {activeTab === 'analysis' && (
             <div className="max-w-5xl mx-auto space-y-6">
               

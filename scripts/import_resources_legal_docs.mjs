@@ -342,10 +342,18 @@ function parseDocument(content, filename) {
     const appendixRegex = /^(?:#+\s*)?(?:\*\*)*(Phụ lục|PHỤ LỤC)\s*([A-Za-z0-9IVXLCDM\d\.\-\_]*)\s*(.*)/i;
 
     if (isQcvn) {
-        const qcvnChapterRegex = /^([IVXLCDM\d]+)\.\s*(.+)$/;
+        const qcvnChapterRegex = /^([IVXLCDM\d]+)(?:\.|\s+)\s*(.+)$/;
         const qcvnArticleRegex = /^(?:“|")?(\d+\.\d+(?:\.\d+)*(?:[a-zA-Z])?)(?:\.|:|\s)+(.*)/;
 
-        for (let i = 0; i < lines.length; i++) {
+        let startIdx = 0;
+        for (let idx = 0; idx < Math.min(lines.length, 500); idx++) {
+            const cleanLine = lines[idx].replace(/[\*\*\\#]/g, '').trim();
+            if (cleanLine.toUpperCase().startsWith('QUY CHUẨN KỸ THUẬT QUỐC GIA') && idx > 5) {
+                startIdx = idx;
+            }
+        }
+
+        for (let i = startIdx; i < lines.length; i++) {
             let line = lines[i];
             const plainLine = line.replace(/[\*\*\\#]/g, '').trim();
 
@@ -383,7 +391,7 @@ function parseDocument(content, filename) {
             }
 
             const chMatch = plainLine.match(qcvnChapterRegex);
-            if (chMatch && chMatch[2] === chMatch[2].toUpperCase() && plainLine.length < 200) {
+            if (chMatch && chMatch[2] === chMatch[2].toUpperCase() && !/^\d/.test(chMatch[2].trim()) && plainLine.length < 200) {
                 if (currentArticle) {
                     currentArticle.content = currentContent.join('\n');
                     currentArticle.full_content = currentContent.join('\n');
@@ -564,6 +572,14 @@ function parseDocument(content, filename) {
         currentArticle.full_content = currentContent.join('\n');
     }
 
+    // Convert markdown tables to HTML in all articles
+    for (const ch of chapters) {
+        for (const art of ch.articles) {
+            if (art.content) art.content = parseMarkdownTables(art.content);
+            if (art.full_content) art.full_content = parseMarkdownTables(art.full_content);
+        }
+    }
+
     return { doc, chapters };
 }
 
@@ -642,6 +658,99 @@ async function run() {
     console.log(`🎉 SUCCESS: Imported ${totalImported} legal documents into Supabase!`);
     console.log(`==================================================`);
     await client.end();
+}
+
+function parseMarkdownTables(text) {
+    if (!text) return '';
+    const lines = text.split('\n');
+    let inTable = false;
+    let tableHeaders = [];
+    let tableRows = [];
+    let alignment = [];
+    const outputLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Detect if line is a table row (contains at least one | and starts/ends with | or has multiple |)
+        const isRow = line.startsWith('|') && line.endsWith('|') && line.includes('|');
+        
+        if (isRow) {
+            // Check if it is a separator line like |---|---| or |:---|---:|
+            const isSeparator = /^[|\s:-]+$/.test(line) && line.includes('-');
+            
+            if (isSeparator && !inTable && outputLines.length > 0) {
+                // The previous line was the header!
+                inTable = true;
+                const prevLine = outputLines.pop(); // Remove the header line we just pushed
+                const headerCells = prevLine.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+                tableHeaders = headerCells;
+                
+                // Parse alignment
+                const sepCells = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+                alignment = sepCells.map(c => {
+                    if (c.startsWith(':') && c.endsWith(':')) return 'center';
+                    if (c.endsWith(':')) return 'right';
+                    return 'left';
+                });
+                
+                tableRows = [];
+                continue;
+            } else if (isSeparator && inTable) {
+                // Duplicate separator or separator inside table, ignore
+                continue;
+            }
+            
+            if (inTable) {
+                const cells = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+                tableRows.push(cells);
+            } else {
+                // Not in table yet, just push as plain line (might be header)
+                outputLines.push(lines[i]);
+            }
+        } else {
+            if (inTable) {
+                // Table ended! Build the HTML table
+                const htmlTable = buildHtmlTable(tableHeaders, tableRows, alignment);
+                outputLines.push(htmlTable);
+                inTable = false;
+            }
+            outputLines.push(lines[i]);
+        }
+    }
+    
+    if (inTable) {
+        const htmlTable = buildHtmlTable(tableHeaders, tableRows, alignment);
+        outputLines.push(htmlTable);
+    }
+    
+    return outputLines.join('\n');
+}
+
+function buildHtmlTable(headers, rows, alignment) {
+    let html = '<table class="w-full border-collapse border border-outline-variant text-[13px] my-4 rounded-xl overflow-hidden shadow-sm">\n';
+    
+    // Headers
+    html += '  <thead>\n    <tr class="bg-primary/10 border-b border-outline-variant">\n';
+    headers.forEach((h, idx) => {
+        const align = alignment[idx] || 'left';
+        html += `      <th class="px-4 py-3 font-semibold text-${align} border-r border-outline-variant/60 last:border-0">${h}</th>\n`;
+    });
+    html += '    </tr>\n  </thead>\n';
+    
+    // Rows
+    html += '  <tbody>\n';
+    rows.forEach((row, rowIdx) => {
+        const trClass = rowIdx % 2 === 0 ? 'bg-surface' : 'bg-surface-container-lowest';
+        html += `    <tr class="${trClass} border-b border-outline-variant/30 last:border-0">\n`;
+        row.forEach((cell, cellIdx) => {
+            const align = alignment[cellIdx] || 'left';
+            html += `      <td class="px-4 py-2.5 text-on-surface-variant text-${align} border-r border-outline-variant/30 last:border-0">${cell}</td>\n`;
+        });
+        html += '    </tr>\n';
+    });
+    html += '  </tbody>\n</table>';
+    return html;
 }
 
 run().catch(err => {

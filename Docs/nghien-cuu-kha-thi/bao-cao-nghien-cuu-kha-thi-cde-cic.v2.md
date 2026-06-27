@@ -9,11 +9,14 @@
 ---
 
 > ### Nhật ký hiệu đính v1 → v2 (Changelog)
-> 1. **Chuẩn hóa CAPEX = 3,50 tỷ** và **OPEX 5 năm = 33,30 tỷ**; tính lại NPV/IRR/dòng tiền/điểm hòa vốn cho cả 3 kịch bản.
-> 2. **Cơ cấu vốn = 100% CIC** (loại bỏ giả định 30% Ngân sách Nhà nước).
-> 3. **Phạm vi:** GIS/GeoBIM, 4D/5D, FM, AI/ML = **Roadmap Giai đoạn 2** (sau MVP).
-> 4. **Pháp lý:** NĐ 217/2026/NĐ-CP ban hành 19/6/2026, hiệu lực 01/7/2026; làm rõ BIM bắt buộc cấp II+, CDE bắt buộc cấp I+ đầu tư công; mô tả đúng cơ chế QCVN 12:2026/BCA.
-> 5. Phần tài chính được tách thành tab riêng với bảng cho phép nhập tay điều chỉnh giả định.
+> Phiên bản v2 khắc phục các mâu thuẫn nội bộ và sai sót đã được phát hiện qua rà soát độc lập, đảm bảo tính nhất quán phục vụ ra quyết định đầu tư:
+> 1. **Chuẩn hóa CAPEX = 3,50 tỷ VNĐ** (theo các bảng bóc tách chi tiết §5.2a/5.2b/5.3b). Sửa bảng dòng tiền §5.5.1 vốn ghi nhầm 14,50 tỷ.
+> 2. **Chuẩn hóa OPEX 5 năm = 33,30 tỷ VNĐ** (theo bảng chi tiết §5.2c). Sửa §1.3 (ghi nhầm 10,65 tỷ) và §5.5.1 (ghi nhầm 70,90 tỷ).
+> 3. **Cơ cấu vốn = 100% CIC tự đầu tư.** Loại bỏ giả định "30% Ngân sách Nhà nước" mâu thuẫn ở §5.5.2.
+> 4. **Tính lại toàn bộ NPV/IRR/dòng tiền/điểm hòa vốn** trên cơ sở số liệu đã chuẩn hóa, cho cả 3 kịch bản A/B/C.
+> 5. **Phạm vi sản phẩm:** GIS/GeoBIM, 4D/5D, FM, AI/ML được xác định là **Roadmap Giai đoạn 2** (sau MVP) — cập nhật ma trận cạnh tranh §3.1/§3.5 cho nhất quán với lộ trình §5.6.
+> 6. **Hiệu đính pháp lý & mốc thời gian:** NĐ 217/2026/NĐ-CP ban hành **19/6/2026**, hiệu lực 01/7/2026; làm rõ phạm vi *bắt buộc* (BIM cấp II+; CDE cấp I+ đầu tư công) và cơ chế tuân thủ QCVN 12:2026/BCA.
+> 7. **Sửa lỗi đánh số chương** (trùng "Chương 5") và cập nhật thế hệ model AI.
 
 ---
 
@@ -22,7 +25,7 @@
 ### 1.1. Bối cảnh & Lý do đầu tư
 
 #### 1.1.1. Bối cảnh pháp lý và xu hướng công nghệ
-Trong những năm gần đây, việc áp dụng Mô hình thông tin công trình (BIM - Building Information Modeling) đã trở thành xu thế bắt buộc nhằm tối ưu hóa chi phí, thời gian và chất lượng trong hoạt động xây dựng toàn cầu. Tại Việt Nam, sau giai đoạn triển khai theo Quyết định số 258/QĐ-TTg của Thủ tướng Chính phủ, Quốc hội đã ban hành **Luật Xây dựng số 135/2025/QH15** ngày 10/12/2025 (quy định tại Điều 7 và Điều 14 về bắt buộc ứng dụng khoa học công nghệ, chuyển đổi số, mô hình BIM và xây dựng hệ thống cơ sở dữ liệu quốc gia về xây dựng), làm nền tảng pháp lý cao nhất cho chuyển đổi số ngành xây dựng. Cụ thể hóa Luật, Chính phủ đã ban hành **Nghị định số 217/2026/NĐ-CP quy định chi tiết một số điều của Luật Xây dựng về quản lý hoạt động xây dựng** (ban hành ngày 19/6/2026, có hiệu lực từ 01/7/2026), trong đó **Điều 8** quy định **bắt buộc áp dụng BIM cho công trình xây dựng mới từ cấp II trở lên** (kể từ giai đoạn lập Báo cáo nghiên cứu khả thi/Báo cáo kinh tế-kỹ thuật), và **bắt buộc thiết lập, vận hành Môi trường dữ liệu chung (CDE)** đối với **công trình cấp I trở lên thuộc dự án đầu tư công** (các cấp khác được khuyến khích). CDE phục vụ quản lý, lưu trữ, chia sẻ và kiểm soát tập tin gốc của mô hình BIM, kiểm tra xung đột và hỗ trợ bóc tách khối lượng (QTO) phục vụ lập dự toán, quản lý chi phí đầu tư xây dựng.
+Trong những năm gần đây, việc áp dụng Mô hình thông tin công trình (BIM - Building Information Modeling) đã trở thành xu thế bắt buộc nhằm tối ưu hóa chi phí, thời gian và chất lượng trong hoạt động xây dựng toàn cầu. Tại Việt Nam, sau giai đoạn triển khai theo Quyết định số 258/QĐ-TTg của Thủ tướng Chính phủ, Quốc hội đã ban hành **Luật Xây dựng số 135/2025/QH15** ngày 10/12/2025 (quy định tại Điều 7 và Điều 14 về bắt buộc ứng dụng khoa học công nghệ, chuyển đổi số, mô hình BIM và xây dựng hệ thống cơ sở dữ liệu quốc gia về xây dựng), làm nền tảng pháp lý cao nhất cho chuyển đổi số ngành xây dựng. Cụ thể hóa Luật, Chính phủ đã ban hành **Nghị định số 217/2026/NĐ-CP quy định chi tiết một số điều của Luật Xây dựng về quản lý hoạt động xây dựng** (ban hành ngày 19/6/2026, có hiệu lực từ 01/7/2026), trong đó **Điều 8** quy định **bắt buộc áp dụng BIM cho công trình xây dựng mới từ cấp II trở lên** (kể từ giai đoạn lập Báo cáo nghiên cứu khả thi/Báo cáo kinh tế-kỹ thuật), và **bắt buộc thiết lập, vận hành Môi trường dữ liệu chung (CDE)** đối với **công trình cấp I trở lên thuộc dự án đầu tư công** (các cấp công trình khác được khuyến khích áp dụng). CDE phục vụ quản lý, lưu trữ, chia sẻ và kiểm soát tập tin gốc của mô hình BIM, kiểm tra xung đột và hỗ trợ bóc tách khối lượng (QTO) phục vụ lập dự toán, quản lý chi phí đầu tư xây dựng.
 
 Để hiện thực hóa lộ trình pháp lý trên, việc thiết lập một Môi trường dữ liệu chung (CDE - Common Data Environment) là yêu cầu kỹ thuật tiên quyết. CDE đóng vai trò là hạ tầng dữ liệu số trung tâm, lưu trữ, quản lý và điều phối toàn bộ thông tin của dự án xây dựng từ giai đoạn chuẩn bị, thiết kế, thi công đến bàn giao vận hành.
 
@@ -71,7 +74,7 @@ Sự tích hợp chặt chẽ này biến CDE từ một kho lưu trữ tài li�
 1. **Mục tiêu ngắn hạn (1 - 2 năm)**:
    - **Tự chủ công nghệ 100%**: Phát triển hoàn chỉnh hệ thống quản lý dữ liệu bản vẽ, mô hình BIM và luồng phê duyệt theo tiêu chuẩn ISO 19650, thay thế hoàn toàn phần mềm ngoại nhập.
    - **Thương mại hóa nhanh**: Chuyển đổi tối thiểu 30% tệp khách hàng BIM hiện tại sang sử dụng bản quyền CDE CIC, tạo nguồn doanh thu SaaS ổn định.
-   - **Chứng nhận an ninh QCVN 12**: Hoàn thành thủ tục đánh giá độc lập và nhận giấy chứng nhận hợp quy QCVN 12:2026/BCA của Cục A05 (Bộ Công an) cho hạ tầng Viettel Cloud trong vòng 12 tháng kể từ khi vận hành thử nghiệm.
+   - **Tuân thủ an ninh QCVN 12**: Thiết kế và vận hành hệ thống đáp ứng các yêu cầu của QCVN 12:2026/BCA, lập hồ sơ xác định cấp độ an toàn thông tin (hướng tới Cấp độ 3) và hoàn thành đánh giá an ninh độc lập trong vòng 12 tháng kể từ khi vận hành thử nghiệm. *Lưu ý: QCVN 12:2026/BCA điều chỉnh hệ thống lưu trữ tài liệu điện tử trong cơ quan Đảng, Nhà nước (không chứa bí mật nhà nước); trách nhiệm tuân thủ thuộc về chủ quản hệ thống theo từng triển khai. CDE CIC định vị là nền tảng được thiết kế sẵn-sàng-tuân-thủ để chủ đầu tư/cơ quan nhà nước dễ dàng đạt cấp độ an toàn khi triển khai.*
    - **Liên thông dữ liệu quốc gia**: Tích hợp liên thông trực tiếp với Cổng NDXP/LGSP quốc gia và API của Bộ Xây dựng (`csdlhdxd.gov.vn`), phục vụ công tác nộp file mô hình thiết kế, thẩm định quy hoạch và cấp phép xây dựng số (Ưu tiên thực hiện sớm để tạo lợi thế cạnh tranh B2G).
 
 2. **Mục tiêu dài hạn (3 - 5 năm)**:
@@ -89,7 +92,7 @@ Báo cáo này phân tích sâu sắc cấu trúc công nghệ của các giải
 * Mô hình kiến trúc phần mềm tối ưu dựa trên nền tảng Go + Python + TypeScript.
 * Mô hình hạ tầng đám mây bảo mật cao Dual-Cloud (Viettel Cloud làm Primary, VNPT làm DR) tuân thủ QCVN 12.
 * Mô hình nhân sự siêu tinh gọn phối hợp AI (Mô hình AI-Conductor), gồm đúng 02 nhân sự cốt lõi (CTO kiêm Developer chính và 01 Trợ lý Dev/QA/BA) làm việc cùng AI Claude để tối ưu hóa tối đa chi phí.
-* Dự toán tài chính chi tiết trong vòng 5 năm (CAPEX 3,50 tỷ VNĐ, OPEX 10,65 tỷ VNĐ) và lộ trình triển khai cụ thể theo Sprint.
+* Dự toán tài chính chi tiết trong vòng 5 năm (CAPEX 3,50 tỷ VNĐ; OPEX lũy kế 5 năm 33,30 tỷ VNĐ) và lộ trình triển khai cụ thể theo Sprint.
 
 ### 1.4. Khuyến nghị kỹ thuật then chốt
 * **Định dạng lưu trữ mở & Engine độc lập**: Sử dụng IFC 4.0 làm định dạng dữ liệu hình học cốt lõi (OpenBIM), kết hợp ThatOpen Engine render trực tiếp trên trình duyệt bằng WebGL/WebGPU để loại bỏ sự phụ thuộc vào các engine thương mại đắt đỏ của nước ngoài.
@@ -353,7 +356,7 @@ Giải pháp chuyên biệt tập trung vào phối hợp và kiểm soát lỗi
 ### 3.4. Xu hướng Công nghệ trong ngành CDE toàn cầu
 Kiến trúc công nghệ AEC thế giới đang trải qua bước chuyển mình mạnh mẽ trong giai đoạn 2024-2026:
 * **Kiến trúc Backend**: Chuyển dịch từ các framework .NET/Java truyền thống sang kiến trúc vi dịch vụ đa ngôn ngữ sử dụng Go (tốc độ cao, đồng thời tốt) và Python (xử lý AI/ML và dữ liệu hình học).
-* **3D Engine**: Thay thế các viewer độc quyền đắt đỏ bằng các thư viện mã nguồn mở chạy WebAssembly (WASM) như ThatOpen Engine (web-ifc), giúp render mượt mà các file IFC lớn ngay trên trình duyệt mà không cần cài đặt thêm phần mềm.
+* **3D Engine**: Thay thế các viewer độc quyền đắt đỏ bằng các thư viện mã nguồn mở chạy WebAssembly (WASM) như ThatOpen Engine (web-ifc), giúp render các file IFC lớn ngay trên trình duyệt mà không cần cài đặt thêm phần mềm. *Lưu ý kỹ thuật: để đạt mượt mà với file ≥500MB, bắt buộc phải xây dựng pipeline server-side chuyển đổi IFC → định dạng Fragments/3D Tiles, kết hợp streaming + culling + khử trùng lặp hình học (do trình duyệt có giới hạn bộ nhớ ~2GB và IFC thô không tối ưu cho hiển thị). Đây là khối lượng kỹ thuật đáng kể cần được dự trù trong kế hoạch R&D Phân hệ 1.*
 * **Đồ họa**: Nâng cấp từ WebGL 2.0 lên tiêu chuẩn WebGPU mới, hỗ trợ truy cập trực tiếp vào phần cứng card đồ họa để hiển thị hàng triệu đa giác mượt mà hơn.
 
 ---
@@ -376,7 +379,7 @@ Dưới đây là ma trận đánh giá năng lực công nghệ thực tế gi�
 | **Trợ lý AI Agent** | ⚠️ | ❌ | ❌ | ❌ | ✅ | **🎯 Roadmap GĐ2** |
 | **Backend hiệu năng cao** | ❌ (.NET) | ❌ (.NET) | ❌ | ❌ | ✅ (Go/Java)| **🎯 Go + Python** |
 
-> *Ghi chú: 🎯 = Mục tiêu thiết kế (sản phẩm đang trong giai đoạn phát triển). ✅ = Tính năng đã triển khai thực tế. Thông tin kiến trúc đối thủ được tổng hợp từ tài liệu công khai, website sản phẩm và đánh giá suy luận — có thể không phản ánh đầy đủ năng lực thực tế.*
+> *Ghi chú: 🎯 = Mục tiêu thiết kế (sản phẩm đang trong giai đoạn phát triển). ✅ = Tính năng đã triển khai thực tế. **🎯 Roadmap GĐ2** = tính năng nâng cao (GeoBIM/GIS, 4D/5D, FM, Trợ lý AI) thuộc Giai đoạn 2 — phát triển sau khi MVP lõi (Viewer IFC, ISO 19650, liên thông CSDL, an ninh QCVN 12/VNeID) đã đạt product-market fit; chi tiết lộ trình & ngân sách tại §5.6. Thông tin kiến trúc đối thủ được tổng hợp từ tài liệu công khai, website sản phẩm và đánh giá suy luận — có thể không phản ánh đầy đủ năng lực thực tế.*
 
 ---
 
@@ -389,7 +392,7 @@ Khi CDE CIC ra mắt thị trường, các đối thủ hiện hữu sẽ không
 | **NovaCDE** | Bổ sung compliance QCVN 12, hạ giá cạnh tranh phân khúc B2G. Có thể đạt QCVN 12 trong 12-18 tháng. | 🔴 Cao | Tận dụng lợi thế first-mover QCVN 12 (nếu đạt trước) kết hợp với chi phí đầu tư và vận hành cực kỳ cạnh tranh nhờ mô hình nhân sự tối giản phối hợp AI. |
 | **VinaCDE** | Khai thác tệp khách hàng VinaCAD sẵn có, ưu đãi giá bundle. | 🟠 TB | Không cạnh tranh trực tiếp ở phân khúc SME. Tập trung B2G/Enterprise — phân khúc VinaCDE chưa mạnh. |
 | **BuildTab** | Mở rộng module FM, giảm phụ thuộc Autodesk APS. | 🟡 Thấp | BuildTab bị vendor lock-in APS sâu — chi phí chuyển đổi rất cao. Lợi thế cloud nội địa của CDE CIC là rào cản tự nhiên. |
-| **Autodesk ACC** | Mở đại lý tại VN, hạ giá cho thị trường Đông Nam Á. | 🟠 TB | Autodesk không thể đặt server tại VN → không bao giờ đạt QCVN 12. Lợi thế compliance là rào cản pháp lý vĩnh viễn đối với phân khúc đầu tư công. |
+| **Autodesk ACC** | Mở đại lý tại VN, hạ giá cho thị trường Đông Nam Á; về lý thuyết có thể hợp tác đặt hạ tầng qua cloud nội địa. | 🟠 TB | Hiện Autodesk lưu dữ liệu trên US Cloud → chưa đáp ứng yêu cầu lưu trữ trong nước. Đây là **lợi thế cấu trúc trong trung hạn** của CDE CIC (rào cản chuyển đổi lớn, không phải tuyệt đối/vĩnh viễn) đối với phân khúc đầu tư công. |
 
 **Chiến lược tổng quan**: CDE CIC không cần "thắng" ở mọi phân khúc. Chỉ cần chiếm vững **phân khúc B2G (PMU, Sở Xây dựng)** — nơi QCVN 12 và VNeID SSO là yêu cầu bắt buộc mà không đối thủ nào hiện đáp ứng — là đủ để xây dựng doanh thu nền tảng ổn định. Mở rộng sang Enterprise và SaaS là bước tiếp theo khi product-market fit đã được xác nhận.
 
@@ -401,6 +404,8 @@ Khi CDE CIC ra mắt thị trường, các đối thủ hiện hữu sẽ không
 Trong bối cảnh năng lực của các công cụ AI lập trình phát triển vượt bậc (Claude Code, Antigravity, Cursor, v0), việc duy trì một đội ngũ R&D cồng kềnh truyền thống không còn tối ưu về mặt chi phí và tốc độ đối với doanh nghiệp tư nhân tự đầu tư 100% như CIC. 
 
 CDE CIC áp dụng mô hình **AI-Conductor siêu tinh gọn**: Rút gọn tối đa đội ngũ trực tiếp xuống còn **02 nhân sự con người**, làm việc phối hợp chặt chẽ với AI Claude hỗ trợ viết code, tạo kịch bản kiểm thử và quản lý dự án.
+
+> **Lưu ý phạm vi của mô hình 2 người:** Đội lõi R&D **02 người** áp dụng cho **giai đoạn xây dựng MVP lõi (18 tháng đầu)** — đủ để hoàn thành các phân hệ cốt lõi (Viewer IFC, ISO 19650, liên thông CSDL, an ninh QCVN 12/VNeID). Khi bước vào giai đoạn **thương mại hóa & mở rộng**, đội ngũ được bổ sung theo lộ trình nhất quán: nhân sự **Chăm sóc khách hàng/Sales** từ năm 2027 (xem Bảng §5.2c1, tổng tăng dần lên 4 người đến 2030) và các vị trí chuyên trách (BIM BA, Kỹ sư WebGL, Kỹ sư An ninh mạng) được tuyển/thuê ngoài theo nhu cầu từng mốc (xem Checklist §7.2). Mô hình "2 người" là **cấu trúc đội lõi tối giản**, không phải tổng biên chế dự án trong suốt 5 năm.
 
 ### 4.2. Cơ cấu Đội ngũ Nhân sự Tinh gọn
 
@@ -480,16 +485,14 @@ CAPEX được phân bổ tập trung trong 18 tháng R&D để hoàn thiện c�
 
 ##### Bảng 5.2a: Phân bổ Chi tiết CAPEX theo năm và danh mục đầu tư (tỷ VNĐ)
 
-<!-- TABLE_6_2A_START -->
 | Mã | Hạng mục đầu tư | 2026 (Q3-Q4) | 2027 (Full Year) | 2028 (Q1) | Tổng | Giải trình chi tiết hạng mục |
 |:---|:---|:---:|:---:|:---:|:---:|:---|
 | CAP-01 | **Nhân sự phát triển lõi** | 0,60 | 1,10 | 0,30 | **2,00** | Chi phí lương gộp đội ngũ tinh gọn 2 người (CTO và 01 Trợ lý) trong 18 tháng, trích bảo hiểm, phúc lợi, và phí công cụ AI. |
-| CAP-02 | **Trang thiết bị văn phòng** | 0,08 | 0,02 | — | **0,10** | Mua sắm 2 bộ máy tính lập trình cấu hình cao, thiết bị mạng cơ bản. |
+| CAP-02 | **Trang thiết bị văn phòng** | 0,08 | 0,02 | 0,00 | **0,10** | Mua sắm 2 bộ máy tính lập trình cấu hình cao, thiết bị mạng cơ bản. |
 | CAP-03 | **Bản quyền & API tích hợp** | 0,08 | 0,18 | 0,04 | **0,30** | Chi phí API AI (Claude, Gemini), GitHub Enterprise, domain, chứng chỉ SSL, và bản quyền CSDL/công cụ. |
 | CAP-04 | **Marketing & Sales ra mắt** | 0,10 | 0,35 | 0,05 | **0,50** | PR B2B tối giản, tài liệu hướng dẫn BIM, xây dựng demo và làm việc trực tiếp với một số PMU lớn & Sở Xây dựng. |
 | CAP-05 | **Tư vấn, PM & Pháp lý** | 0,14 | 0,45 | 0,01 | **0,60** | Chi phí kiểm định QCVN 12, lập hồ sơ Cấp độ 3, đánh giá ISO 27001 và đăng ký bản quyền tác giả mã nguồn. |
 | | **TỔNG CỘNG CAPEX** | **1,00** | **2,10** | **0,40** | **3,50** | 100% tự đầu tư bởi CIC (không sử dụng ngân sách nhà nước). |
-<!-- TABLE_6_2A_END -->
 
 ##### Bảng 5.2a1: Chi tiết Cơ cấu Đội ngũ R&D và Phân bổ Chi phí Lương (Giai đoạn CAPEX - CAP-01)
 
@@ -549,14 +552,12 @@ Tổng chi phí vận hành OPEX trong 5 năm đầu là **33,30 tỷ VNĐ**, đ
 
 ##### Bảng 5.2c: Tổng hợp Chi phí Vận hành OPEX 5 năm (tỷ VNĐ)
 
-<!-- TABLE_6_2C_START -->
 | Mã OPEX | Hạng mục chi phí vận hành | 2026 | 2027 | 2028 | 2029 | 2030 | Tổng 5 năm |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| OPX-01 | Nhân sự vận hành (bao gồm overhead) | — | 1,40 | 2,00 | 2,80 | 3,00 | **9,20** |
+| OPX-01 | Nhân sự vận hành (bao gồm overhead) | 0,00 | 1,40 | 2,00 | 2,80 | 3,00 | **9,20** |
 | OPX-02 | Chi phí thuê hạ tầng đám mây (Cloud) | 0,20 | 0,60 | 2,50 | 4,00 | 5,80 | **13,10** |
-| OPX-03 | Các chi phí vận hành thường niên khác | — | 1,00 | 2,50 | 3,50 | 4,00 | **11,00** |
-| | **TỔNG OPEX TOÀN HỆ THỐNG** | **0,20** | **3,00** | **7,00** | **10,30** | **12,80** | **33,30** |
-<!-- TABLE_6_2C_END -->
+| OPX-03 | Các chi phí vận hành thường niên khác | 0,00 | 1,00 | 2,50 | 3,50 | 4,00 | **11,00** |
+| | **TỔNG CỘNG OPEX 5 NĂM** | **0,20** | **3,00** | **7,00** | **10,30**| **12,80**| **33,30** |
 
 ##### Bảng 5.2c1: Cơ cấu Đội ngũ Nhân sự Vận hành (Giai đoạn OPEX - OPX-01)
 
@@ -678,31 +679,27 @@ Kế hoạch doanh thu dựa trên nguyên tắc tính toán thận trọng theo
 
 ##### Bảng 5.4a: Khối lượng Khách hàng Mục tiêu phát triển qua các năm
 
-<!-- TABLE_6_4A_START -->
 | Phân khúc | Tiêu chí đánh giá số lượng | 2026 | 2027 (H2) | 2028 | 2029 | 2030 |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|
-| **1. Kênh SaaS** | Số user đầu kỳ (người) | — | 0 | 500 | 3000 | 7500 |
-| | Số user cuối kỳ (người) | — | 500 | 3000 | 7500 | 14000 |
-| | **Số user hoạt động trung bình (tính DT)**| — | **250** | **1750** | **5250** | **10750** |
+| **1. Kênh SaaS** | Số user đầu kỳ (người) | — | 0 | 500 | 3.000 | 7.500 |
+| | Số user cuối kỳ (người) | — | 500 | 3.000 | 7.500 | 14.000 |
+| | **Số user hoạt động trung bình (tính DT)**| — | **250** | **1.750** | **5.250** | **10.750** |
 | **2. On-Prem PMU** | Hợp đồng mới ký trong năm (HĐ) | 0 | 1 | 5 | 8 | 12 |
 | | Lũy kế số PMU sử dụng hệ thống | 0 | 1 | 6 | 14 | 26 |
 | **3. On-Prem Sở XD**| Hợp đồng mới ký trong năm (HĐ) | 0 | 0 | 2 | 4 | 6 |
 | | Lũy kế số Sở Xây dựng sử dụng | 0 | 0 | 2 | 6 | 12 |
 | **4. On-Prem DN** | Hợp đồng mới ký trong năm (HĐ) | 0 | 1 | 2 | 3 | 5 |
 | | Lũy kế số Doanh nghiệp lớn sử dụng | 0 | 1 | 3 | 6 | 11 |
-<!-- TABLE_6_4A_END -->
 
 ##### Bảng 5.4b: Chi tiết tính toán kế hoạch doanh thu theo từng kênh (tỷ VNĐ)
 
-<!-- TABLE_6_4B_START -->
 | Phân khúc kênh | Công thức tính toán | 2026 | 2027 | 2028 | 2029 | 2030 | Tổng |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|
 | **1. Kênh SaaS** | User TB × ARPU × Số tháng | — | 0,60 | 9,45 | 31,50 | 77,40 | **118,95** |
-| **2. On-Prem PMU** | HĐ mới + Lũy kế HĐ cũ × AMC (15%) | — | 2,00 | 11,80 | 22,82 | 41,14 | **77,77** |
-| **3. On-Prem Sở XD** | HĐ mới + Lũy kế HĐ cũ × AMC (15%) | — | — | 4,00 | 9,40 | 16,92 | **30,32** |
-| **4. On-Prem Doanh nghiệp** | HĐ mới + Lũy kế HĐ cũ × AMC (15%) | — | 3,00 | 7,25 | 12,87 | 24,18 | **47,30** |
-| **TỔNG CỘNG DOANH THU** | **Tổng cộng 4 kênh** | **—** | **5,60** | **32,50** | **76,59** | **159,65** | **274,34** |
-<!-- TABLE_6_4B_END -->
+| **2. On-Prem PMU** | HĐ mới + Lũy kế HĐ cũ × AMC (15%) | — | 2,00 | 11,80 | 22,80 | 41,10 | **77,70** |
+| **3. On-Prem Sở XD** | HĐ mới + Lũy kế HĐ cũ × AMC (15%) | — | 0,00 | 4,00 | 9,40 | 16,90 | **30,30** |
+| **4. On-Prem Doanh nghiệp** | HĐ mới + Lũy kế HĐ cũ × AMC (15%) | — | 3,00 | 7,30 | 12,90 | 24,20 | **47,40** |
+| **TỔNG CỘNG DOANH THU** | **Tổng cộng 4 kênh** | **0** | **5,60** | **32,55** | **76,60** | **159,60** | **~274,35** |
 
 ---
 
@@ -710,53 +707,43 @@ Kế hoạch doanh thu dựa trên nguyên tắc tính toán thận trọng theo
 
 #### 5.5.1. Bảng dòng tiền ròng của toàn bộ dự án CDE CIC (tỷ VNĐ)
 
-<!-- TABLE_6_5_1_START -->
+> *Bảng dưới đây tính trên **Kịch bản A (Lạc quan – 100% kế hoạch doanh thu)**, với CAPEX = 3,50 tỷ và OPEX 5 năm = 33,30 tỷ (đã chuẩn hóa theo các bảng chi tiết §5.2). Tham khảo §5.5bis để xem Kịch bản B (Cơ sở) — cơ sở khuyến nghị ra quyết định đầu tư.*
+
 | Chỉ tiêu | 2026 | 2027 | 2028 | 2029 | 2030 | Tổng |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Doanh thu** | **—** | **5,60** | **32,50** | **76,59** | **159,65** | **274,34** |
-| Giá vốn hàng bán (COGS) | — | (2,52) | (13,00) | (29,87) | (63,86) | (109,25) |
-| **Lợi nhuận gộp** | **—** | **3,08** | **19,50** | **46,72** | **95,79** | **165,09** |
+| **Doanh thu** | **0** | **5,60** | **32,55** | **76,60** | **159,60** | **~274,35** |
+| Giá vốn hàng bán (COGS) | 0 | (2,52) | (13,02) | (29,87) | (63,84) | (109,25) |
+| **Lợi nhuận gộp** | **0** | **3,08** | **19,53** | **46,73** | **95,76** | **~165,10** |
 | *Biên lợi nhuận gộp* | — | *55%* | *60%* | *61%* | *60%* | *60%* |
 | Chi phí đầu tư CAPEX | (1,00) | (2,10) | (0,40) | — | — | (3,50) |
 | Chi phí vận hành OPEX | (0,20) | (3,00) | (7,00) | (10,30) | (12,80) | (33,30) |
-| **Lợi nhuận trước thuế (EBIT)** | **(1,20)** | **(2,02)** | **12,10** | **36,42** | **82,99** | **128,29** |
-| Thuếu TNDN (*)| — | — | — | — | — | — |
-| **Dòng tiền ròng dự án** | **(1,20)** | **(2,02)** | **12,10** | **36,42** | **82,99** | **128,29** |
-| **Dòng tiền ròng tích lũy** | **(1,20)** | **(3,22)** | **8,88** | **45,30** | **128,29** | |
-<!-- TABLE_6_5_1_END -->
+| **Lợi nhuận trước thuế (EBT)** | **(1,20)** | **(2,02)** | **+12,13** | **+36,43** | **+82,96** | **+128,30** |
+| Thuế TNDN (*)| 0 | 0 | 0 | 0 | 0 | 0 |
+| **Dòng tiền ròng dự án** | **(1,20)** | **(2,02)** | **+12,13** | **+36,43** | **+82,96** | **+128,30** |
+| **Dòng tiền ròng tích lũy** | **(1,20)** | **(3,22)** | **+8,91** | **+45,34** | **+128,30** | |
 
-> *(*) Ghi chú về thuế TNDN: Báo cáo giả định miễn thuế theo NĐ 353/2025/NĐ-CP. Tuy nhiên, điều kiện áp dụng ưu đãi (tỷ trọng doanh thu R&D/tổng doanh thu, số lượng nhân sự R&D, v.v.) cần được xác minh cụ thể với cơ quan thuế trước khi chính thức áp dụng. Nếu không đủ điều kiện miễn thuế, thuế suất TNDN 20% sẽ làm giảm NPV toàn dự án khoảng 10-15%.*
+> *(*) Ghi chú về thuế TNDN: Báo cáo giả định miễn thuế theo NĐ 353/2025/NĐ-CP. Điều kiện áp dụng ưu đãi (tỷ trọng doanh thu R&D/tổng doanh thu, số lượng nhân sự R&D, v.v.) cần được xác minh cụ thể với cơ quan thuế trước khi chính thức áp dụng. Nếu không đủ điều kiện miễn thuế, thuế suất TNDN 20% sẽ làm giảm dòng tiền ròng & NPV toàn dự án khoảng 18-20% ở các năm có lãi (2028-2030).*
 >
-> *Ghi chú về biên lợi nhuận gộp: Biên gộp điều chỉnh xuống 55-61% (so với 62-70% ban đầu) do COGS phải bao gồm chi phí triển khai On-Premise, đào tạo chuyển giao, customization nghiệp vụ cho từng khách hàng B2G — các khoản này chiếm 30-40% giá trị hợp đồng On-Prem. Kênh SaaS thuần túy vẫn đạt biên gộp ~75%, nhưng bình quân toàn danh mục (SaaS + On-Prem) ở mức ~60%.*
+> *Ghi chú về biên lợi nhuận gộp: Biên gộp 55-61% do COGS bao gồm chi phí triển khai On-Premise, đào tạo chuyển giao, customization nghiệp vụ cho từng khách hàng B2G — các khoản này chiếm 30-40% giá trị hợp đồng On-Prem. Kênh SaaS thuần túy vẫn đạt biên gộp ~75%, nhưng bình quân toàn danh mục (SaaS + On-Prem) ở mức ~60%.*
+>
+> *⚠️ Lưu ý phương pháp luận quan trọng: Do cơ cấu chi phí siêu tinh gọn (CAPEX 3,50 tỷ + OPEX 33,30 tỷ) rất nhỏ so với doanh thu kế hoạch, các chỉ số sinh lời (IRR) ở Kịch bản A/B trở nên **rất cao và không nên dùng làm chỉ số quyết định chính**. Biến số quyết định thực sự của dự án là **khả năng hiện thực hóa doanh thu** (tốc độ thâm nhập B2G, chu kỳ mua sắm công) — xem phân tích độ nhạy §5.5bis. Khuyến nghị ra quyết định dựa trên **NPV ở Kịch bản B**, **nhu cầu vốn lưu động đỉnh điểm**, và **lợi thế chiến lược tuân thủ QCVN 12/VNeID**, thay vì con số IRR.*
 
-#### 5.5.2. Cơ cấu vốn: 100% CIC tự đầu tư (tỷ VNĐ)
+#### 5.5.2. Cơ cấu vốn: 100% CIC tự đầu tư
 
-Dự án được đầu tư **100% bằng vốn tự có của CIC** (không sử dụng ngân sách nhà nước). Do đó, **dòng tiền ròng của chủ đầu tư CIC trùng với dòng tiền ròng toàn dự án** (xem §5.5.1). Việc tự đầu tư 100% giúp CIC giữ trọn quyền sở hữu trí tuệ và toàn bộ dòng doanh thu SaaS/License, đổi lại cần chuẩn bị đủ vốn lưu động đối ứng cho giai đoạn dòng tiền âm:
+Dự án được đầu tư **100% bằng vốn tự có của CIC** (không sử dụng ngân sách nhà nước). Do đó, **dòng tiền ròng của chủ đầu tư CIC trùng với dòng tiền ròng toàn dự án** đã trình bày tại Bảng §5.5.1 (dòng tiền ròng tích lũy đạt **+128,30 tỷ VNĐ** vào cuối 2030 ở Kịch bản A).
 
-<!-- TABLE_6_5_2_START -->
-| Chỉ tiêu | 2026 | 2027 | 2028 | 2029 | 2030 | Tổng |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Lợi nhuận gộp | — | 3,08 | 19,50 | 46,72 | 95,79 | 165,09 |
-| CAPEX của CIC (100%) | (1,00) | (2,10) | (0,40) | — | — | (3,50) |
-| OPEX | (0,20) | (3,00) | (7,00) | (10,30) | (12,80) | (33,30) |
-| **Dòng tiền ròng CIC** | **(1,20)** | **(2,02)** | **12,10** | **36,42** | **82,99** | **128,29** |
-| **Tích lũy CIC** | **(1,20)** | **(3,22)** | **8,88** | **45,30** | **128,29** | |
-<!-- TABLE_6_5_2_END -->
+Việc tự đầu tư 100% giúp CIC **giữ trọn quyền sở hữu trí tuệ và toàn bộ dòng doanh thu SaaS/License**, đồng thời chủ động hoàn toàn về tiến độ và định hướng sản phẩm — không phụ thuộc thủ tục giải ngân hay điều kiện ràng buộc của vốn ngân sách. Đổi lại, CIC cần chuẩn bị đủ **vốn lưu động đối ứng** để vượt qua giai đoạn dòng tiền âm (xem nhu cầu vốn đỉnh điểm theo từng kịch bản tại §5.5bis).
+
+> *Lưu ý: Trường hợp CIC muốn tiếp cận nguồn hỗ trợ R&D khoa học – công nghệ của Nhà nước (nếu đủ điều kiện), đây sẽ là phương án tài chính thay thế cần được phân tích trong một phụ lục riêng, không nằm trong cơ cấu vốn cơ sở của báo cáo này.*
 
 #### 5.5.3. Các chỉ số hiệu quả tài chính cốt lõi (WACC = 12%):
 
-> *Lưu ý: Các chỉ số dưới đây tính trên Kịch bản A (Lạc quan - 100% doanh thu kế hoạch), với CAPEX 3,50 tỷ và OPEX 33,30 tỷ. Vì dự án 100% vốn CIC, chỉ số toàn dự án = chỉ số riêng CIC. **Khuyến nghị ra quyết định đầu tư dựa trên Kịch bản B (Cơ sở) tại §5.5bis.*** Các chỉ số được hệ thống tính động — xem bảng KPI ngay dưới đây.*
+> *Lưu ý: Các chỉ số dưới đây tính trên Kịch bản A (Lạc quan - 100% doanh thu kế hoạch), với CAPEX 3,50 tỷ và OPEX 33,30 tỷ. Vì dự án 100% vốn CIC, chỉ số toàn dự án = chỉ số riêng CIC. **Khuyến nghị ra quyết định đầu tư dựa trên Kịch bản B (Cơ sở) tại §5.5bis.***
 
-<!-- TABLE_6_5_3_START -->
-| Chỉ số (Kịch bản A) | Giá trị | Ghi chú |
-|:---|:---:|:---|
-| **NPV toàn dự án (= riêng CIC)** | +85,3 tỷ | Chiết khấu WACC 12%, năm gốc 2026 |
-| **IRR** | >100% (lý thuyết) | Rất cao do chi phí siêu tinh gọn — không dùng làm chỉ số quyết định chính |
-| **Thời gian hoàn vốn lũy kế** | trong năm 2028 | Dòng tiền tích lũy chuyển dương cuối 2028 |
-| **Đỉnh điểm dòng tiền âm** | -3,22 tỷ (cuối 2027) | Vốn lưu động cần chuẩn bị ~4-5 tỷ (gồm biên an toàn) |
-<!-- TABLE_6_5_3_END -->
-
-> *⚠️ Lưu ý phương pháp luận: Do CAPEX 3,50 tỷ + OPEX 33,30 tỷ rất nhỏ so với doanh thu kế hoạch, chỉ số IRR ở Kịch bản A/B trở nên rất cao (>100%) và **không nên dùng làm chỉ số quyết định chính**. Biến số quyết định thực sự là **khả năng hiện thực hóa doanh thu** (tốc độ thâm nhập B2G, chu kỳ mua sắm công). Khuyến nghị ra quyết định dựa trên **NPV ở Kịch bản B**, **nhu cầu vốn lưu động đỉnh điểm** và **lợi thế chiến lược tuân thủ QCVN 12/VNeID**.*
+* **Giá trị hiện tại ròng (NPV) — Kịch bản A**: **+85,3 tỷ VNĐ** (chiết khấu các dòng tiền ròng tại Bảng §5.5.1 theo WACC 12%, năm gốc 2026).
+* **Tỷ suất sinh lời nội bộ (IRR) — Kịch bản A**: **rất cao (>100%)** — mang tính lý thuyết do cơ cấu chi phí siêu tinh gọn; **không dùng làm chỉ số quyết định chính** (xem lưu ý phương pháp luận tại §5.5.1).
+* **Thời gian hoàn vốn lũy kế**: **trong năm 2028** (dòng tiền ròng tích lũy chuyển dương lên +8,91 tỷ VNĐ cuối 2028).
+* **Đỉnh điểm dòng tiền âm (Cash burn tối đa)**: **-3,22 tỷ VNĐ** (xuất hiện cuối năm 2027). CIC cần chuẩn bị vốn lưu động đối ứng **tối thiểu ~4-5 tỷ VNĐ** (gồm biên an toàn) ở Kịch bản A; nhu cầu cao hơn ở Kịch bản B/C — xem §5.5bis.
 
 ---
 
@@ -780,51 +767,49 @@ Giai đoạn 2026-2030 là giai đoạn khó khăn — thị trường BIM Việ
 
 ##### Bảng 5.5bis-b: Chi tiết doanh thu theo kịch bản (tỷ VNĐ)
 
-<!-- TABLE_6_5BIS_B_START -->
 | Năm | **A (Lạc quan)** | **B (Cơ sở - 55%)** | **C (Bi quan - 25%)** |
 |:---:|:---:|:---:|:---:|
-| 2026 | — | — | — |
-| 2027 | 5,60 | 3,08 | 1,40 |
-| 2028 | 32,50 | 17,88 | 8,13 |
-| 2029 | 76,59 | 42,13 | 19,15 |
-| 2030 | 159,65 | 87,80 | 39,91 |
-| **Tổng 5 năm** | **274,34** | **150,89** | **68,59** |
-<!-- TABLE_6_5BIS_B_END -->
+| 2026 | 0,00 | 0,00 | 0,00 |
+| 2027 | 5,60 | 3,10 | 1,40 |
+| 2028 | 32,55 | 17,90 | 8,10 |
+| 2029 | 76,60 | 42,10 | 19,20 |
+| 2030 | 159,60 | 87,80 | 39,90 |
+| **Tổng 5 năm** | **274,35** | **150,90** | **68,60** |
 
 ##### Bảng 5.5bis-c: Dòng tiền ròng tích lũy theo kịch bản (tỷ VNĐ)
 
-<!-- TABLE_6_5BIS_C_START -->
 | Năm | **A (Lạc quan)** | **B (Cơ sở)** | **C (Bi quan)** |
 |:---:|:---:|:---:|:---:|
 | 2026 | (1,20) | (1,20) | (1,20) |
-| 2027 | (3,22) | (4,61) | (5,53) |
-| 2028 | 8,88 | (1,28) | (8,05) |
-| 2029 | 45,30 | 14,12 | (6,67) |
-| 2030 | 128,29 | 54,00 | 4,47 |
-<!-- TABLE_6_5BIS_C_END -->
+| 2027 | (3,22) | (4,59) | (5,53) |
+| 2028 | +8,91 | (1,25) | (8,07) |
+| 2029 | +45,34 | +14,13 | (6,66) |
+| 2030 | +128,30 | +54,01 | +4,48 |
 
-##### Bảng 5.5bis-d: Chỉ số tài chính cốt lõi theo kịch bản (WACC = 12%)
+*(Cơ sở tính: CAPEX 3,50 tỷ + OPEX 33,30 tỷ giữ nguyên ở cả 3 kịch bản; chỉ doanh thu thay đổi theo §5.5bis-b. Lợi nhuận gộp áp dụng biên 55%/60%/61%/60% cho 2027-2030.)*
 
-<!-- TABLE_6_5BIS_D_START -->
+##### Bảng 5.5bis-d: Chỉ số tài chính cốt lõi theo kịch bản (WACC = 12%, năm gốc 2026)
+
 | Chỉ số | **A (Lạc quan)** | **B (Cơ sở)** | **C (Bi quan)** |
 |---|:---:|:---:|:---:|
-| **NPV toàn dự án** | 85,31 tỷ | 34,72 tỷ | 0,99 tỷ |
-| **IRR** | 295% | 149% | 17% |
-| **Thời gian hoàn vốn** | Q2/2027 | Q1/2028 | Q3/2029 |
-| **Cash burn tối đa** | (3,22) tỷ | (4,61) tỷ | (8,05) tỷ |
-| **Vốn lưu động CIC cần chuẩn bị** | ~3.2 tỷ | ~4.6 tỷ | ~8.1 tỷ |
-<!-- TABLE_6_5BIS_D_END -->
+| **NPV toàn dự án** | +85,3 tỷ | **+34,7 tỷ** | +1,0 tỷ |
+| **IRR** | >100% (lý thuyết)¹ | >100% (lý thuyết)¹ | ~17% |
+| **Thời gian hoàn vốn** | trong 2028 | trong 2029 | trong 2030 |
+| **Cash burn tối đa** | -3,22 tỷ | -4,59 tỷ | -8,07 tỷ |
+| **Vốn lưu động CIC cần chuẩn bị** (gồm biên an toàn) | ~4-5 tỷ | ~6-7 tỷ | ~10-12 tỷ |
+
+> ¹ *IRR ở Kịch bản A/B rất cao do vốn đầu tư (CAPEX+OPEX) nhỏ so với doanh thu kế hoạch — đây là chỉ số kém ổn định, **không nên dùng làm căn cứ quyết định**. Ngay cả ở Kịch bản C (bi quan, chỉ đạt 25% kế hoạch), dự án vẫn cho NPV dương nhẹ (+1,0 tỷ) và IRR ~17% > WACC 12% nhờ cơ cấu chi phí siêu tinh gọn. Biến số rủi ro chính là **doanh thu**, không phải hiệu quả vốn.*
 
 #### Nhận xét và khuyến nghị:
 
-1. **Kịch bản B (Cơ sở - xác suất 50%)** được khuyến nghị làm cơ sở ra quyết định đầu tư. Với NPV +30,12 tỷ và IRR 35% (vượt xa WACC 12%), dự án **vẫn rất khả thi** ngay cả khi chỉ đạt 55% kế hoạch doanh thu ban đầu. Lý do giảm từ kịch bản A: quy trình mua sắm công thực tế mất 9-15 tháng; SaaS ngành AEC VN chưa có tiền lệ tăng trưởng >100%/năm; đối thủ sẽ phản ứng.
+1. **Kịch bản B (Cơ sở - xác suất 50%)** được khuyến nghị làm cơ sở ra quyết định đầu tư. Với **NPV +34,7 tỷ VNĐ** (chiết khấu WACC 12%) và dòng tiền ròng tích lũy +54,01 tỷ đến cuối 2030, dự án **vẫn rất khả thi** ngay cả khi chỉ đạt 55% kế hoạch doanh thu ban đầu. Lý do giảm từ kịch bản A: quy trình mua sắm công thực tế mất 9-15 tháng; SaaS ngành AEC VN chưa có tiền lệ tăng trưởng >100%/năm; đối thủ sẽ phản ứng. Đỉnh điểm dòng tiền âm chỉ **-4,59 tỷ** (cuối 2027) — CIC cần chuẩn bị vốn lưu động đối ứng ~6-7 tỷ (gồm biên an toàn).
 
-2. **Kịch bản C (Bi quan - xác suất 30%)** cho thấy NPV âm trong 5 năm đầu nhưng chỉ lỗ tích lũy -4,28 tỷ đến cuối 2030. Với bối cảnh **sau 2030 BIM đã luật hóa hoàn toàn và đầu tư công tăng mạnh**, dự án vẫn có thể hoàn vốn trong năm 2031-2032. Tuy nhiên, CIC cần chuẩn bị tối thiểu **12 tỷ vốn lưu động** để đảm bảo an toàn tài chính trong kịch bản xấu nhất.
+2. **Kịch bản C (Bi quan - xác suất 30%)** vẫn cho **NPV dương nhẹ (+1,0 tỷ)** và **hoàn vốn trong năm 2030** (dòng tiền tích lũy +4,48 tỷ), nhờ cơ cấu chi phí siêu tinh gọn (CAPEX 3,50 + OPEX 33,30 tỷ). Đỉnh điểm lỗ tích lũy chỉ **-8,07 tỷ** (cuối 2028). Với bối cảnh **sau 2030 BIM đã luật hóa hoàn toàn và đầu tư công tăng mạnh**, biên độ an toàn còn lớn hơn. Tuy nhiên, CIC nên chuẩn bị **~10-12 tỷ vốn lưu động** để dự phòng kịch bản xấu nhất (doanh thu trễ kèm chi phí phát sinh).
 
 3. **Phương án ứng phó kịch bản C** (checkpoint tiêu chí pivot/stop):
    - *Tháng 12*: Nếu doanh thu H2/2027 < 1 tỷ → Thu hẹp scope, tập trung On-Prem cho 2-3 khách hàng anchor.
    - *Tháng 18*: Nếu tổng doanh thu tích lũy < 3 tỷ → Cân nhắc pivot thành consulting/integration hoặc licensing engine.
-   - *Tháng 24*: Nếu cash burn > 15 tỷ → Tìm nhà đầu tư chiến lược hoặc bán IP/codebase.
+   - *Tháng 24*: Nếu lỗ tích lũy > 9 tỷ (vượt biên an toàn kịch bản C) → Tìm nhà đầu tư chiến lược hoặc bán IP/codebase.
 
 ---
 
@@ -832,18 +817,22 @@ Giai đoạn 2026-2030 là giai đoạn khó khăn — thị trường BIM Việ
 
 Để tối ưu hóa dòng tiền và kiểm soát rủi ro, lộ trình triển khai được điều chỉnh để khớp hoàn toàn với tiến độ phát triển của mô hình AI-Conductor:
 
-1. **Giai đoạn 1 (Tháng 1 - 6 / Q3/2026 - Q1/2027) - Phát triển Phân hệ cốt lõi 1, 2, 3**:
-   * *Mục tiêu kỹ thuật*: Xây dựng hoàn chỉnh các phân hệ cốt lõi gồm: Quản lý hồ sơ, tài liệu thiết kế (Phân hệ 1); Thiết lập luồng phê duyệt và kiểm soát phiên bản theo tiêu chuẩn ISO 19650 (Phân hệ 2); Bộ hiển thị đồ họa 3D BIM Viewer cơ bản (Phân hệ 3).
+> *Quy ước đánh số phân hệ: thống nhất theo Bảng §5.2b và §5.3a — **Phân hệ 1** = Engine đồ họa IFC & OpenBIM Viewer; **Phân hệ 2** = Quản lý tài liệu ISO 19650; **Phân hệ 3** = Cổng liên thông CSDL Quốc gia & Hỗ trợ Thẩm định; **Phân hệ 4** = An ninh QCVN 12 & SSO VNeID; **Phân hệ 5** = Đóng gói SaaS thương mại hóa. Các tính năng nâng cao (GeoBIM/GIS, QTO/5D, FM, Trợ lý AI) thuộc **Giai đoạn 2 (Roadmap sau MVP)**, không nằm trong 5 phân hệ cốt lõi.*
+
+1. **Giai đoạn 1 — MVP lõi (Tháng 1 - 12 / Q4/2026 - Q3/2027) — Phát triển Phân hệ cốt lõi 1, 2, 3**:
+   * *Mục tiêu kỹ thuật*: Xây dựng hoàn chỉnh: Bộ hiển thị đồ họa 3D BIM Viewer IFC/OpenBIM (Phân hệ 1); Quản lý hồ sơ, tài liệu thiết kế và luồng phê duyệt, kiểm soát phiên bản theo tiêu chuẩn ISO 19650 (Phân hệ 2); Cổng liên thông CSDL Quốc gia & Hỗ trợ Thẩm định QLNN (Phân hệ 3).
    * *Mục tiêu thương mại*: Tiến hành chạy thử nghiệm (Pilot) và triển khai thương mại hóa bước đầu (SaaS và 02 hợp đồng On-Premise thử nghiệm) từ đầu năm 2027.
-2. **Giai đoạn 2 (Tháng 7 - 18 / Q2/2027 - Q1/2028) - Phát triển Phân hệ nâng cao 4, 5, 6, 7**:
-   * *Mục tiêu kỹ thuật*: Phát triển các phân hệ nâng cao gồm: Công cụ tự động bóc tách khối lượng QTO & 5D (Phân hệ 3); Bản đồ số GeoBIM/GIS (Phân hệ 4a); Quản lý vận hành/FM (Phân hệ 4b); Phân hệ bảo mật an ninh đạt chuẩn QCVN 12 & SSO (Phân hệ 5); Đóng gói SaaS thương mại hóa (Phân hệ 6).
-   * *Mục tiêu thương mại*: Bắt đầu thương mại hóa đầy đủ toàn bộ nền tảng từ đầu năm 2028.
+2. **Giai đoạn 1b — Hoàn thiện MVP (Tháng 7 - 18 / Q2/2027 - Q1/2028) — Phát triển Phân hệ 4, 5**:
+   * *Mục tiêu kỹ thuật*: Phân hệ bảo mật an ninh đạt chuẩn QCVN 12 & SSO VNeID (Phân hệ 4); Đóng gói SaaS thương mại hóa, đào tạo và chuyển giao (Phân hệ 5).
+   * *Mục tiêu thương mại*: Bắt đầu thương mại hóa đầy đủ MVP lõi từ đầu năm 2028.
+3. **Giai đoạn 2 — Tính năng nâng cao (Roadmap sau MVP, từ 2028 trở đi)**:
+   * *Phạm vi*: Công cụ tự động bóc tách khối lượng **QTO & 5D**; Bản đồ số **GeoBIM/GIS**; Quản lý vận hành **FM**; **Trợ lý AI**. Đây là các hạng mục tạo khác biệt cạnh tranh dài hạn, triển khai sau khi MVP lõi đạt product-market fit (tham chiếu ma trận §3.1/§3.5: "🎯 Roadmap GĐ2").
    * *Chi tiết lộ trình R&D Phân hệ GeoBIM/GIS (3 giai đoạn phụ)*:
      * **Phase 2a — Định vị Địa lý & Bản đồ Nền (Tháng 7 - 10, ngân sách ~0,5 tỷ VNĐ)**: Thiết lập module định vị công trình trên nền bản đồ 2D; tích hợp và chuyển đổi tự động hệ tọa độ quốc gia VN-2000 sang WGS-84; ký kết hợp tác và kết nối API bản đồ nền Vmap chính thức cho phân khúc B2G, MapBox GL cho phân khúc SaaS B2B.
      * **Phase 2b — Tích hợp Mô hình 3D Tiles Streaming (Tháng 11 - 14, ngân sách ~0,7 tỷ VNĐ)**: Hoàn thiện pipeline server-side tự động parse file IFC, nén hình học Draco và xuất bản cấu trúc 3D Tiles; xây dựng viewer client-side trên nền Cesium.js; hoàn thành dashboard giám sát đa dự án theo vị trí.
      * **Phase 2c — GIS Nâng cao & Liên thông CSDL Đô thị (Tháng 15 - 16, ngân sách ~0,3 tỷ VNĐ)**: Phát triển tính năng truy vấn không gian (spatial query) trực tiếp trên trình duyệt; xuất bản bản đồ quy hoạch dạng PDF và hình ảnh trực quan; mở cổng API GIS tiêu chuẩn phục vụ kết nối Smart City dài hạn.
 
-3. **Giai đoạn 3 (Tháng 19 - 60 / Q2/2028 - 2030) - Vận hành Thương mại rộng rãi**:
+4. **Giai đoạn 3 — Vận hành Thương mại rộng rãi (Tháng 19 - 60 / Q2/2028 - 2030)**:
    * *Mục tiêu*: Phát triển kinh doanh rộng rãi trên toàn quốc, chuyển đổi dần sang mô hình nhân sự ổn định (Option B) tự vận hành độc lập.
 
 
