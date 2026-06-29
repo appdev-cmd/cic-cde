@@ -43,6 +43,41 @@ export const extractItemProperties = (item: any, id: number) => {
   return props;
 };
 
+/**
+ * Trích Property Sets (Pset) của một cấu kiện từ quan hệ IsDefinedBy.
+ * Trả về { [tênPset]: { [tênThuộcTính]: giá trị } }. Đây là dữ liệu TC2
+ * (kiểm tra quy chuẩn) cần để đọc các thuộc tính như Width/IsExternal...
+ * Defensive: đi đệ quy có giới hạn, bắt mọi node có HasProperties.
+ */
+export const extractPsets = (item: any): Record<string, Record<string, any>> => {
+  const out: Record<string, Record<string, any>> = {};
+  const definedBy = item?.IsDefinedBy;
+  if (!definedBy) return out;
+  const unwrap = (v: any) => (v && typeof v === 'object' && 'value' in v ? v.value : v);
+  const collect = (node: any, depth: number) => {
+    if (!node || depth > 6) return;
+    if (Array.isArray(node)) { for (const c of node) collect(c, depth + 1); return; }
+    if (typeof node !== 'object') return;
+    const hasProps = node.HasProperties;
+    const psetName = unwrap(node.Name);
+    if (psetName && Array.isArray(hasProps)) {
+      const set: Record<string, any> = {};
+      for (const p of hasProps) {
+        const pn = unwrap(p?.Name);
+        const pv = unwrap(p?.NominalValue ?? p?.Value ?? p?.LengthValue ?? p?.AreaValue);
+        if (pn != null && pv !== undefined && pv !== null && pv !== '') set[pn] = pv;
+      }
+      if (Object.keys(set).length) out[psetName] = { ...(out[psetName] || {}), ...set };
+    }
+    for (const key in node) {
+      const val = node[key];
+      if (val && typeof val === 'object') collect(val, depth + 1);
+    }
+  };
+  collect(definedBy, 0);
+  return out;
+};
+
 // Quantity Take-Off (QTO) aggregated per IFC category
 export interface QtoRow {
   category: string;
@@ -166,6 +201,8 @@ export interface BimViewerProps {
   // mô hình mới) → UI không reset lựa chọn/đang lọc của người dùng.
   onModelLoaded?: (spatialTree: any, properties: any, model: any, isPropsRefresh?: boolean) => void;
   onElementSelected?: (properties: any) => void;
+  projectId?: string;
+  isActive?: boolean;
 }
 
 export interface LoadedModelInfo {
@@ -186,6 +223,8 @@ export interface BimViewerRef {
   fitToAll: () => void;
   toggleClipping: (active: boolean) => void;
   toggleMeasurement: (active: boolean) => void;
+  toggleAreaMeasurement: (active: boolean) => void;
+  toggleAngleMeasurement: (active: boolean) => void;
   clearAll: () => void;
   highlightElements: (expressIds: number[]) => Promise<void>;
   isolateElements: (expressIds: number[]) => void;
@@ -209,9 +248,17 @@ export interface BimViewerRef {
   clearCompare: () => Promise<void>;
   toggleMinimap: (active: boolean) => void;
   toggleViewCube: (active: boolean) => void;
+  // Viewpoint mức cấu kiện (P3.1): chụp/khôi phục cấu kiện đang ẩn + mặt cắt.
+  getHiddenElements: () => Promise<Record<string, number[]>>;
+  applyHiddenElements: (state: Record<string, number[]>, skipModelIds?: string[]) => Promise<void>;
+  getClippingPlanes: () => { normal: number[]; origin: number[] }[];
+  applyClippingPlanes: (planes: { normal: number[]; origin: number[] }[]) => void;
 }
 
-export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoaded, onElementSelected }, ref) => {
+export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoaded, onElementSelected, projectId, isActive = true }, ref) => {
+  const projectIdRef = useRef<string | undefined>(projectId);
+  projectIdRef.current = projectId;
+  const savedElemRef = useRef<Set<string>>(new Set()); // dedupe lazy-save thuộc tính cấu kiện
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState('');
@@ -228,6 +275,8 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
   const fragmentsRef = useRef<OBC.FragmentsManager | null>(null);
   const clipperRef = useRef<OBC.Clipper | null>(null);
   const measurementsRef = useRef<OBF.LengthMeasurement | null>(null);
+  const areaMeasurementRef = useRef<OBF.AreaMeasurement | null>(null);
+  const angleMeasurementRef = useRef<OBF.AngleMeasurement | null>(null);
   const currentModelRef = useRef<any>(null);
   const loadedModelsRef = useRef<LoadedModelInfo[]>([]);
   const catMapsRef = useRef<Record<string, Record<string, number[]>>>({}); // modelId -> category -> localIds
@@ -280,15 +329,16 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     // Initialize scene, renderer, and camera
     world.scene = new OBC.SimpleScene(components);
-    // preserveDrawingBuffer: true để chụp screenshot (viewpoint/BCF) không bị trắng
-    world.renderer = new OBC.SimpleRenderer(components, containerRef.current, { 
+    // Sử dụng SimpleRenderer mặc định (siêu nhẹ, không có post-processing)
+    // Khóa antialias=false để không ngốn GPU trên các mô hình lớn
+    world.renderer = new OBC.SimpleRenderer(components, containerRef.current, {
       preserveDrawingBuffer: true,
-      powerPreference: "high-performance", // Ép trình duyệt sử dụng card đồ họa rời hiệu năng cao
-      antialias: false                     // Tắt khử răng cưa phần cứng để tăng fill-rate cho GPU
+      powerPreference: "high-performance",
+      antialias: false 
     });
-    // Fix: Force pixel ratio to 1 so FastModelPicker's scissor coordinates
-    // match its readPixelAt coordinates (ThatOpen bug: renderPickPass divides
-    // scissor by dpr but readPixelAt doesn't).
+    
+    // Ép PixelRatio về 1 (không nhân độ phân giải lên 2x, 4x trên màn hình 2K/4K)
+    // Đây là nguyên nhân cực lớn gây drop FPS trên các máy Windows có màn hình nét
     world.renderer.three.setPixelRatio(1);
     world.camera = new OBC.SimpleCamera(components);
 
@@ -319,7 +369,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       world,
       selectMaterialDefinition: {
         color: new THREE.Color('#0c59a9'),
-        opacity: 0.8,
+        opacity: 0.6,
         transparent: true,
         renderedFaces: FRAG.RenderedFaces.TWO,
       }
@@ -351,12 +401,13 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       renderedFaces: FRAG.RenderedFaces.TWO,
     });
 
-    // Setup Hoverer for hover feedback
+    // Setup Hoverer — GPU picking mặc định của ThatOpen (tự động tối ưu hóa hiệu năng)
     const hoverer = components.get(OBF.Hoverer);
     hoverer.world = world;
     hoverer.enabled = true;
+    // Dùng màu vàng sáng (0xfacc15) với độ mờ 0.5 để nổi bật trên nền mô hình xám/trắng
     hoverer.material = new THREE.MeshBasicMaterial({
-      color: 0xbad2ff,
+      color: 0xfacc15,
       transparent: true,
       opacity: 0.5,
       depthWrite: false,
@@ -373,35 +424,31 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     measurementsRef.current = measurements;
     measurements.enabled = false;
 
-    // 6. Handle Element Selection Event
-    highlighter.events.select.onHighlight.add(async (fragmentMap) => {
+    // Đo diện tích & góc (2.5)
+    const areaMeasurement = components.get(OBF.AreaMeasurement);
+    areaMeasurement.world = world;
+    areaMeasurementRef.current = areaMeasurement;
+    areaMeasurement.enabled = false;
+    const angleMeasurement = components.get(OBF.AngleMeasurement);
+    angleMeasurement.world = world;
+    angleMeasurementRef.current = angleMeasurement;
+    angleMeasurement.enabled = false;
+
+    // 6. Handle Element Selection Event - Giải pháp Lai (Hybrid Selection)
+    const triggerSelection = async (selectedExpressId: number | null, selectedModelId: string | null) => {
       if (!onElementSelectedRef.current) return;
-
-      let selectedExpressId: number | null = null;
-      let selectedModelId: string | null = null;
-
-      for (const fragId in fragmentMap) {
-        const expressIds = fragmentMap[fragId];
-        if (expressIds && expressIds.size > 0) {
-          for (const id of expressIds) {
-            selectedExpressId = id;
-            break;
-          }
-          // Xác định modelId của cấu kiện được chọn từ FragmentsManager
-          const fragment = fragments.list.get(fragId) as any;
-          if (fragment && fragment.group) {
-            selectedModelId = (fragment.group as any)._cdeModelId || null;
-          }
-          break;
-        }
-      }
 
       if (selectedExpressId !== null) {
         const props = propsDictRef.current[selectedExpressId];
         if (props) {
           onElementSelectedRef.current(props);
+          const key = `${selectedModelId}:${selectedExpressId}`;
+          if (projectIdRef.current && selectedModelId && !savedElemRef.current.has(key)) {
+            savedElemRef.current.add(key);
+            const sid = selectedModelId, eid = selectedExpressId;
+            import('../../lib/api/data').then(api => api.saveElementProps(projectIdRef.current, sid, eid, props)).catch(() => {});
+          }
         } else if (selectedModelId) {
-          // Trạng thái đang tải thuộc tính từ Database
           onElementSelectedRef.current({
             expressID: selectedExpressId,
             expressId: selectedExpressId,
@@ -411,13 +458,51 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
             _loading: true
           });
 
-          // Tải động API truy vấn database để tránh phụ thuộc vòng và tối ưu bundle
           import('../../lib/api/data').then(async (api) => {
             try {
-              const dbProps = await api.fetchElementProperties(selectedModelId!, selectedExpressId!);
-              if (dbProps) {
-                propsDictRef.current[selectedExpressId!] = dbProps;
-                onElementSelectedRef.current?.(dbProps);
+              let finalProps = await api.fetchElementProperties(selectedModelId!, selectedExpressId!);
+              
+              if (!finalProps) {
+                const modelInfo = loadedModelsRef.current.find(m => m.id === selectedModelId);
+                if (modelInfo && modelInfo.model) {
+                  const itemsData = await modelInfo.model.getItemsData([selectedExpressId!], {
+                    attributesDefault: true,
+                    // Chỉ lấy relations khi click chọn cấu kiện đơn lẻ (rất nhanh, không gây lag)
+                    relations: { IsDefinedBy: { attributes: true, relations: true } },
+                  });
+                  
+                  if (itemsData && itemsData.length > 0 && itemsData[0]) {
+                    const item = itemsData[0];
+                    const id = item._localId ? item._localId.value : selectedExpressId!;
+                    const guid = item._guid ? item._guid.value : 'N/A';
+                    const name = item.Name ? (item.Name.value !== undefined ? item.Name.value : item.Name) : `${item._category?.value || 'Element'} [ID: ${id}]`;
+                    const objectType = item.ObjectType ? (item.ObjectType.value !== undefined ? item.ObjectType.value : item.ObjectType) : item._category?.value || 'IFC ELEMENT';
+                    const category = item._category ? item._category.value : 'IFC ELEMENT';
+                    const props: any = { expressID: id, expressId: id, Name: name, ObjectType: objectType, GlobalId: guid, GUID: guid, type: category };
+                    
+                    for (const key in item) {
+                      if (!['_category', '_localId', '_guid', 'Name', 'ObjectType', 'IsDefinedBy'].includes(key) && item[key] !== null) {
+                        const val = item[key];
+                        props[key] = val && val.value !== undefined ? val.value : val;
+                      }
+                    }
+                    
+                    const psets = extractPsets(item);
+                    if (Object.keys(psets).length) props._psets = psets;
+                    finalProps = props;
+                  }
+                }
+              }
+
+              if (finalProps) {
+                propsDictRef.current[selectedExpressId!] = finalProps;
+                onElementSelectedRef.current?.(finalProps);
+                
+                const key = `${selectedModelId!}:${selectedExpressId!}`;
+                if (projectIdRef.current && !savedElemRef.current.has(key)) {
+                  savedElemRef.current.add(key);
+                  api.saveElementProps(projectIdRef.current, selectedModelId!, selectedExpressId!, finalProps).catch(() => {});
+                }
               } else {
                 onElementSelectedRef.current?.({
                   expressID: selectedExpressId,
@@ -428,17 +513,18 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
                 });
               }
             } catch (err) {
-              console.error('Lỗi truy vấn thuộc tính từ DB:', err);
+              console.error('Lỗi truy vấn thuộc tính:', err);
               onElementSelectedRef.current?.({
                 expressID: selectedExpressId,
                 expressId: selectedExpressId,
-                Name: `Cấu kiện [ID: ${selectedExpressId}] (Lỗi tải thuộc tính)`,
+                Name: `Cấu kiện [ID: ${selectedExpressId}] (Lỗi tải)`,
                 ObjectType: 'IFC ELEMENT',
                 GlobalId: 'N/A'
               });
             }
           });
         } else {
+          // HÀNG PHÒNG THỦ: Luôn hiển thị thông tin cơ bản ngay cả khi không tìm thấy modelId
           onElementSelectedRef.current({
             expressID: selectedExpressId,
             expressId: selectedExpressId,
@@ -450,6 +536,44 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       } else {
         onElementSelectedRef.current(null);
       }
+    };
+
+    // Bật cơ chế chọn tự động của ThatOpen (GPU picking — cực nhạy và mượt mà)
+    highlighter.enabled = true;
+
+    // Sự kiện click chọn cấu kiện — đơn giản, không block main thread
+    highlighter.events.select.onHighlight.add(async (fragmentMap) => {
+      if (!onElementSelectedRef.current) return;
+
+      try {
+        let selectedExpressId: number | null = null;
+        let selectedModelId: string | null = null;
+
+        for (const fragId in fragmentMap) {
+          const expressIds = fragmentMap[fragId];
+          if (expressIds && expressIds.size > 0) {
+            for (const id of expressIds) {
+              selectedExpressId = id;
+              break;
+            }
+            const fragment = fragments.list.get(fragId) as any;
+            if (fragment?.group) {
+              selectedModelId = (fragment.group as any)._cdeModelId || null;
+            }
+            break;
+          }
+        }
+
+        // Fallback: nếu không lấy được modelId từ fragment.group
+        if (selectedExpressId !== null && !selectedModelId && loadedModelsRef.current.length > 0) {
+          selectedModelId = loadedModelsRef.current[0].id;
+        }
+
+        await triggerSelection(selectedExpressId, selectedModelId);
+      } catch (err) {
+        console.error('Lỗi trong sự kiện onHighlight:', err);
+        await triggerSelection(null, null);
+      }
     });
 
     // Setup mouse actions for double click to place clipping planes or measurements
@@ -458,6 +582,10 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
         clipper.create(world);
       } else if (measurements.enabled) {
         measurements.create();
+      } else if (areaMeasurement.enabled) {
+        (areaMeasurement as any).create();
+      } else if (angleMeasurement.enabled) {
+        (angleMeasurement as any).create();
       }
     };
 
@@ -598,38 +726,13 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     };
     window.addEventListener('keydown', handleFlyKey);
 
-    // Tối ưu hóa động: Tự động giảm chi tiết (LOD = DEFAULT) khi bắt đầu xoay/di chuyển camera để đạt 60 FPS
-    const handleCameraMoveStart = async () => {
-      const models = loadedModelsRef.current;
-      if (models.length === 0) return;
-      let needsUpdate = false;
-      for (const info of models) {
-        if (info.model) {
-          await info.model.setLodMode(FRAG.LodMode.DEFAULT);
-          needsUpdate = true;
-        }
-      }
-      if (needsUpdate) {
-        fragmentsRef.current?.core?.update?.(true);
-      }
-    };
-
-    // Khôi phục chi tiết đầy đủ (LOD = ALL_GEOMETRY) khi camera dừng di chuyển hẳn để click chọn hoạt động đúng
-    const handleCameraRest = async () => {
-      const models = loadedModelsRef.current;
-      if (models.length === 0) return;
-      let needsUpdate = false;
-      for (const info of models) {
-        if (info.model) {
-          await info.model.setLodMode(FRAG.LodMode.ALL_GEOMETRY);
-          needsUpdate = true;
-        }
-      }
-      await fragmentsRef.current?.core?.update?.(true);
-    };
-
-    world.camera.controls.addEventListener('controlstart', handleCameraMoveStart);
-    world.camera.controls.addEventListener('rest', handleCameraRest);
+    // TỐI ƯU HÓA ĐÃ KIỂM CHỨNG: Loại bỏ việc thay đổi LOD động khi xoay camera.
+    // Việc thay đổi LOD liên tục làm nghẽn Main Thread gây giật hình (stuttering).
+    // Giữ nguyên mức chi tiết đầy đủ để hiển thị đẹp và nhấp chọn chính xác.
+    /*
+    const handleCameraMoveStart = async () => { ... };
+    const handleCameraRest = async () => { ... };
+    */
 
     // Handle container resizing
     const handleResize = () => {
@@ -641,8 +744,6 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleFlyKey);
-      world.camera.controls.removeEventListener('controlstart', handleCameraMoveStart);
-      world.camera.controls.removeEventListener('rest', handleCameraRest);
       domElement.removeEventListener('contextmenu', handleContextMenu);
       if (containerRef.current) {
         containerRef.current.removeEventListener('dblclick', handleDoubleClick);
@@ -768,7 +869,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     
     let active = true;
     const animate = () => {
-      if (!active) return;
+      if (!active || !isActive) return;
       requestAnimationFrame(animate);
       
       if (world.camera && world.camera.three) {
@@ -798,7 +899,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
         container.removeChild(renderer.domElement);
       }
     };
-  }, [viewCubeActive, modelCount]);
+  }, [viewCubeActive, modelCount, isActive]);
 
   // Effect setup for Minimap
   useEffect(() => {
@@ -855,7 +956,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     
     let active = true;
     const animate = () => {
-      if (!active) return;
+      if (!active || !isActive) return;
       requestAnimationFrame(animate);
       
       const mainCam = world.camera.three;
@@ -918,7 +1019,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
         container.removeChild(overlay);
       }
     };
-  }, [minimapActive, modelCount]);
+  }, [minimapActive, modelCount, isActive]);
 
   // Shared helper: process a loaded model (extract props, spatial, fit camera)
   const processLoadedModel = async (model: any, modelName: string, explicitId?: string) => {
@@ -983,6 +1084,23 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     walkCat(spatial);
     catMapsRef.current[modelId] = catMap;
 
+    // Tự động ẩn các khối không gian ẩn (IfcSpace, IfcSite, IfcOpeningElement)
+    // để click chọn chính xác cấu kiện thật — không cần Raycaster xuyên không gian
+    const autoHideCategories = ['IFCSPACE', 'IFCOPENINGELEMENT', 'IFCSITE', 'IFCGEOGRAPHICELEMENT'];
+    for (const cat of autoHideCategories) {
+      const ids = catMap[cat];
+      if (ids && ids.length > 0) {
+        try {
+          await model.setVisible(ids, false);
+        } catch (e) {
+          console.warn(`Không thể ẩn ${cat}:`, e);
+        }
+      }
+    }
+    try {
+      await fragmentsRef.current?.core?.update?.(true);
+    } catch (_) { /* bỏ qua nếu update lỗi */ }
+
     // Model + cây + bộ lọc sẵn sàng NGAY (không chờ thuộc tính chi tiết)
     if (onModelLoadedRef.current) {
       onModelLoadedRef.current(spatial, propsDictRef.current, model);
@@ -998,10 +1116,15 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       if (!loadedModelsRef.current.some(m => m.id === modelId)) return;
       const localIds = Array.from(await model.getLocalIds()) as number[];
       const newProps: Record<number, any> = {};
-      const BATCH = 5000;
+      // Batch nhỏ hơn và tăng độ trễ nghỉ (50ms) để không gây nghẽn CPU/GPU luồng chính
+      const BATCH = 500;
       for (let i = 0; i < localIds.length; i += BATCH) {
         if (!loadedModelsRef.current.some(m => m.id === modelId)) return;
-        const itemsData = await model.getItemsData(localIds.slice(i, i + BATCH));
+        const itemsData = await model.getItemsData(localIds.slice(i, i + BATCH), {
+          attributesDefault: true,
+          // BỎ LẤY RELATIONS chạy nền cho toàn bộ mô hình. Việc lấy quan hệ của hàng ngàn cấu kiện
+          // cùng lúc sẽ làm nghẽn WebWorker liên tục trong 20-30s, khiến việc hover/click bị đơ.
+        });
         for (const item of itemsData) {
           if (!item) continue;
           const id = item._localId ? item._localId.value : null;
@@ -1012,15 +1135,17 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
           const category = item._category ? item._category.value : 'IFC ELEMENT';
           const props: any = { expressID: id, expressId: id, Name: name, ObjectType: objectType, GlobalId: guid, GUID: guid, type: category };
           for (const key in item) {
-            if (!['_category', '_localId', '_guid', 'Name', 'ObjectType'].includes(key) && item[key] !== null) {
+            if (!['_category', '_localId', '_guid', 'Name', 'ObjectType', 'IsDefinedBy'].includes(key) && item[key] !== null) {
               const val = item[key];
               props[key] = val && val.value !== undefined ? val.value : val;
             }
           }
+          const psets = extractPsets(item);
+          if (Object.keys(psets).length) props._psets = psets;
           newProps[id] = props;
         }
-        // Nhường main thread một nhịp giữa các lô (UI không khựng)
-        await new Promise(r => setTimeout(r, 0));
+        // Nhường main thread 50ms giữa các lô giúp xoay camera mượt mà
+        await new Promise(r => setTimeout(r, 50));
       }
       propsDictRef.current = { ...propsDictRef.current, ...newProps };
       // Cập nhật lại UI với tên/thuộc tính đầy đủ + catMap hoàn chỉnh
@@ -1048,6 +1173,11 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
   // Expose functions to parent component
   useImperativeHandle(ref, () => ({
+    togglePerformanceMode: (enabled: boolean) => {
+      // Đã chuyển sang SimpleRenderer nên mặc định là chế độ hiệu năng cao (Performance Mode)
+      console.log('Performance mode is default now.');
+    },
+
     loadUrl: async (url: string, modelId?: string) => {
       if (!componentsRef.current || !worldRef.current) return;
       // Tránh nạp trùng model đã có
@@ -1170,11 +1300,35 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     toggleMeasurement: (active: boolean) => {
       if (!measurementsRef.current) return;
+      if (active) { // tắt các công cụ đo khác để tránh xung đột double-click
+        if (areaMeasurementRef.current) areaMeasurementRef.current.enabled = false;
+        if (angleMeasurementRef.current) angleMeasurementRef.current.enabled = false;
+      }
       measurementsRef.current.enabled = active;
       if (!active) {
         const m = measurementsRef.current as any;
         (m.deleteAll || m.clear)?.call(m);
       }
+    },
+
+    toggleAreaMeasurement: (active: boolean) => {
+      if (!areaMeasurementRef.current) return;
+      if (active) {
+        if (measurementsRef.current) measurementsRef.current.enabled = false;
+        if (angleMeasurementRef.current) angleMeasurementRef.current.enabled = false;
+      }
+      areaMeasurementRef.current.enabled = active;
+      if (!active) { const m = areaMeasurementRef.current as any; (m.deleteAll || m.clear)?.call(m); }
+    },
+
+    toggleAngleMeasurement: (active: boolean) => {
+      if (!angleMeasurementRef.current) return;
+      if (active) {
+        if (measurementsRef.current) measurementsRef.current.enabled = false;
+        if (areaMeasurementRef.current) areaMeasurementRef.current.enabled = false;
+      }
+      angleMeasurementRef.current.enabled = active;
+      if (!active) { const m = angleMeasurementRef.current as any; (m.deleteAll || m.clear)?.call(m); }
     },
 
     clearAll: () => {
@@ -1323,19 +1477,34 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     setRenderingEnabled: (enabled: boolean) => {
       const world = worldRef.current;
       if (!world) return;
-      if (world.renderer) world.renderer.enabled = enabled;
-      if (world.camera?.controls) world.camera.controls.enabled = enabled;
-      // Khi bật lại (quay lại tab Mô hình 3D): canvas vừa rời display:none nên
-      // có thể 0x0 và geometry đã bị culling ẩn (LOD chỉ cập nhật lúc camera 'rest').
-      // → ép resize + cập nhật fragments + vẽ lại 1 frame để hình hiện lại ngay.
-      if (enabled) {
-        setTimeout(() => {
-          try {
-            world.renderer?.resize?.();
-            fragmentsRef.current?.core?.update?.(true);
-            world.renderer?.three?.render?.(world.scene.three, world.camera.three);
-          } catch { /* noop */ }
-        }, 80);
+      
+      const renderer3 = world.renderer?.three;
+      if (renderer3) {
+        if (enabled) {
+          // Khôi phục hàm render gốc
+          if ((renderer3 as any)._originalRender) {
+            renderer3.render = (renderer3 as any)._originalRender;
+          }
+          if (world.camera?.controls) world.camera.controls.enabled = true;
+          if (world.renderer) world.renderer.enabled = true;
+          
+          setTimeout(() => {
+            try {
+              world.renderer?.resize?.();
+              fragmentsRef.current?.core?.update?.(true);
+              renderer3.render(world.scene.three, world.camera.three);
+            } catch { /* noop */ }
+          }, 80);
+        } else {
+          // Tạm dừng: Ghi đè hàm render bằng hàm rỗng để giải phóng hoàn toàn GPU/CPU
+          if (!(renderer3 as any)._originalRender) {
+            (renderer3 as any)._originalRender = renderer3.render;
+          }
+          renderer3.render = () => {};
+          
+          if (world.camera?.controls) world.camera.controls.enabled = false;
+          if (world.renderer) world.renderer.enabled = false;
+        }
       }
     },
 
@@ -1504,9 +1673,13 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     captureScreenshot: () => {
       try {
-        const canvas = worldRef.current?.renderer?.three?.domElement as HTMLCanvasElement;
+        const renderer = worldRef.current?.renderer;
+        const canvas = renderer?.three?.domElement as HTMLCanvasElement;
         if (!canvas) return null;
-        worldRef.current.renderer.three.render(worldRef.current.scene.three, worldRef.current.camera.three);
+        
+        // Render thẳng để capture canvas (SimpleRenderer)
+        renderer.three.render(worldRef.current.scene.three, worldRef.current.camera.three);
+        
         const url = canvas.toDataURL('image/png');
         return url && url.length > 1000 ? url : null;
       } catch (err) {
@@ -1877,6 +2050,71 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
 
     toggleViewCube: (active: boolean) => {
       setViewCubeActive(active);
+    },
+
+    // Lấy cấu kiện đang ẩn theo từng model (bỏ qua model bị ẩn toàn bộ —
+    // trạng thái đó đã được lưu riêng ở hiddenModels).
+    getHiddenElements: async () => {
+      const out: Record<string, number[]> = {};
+      for (const info of loadedModelsRef.current) {
+        if (info.model.object && info.model.object.visible === false) continue;
+        try {
+          const hidden = await info.model.getItemsByVisibility(false);
+          const arr = Array.from(hidden as Iterable<number>);
+          if (arr.length) out[info.id] = arr;
+        } catch (e) { console.warn('getHiddenElements lỗi model', info.id, e); }
+      }
+      return out;
+    },
+
+    // Khôi phục cấu kiện ẩn: với mỗi model hiện rõ, reset rồi ẩn lại đúng tập đã lưu.
+    applyHiddenElements: async (state, skipModelIds = []) => {
+      const skip = new Set(skipModelIds);
+      for (const info of loadedModelsRef.current) {
+        if (skip.has(info.id)) continue; // model ẩn toàn bộ → để nguyên
+        try {
+          await info.model.resetVisible();
+          const hidden = state[info.id];
+          if (hidden && hidden.length) await info.model.setVisible(hidden, false);
+        } catch (e) { console.warn('applyHiddenElements lỗi model', info.id, e); }
+      }
+      await fragmentsRef.current?.core?.update?.(true);
+    },
+
+    // Đọc các mặt phẳng cắt hiện tại (pháp tuyến + điểm gốc) để lưu viewpoint.
+    getClippingPlanes: () => {
+      const clipper = clipperRef.current as any;
+      if (!clipper?.list) return [];
+      const planes: { normal: number[]; origin: number[] }[] = [];
+      clipper.list.forEach((p: any) => {
+        if (p?.normal && p?.origin) {
+          planes.push({
+            normal: [p.normal.x, p.normal.y, p.normal.z],
+            origin: [p.origin.x, p.origin.y, p.origin.z],
+          });
+        }
+      });
+      return planes;
+    },
+
+    // Khôi phục mặt cắt: xóa hết rồi tạo lại từ pháp tuyến + điểm gốc đã lưu.
+    applyClippingPlanes: (planes) => {
+      const clipper = clipperRef.current;
+      const world = worldRef.current;
+      if (!clipper || !world) return;
+      clipper.deleteAll();
+      if (!planes || planes.length === 0) {
+        clipper.enabled = false;
+        return;
+      }
+      clipper.enabled = true;
+      for (const p of planes) {
+        try {
+          const n = new THREE.Vector3(p.normal[0], p.normal[1], p.normal[2]);
+          const o = new THREE.Vector3(p.origin[0], p.origin[1], p.origin[2]);
+          clipper.createFromNormalAndCoplanarPoint(world, n, o);
+        } catch (e) { console.warn('applyClippingPlanes lỗi', e); }
+      }
     }
   }));
 

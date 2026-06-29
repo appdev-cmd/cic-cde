@@ -2,12 +2,14 @@ import React, { useState, useRef } from 'react';
 import { 
   FolderOpen, Folder, FileText, ChevronRight, ChevronDown, Filter, 
   Columns, Upload, Download, ExternalLink, X, Box, MoreVertical, Search, Check, AlertCircle,
-  RefreshCw, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Info, Settings, History, Clock
+  RefreshCw, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Info, Settings, History, Clock,
+  ShieldCheck, Fingerprint, ScrollText, Loader2
 } from 'lucide-react';
 import { DocumentItem, ApprovalItem, ActivityItem } from '../../types';
-import { uploadFile, compressIfcToZip } from '../../lib/api/storage';
-import { createDocument, updateDocument, fetchDocumentVersions, type DocumentVersion } from '../../lib/api/documents';
+import { uploadFile, compressIfcToZip, sha256OfUrl } from '../../lib/api/storage';
+import { createDocument, updateDocument, deleteDocument, fetchDocumentVersions, type DocumentVersion } from '../../lib/api/documents';
 import { logActivity, createApproval, deleteApproval } from '../../lib/api/data';
+import { fetchAuditLog, auditActionLabel, type AuditEntry } from '../../lib/api/audit';
 import { canApprove, canPublish, roleLabel } from '../../lib/roles';
 
 export function validateISO19650(id: string): { 
@@ -114,6 +116,83 @@ export function DocumentsTab({
   const mayPublish = canPublish(userRole);
   const [selectedDocId, setSelectedDocId] = useState<string | null>('PRJ-STR-Z01-ZZ-M3-S-0023');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Toàn vẹn dữ liệu (SHA-256) & nhật ký kiểm toán (TC3)
+  const [verify, setVerify] = useState<{ docId: string; state: 'checking' | 'ok' | 'fail' | 'error'; msg?: string } | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  // Chọn nhiều tài liệu (thao tác hàng loạt - 1.6)
+  const [bulkIds, setBulkIds] = useState<Set<string>>(new Set());
+  const toggleBulk = (id: string) => setBulkIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const handleVerifyIntegrity = async (doc: DocumentItem) => {
+    if (!doc.fileUrl || !doc.hashSha256) return;
+    setVerify({ docId: doc.id, state: 'checking' });
+    try {
+      const actual = await sha256OfUrl(doc.fileUrl);
+      setVerify({ docId: doc.id, state: actual === doc.hashSha256 ? 'ok' : 'fail' });
+    } catch (e: any) {
+      setVerify({ docId: doc.id, state: 'error', msg: e?.message ?? String(e) });
+    }
+  };
+
+  // Thao tác hàng loạt (1.6)
+  const handleBulkSubmit = () => {
+    const targets = documents.filter(d => bulkIds.has(d.id) && (d.status === 'S0 - WIP' || d.status === 'S1 - SHARED'));
+    if (!targets.length) { alert('Không có tài liệu WIP/SHARED nào trong lựa chọn để gửi duyệt.'); return; }
+    targets.forEach(d => handleSubmitForApproval(d));
+    setBulkIds(new Set());
+    alert(`Đã gửi duyệt ${targets.length} tài liệu.`);
+  };
+  const handleBulkDelete = async () => {
+    const targets = documents.filter(d => bulkIds.has(d.id));
+    if (!targets.length) return;
+    if (!window.confirm(`Xóa ${targets.length} tài liệu đã chọn? Hành động không thể hoàn tác.`)) return;
+    for (const d of targets) { if (projectId) { try { await deleteDocument(d, projectId); } catch (e) { console.error(e); } } }
+    setDocuments(prev => prev.filter(d => !bulkIds.has(d.id)));
+    if (selectedDocId && bulkIds.has(selectedDocId)) setSelectedDocId(null);
+    setBulkIds(new Set());
+  };
+
+  // Xuất Phiếu phát hành (Transmittal) — danh mục tài liệu SHARED/PUBLISHED, in/PDF
+  const handleExportTransmittal = () => {
+    const items = documents.filter(d => d.folder === '02_SHARED' || d.folder === '03_PUBLISHED');
+    if (!items.length) { alert('Chưa có tài liệu ở SHARED/PUBLISHED để lập phiếu phát hành.'); return; }
+    const today = new Date().toLocaleDateString('vi-VN');
+    const rows = items.map((d, i) => `<tr>
+      <td style="text-align:center">${i + 1}</td>
+      <td><code>${d.id}</code></td><td>${d.name}</td>
+      <td style="text-align:center">${d.revision}</td>
+      <td style="text-align:center">${deriveSuitability(d)}</td>
+      <td style="text-align:center">${d.status}</td>
+      <td style="text-align:center">${(d.modifiedDate || '').split('T')[0]}</td>
+    </tr>`).join('');
+    const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Phiếu phát hành tài liệu</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#111}h1{font-size:18px;margin:0 0 4px}
+      .meta{font-size:12px;color:#555;margin-bottom:16px}table{width:100%;border-collapse:collapse;font-size:12px}
+      th,td{border:1px solid #999;padding:6px 8px;vertical-align:top}th{background:#f0f0f0;text-align:left}
+      code{font-family:Consolas,monospace;font-size:11px}.sign{margin-top:40px;display:flex;justify-content:space-between;font-size:12px}
+      .sign div{text-align:center;width:30%}</style></head><body>
+      <h1>PHIẾU PHÁT HÀNH TÀI LIỆU (TRANSMITTAL)</h1>
+      <div class="meta">Dự án: <b>${projectId ?? '—'}</b> · Ngày phát hành: <b>${today}</b> · Số tài liệu: <b>${items.length}</b> · Theo ISO 19650</div>
+      <table><thead><tr><th style="width:36px">STT</th><th>Mã ISO 19650</th><th>Tên tài liệu</th><th>Rev.</th><th>Suitability</th><th>Trạng thái</th><th>Ngày</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="sign"><div>Người lập<br/><br/><br/>……………………</div><div>Người kiểm<br/><br/><br/>……………………</div><div>Người phê duyệt<br/><br/><br/>……………………</div></div>
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) { alert('Trình duyệt chặn cửa sổ in. Vui lòng cho phép pop-up rồi thử lại.'); return; }
+    w.document.write(html); w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  };
+
+  const handleOpenAudit = async () => {
+    setAuditOpen(true);
+    if (!projectId) return;
+    setAuditLoading(true);
+    try { setAuditEntries(await fetchAuditLog(projectId)); }
+    catch (e) { console.error(e); }
+    finally { setAuditLoading(false); }
+  };
   
   // Navigation states
   const [activeFolder, setActiveFolder] = useState<'01_WIP' | '02_SHARED' | '03_PUBLISHED' | '04_ARCHIVE'>('02_SHARED');
@@ -325,7 +404,29 @@ export function DocumentsTab({
 
     const fileType: DocumentItem['fileType'] =
       /\.(ifc|ifczip)$/i.test(file.name) ? 'ifc' : file.name.endsWith('.dwg') ? 'dwg' : 'pdf';
-    const code = `PRJ-${fileType.toUpperCase()}-${activeFolder === '02_SHARED' ? 'Z01' : 'Z02'}-ZZ-M3-${fileType === 'ifc' ? 'W' : 'A'}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // CƯỠNG CHẾ ĐẶT TÊN ISO 19650: mã tài liệu lấy từ tên file. Tên không đạt
+    // chuẩn 7 trường -> từ chối tải lên (kèm hướng dẫn), không tự sinh mã ngẫu nhiên.
+    const rawName = file.name.replace(/\.[^/.]+$/, '');
+    const code = rawName.trim().toUpperCase();
+    const naming = validateISO19650(code);
+    if (!naming.isValid) {
+      alert(
+        'Tên file chưa đạt chuẩn ISO 19650 nên KHÔNG thể tải lên.\n\n' +
+        '• Lỗi: ' + naming.errors[0] + '\n\n' +
+        'Yêu cầu: tên file gồm đúng 7 trường phân tách bằng dấu "-":\n' +
+        '[Dự án]-[Đơn vị]-[Phân khu]-[Cao trình]-[Loại]-[Bộ môn]-[Số]\n' +
+        'Ví dụ hợp lệ: PRJ-ARC-Z01-ZZ-M3-A-0001\n\n' +
+        'Vui lòng đổi tên file đúng chuẩn rồi tải lại.'
+      );
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    if (documents.some(d => d.id === code)) {
+      alert('Mã tài liệu "' + code + '" đã tồn tại trong dự án. Vui lòng dùng số thứ tự khác.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(20);
@@ -846,6 +947,12 @@ export function DocumentsTab({
                </div>
             </div>
             <div className="flex items-center gap-2">
+               <button onClick={handleExportTransmittal} title="Xuất phiếu phát hành (Transmittal) — in/PDF" className="px-2.5 py-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg border border-outline-variant/50 transition-all flex items-center gap-1.5 text-[12px] font-semibold">
+                  <Download size={15} /> Phiếu phát hành
+               </button>
+               <button onClick={handleOpenAudit} title="Nhật ký kiểm toán (bất biến)" className="px-2.5 py-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg border border-outline-variant/50 transition-all flex items-center gap-1.5 text-[12px] font-semibold">
+                  <ScrollText size={15} /> Nhật ký kiểm toán
+               </button>
                <button className="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-lg border border-transparent transition-all">
                   <Columns size={16} />
                </button>
@@ -871,6 +978,16 @@ export function DocumentsTab({
               </div>
             )}
 
+            {bulkIds.size > 0 && (
+              <div className="mb-3 flex items-center gap-3 bg-primary-container/15 border border-primary/25 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                <span className="text-[12px] font-bold text-primary">Đã chọn {bulkIds.size} tài liệu</span>
+                <div className="flex-1" />
+                <button onClick={handleBulkSubmit} className="text-[12px] font-bold text-primary hover:underline">Gửi duyệt</button>
+                {mayPublish && <button onClick={handleBulkDelete} className="text-[12px] font-bold text-error hover:underline">Xóa</button>}
+                <button onClick={() => setBulkIds(new Set())} className="text-[12px] font-semibold text-on-surface-variant hover:underline">Bỏ chọn</button>
+              </div>
+            )}
+
             {filteredDocuments.length === 0 ? (
               <div className="h-64 border border-outline-variant/40 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center text-on-surface-variant gap-3 bg-surface-container-lowest/20">
                 <FileText size={36} className="text-outline/40" />
@@ -885,8 +1002,14 @@ export function DocumentsTab({
               <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm flex flex-col min-w-[800px] overflow-hidden">
                  {/* Table Header */}
                  <div className="grid grid-cols-[40px_minmax(280px,2fr)_140px_90px_80px_150px_40px] items-center px-4 py-3 border-b border-outline-variant bg-surface-container-low/40 font-bold text-[10px] tracking-wider uppercase text-outline sticky top-0 z-10">
-                    <div className="flex justify-center">
-                       <input type="checkbox" className="w-3.5 h-3.5 rounded border-outline-variant text-primary focus:ring-primary bg-surface cursor-pointer" />
+                    <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                       <input
+                         type="checkbox"
+                         checked={filteredDocuments.length > 0 && filteredDocuments.every(d => bulkIds.has(d.id))}
+                         ref={el => { if (el) el.indeterminate = filteredDocuments.some(d => bulkIds.has(d.id)) && !filteredDocuments.every(d => bulkIds.has(d.id)); }}
+                         onChange={(e) => setBulkIds(e.target.checked ? new Set(filteredDocuments.map(d => d.id)) : new Set())}
+                         className="w-3.5 h-3.5 rounded border-outline-variant text-primary focus:ring-primary bg-surface cursor-pointer"
+                       />
                     </div>
                     <div>TÊN TÀI LIỆU</div>
                     <div>TRẠNG THÁI</div>
@@ -913,11 +1036,12 @@ export function DocumentsTab({
                           }`}
                         >
                            <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
-                              <input 
-                                type="checkbox" 
-                                checked={isSelected}
-                                onChange={() => setSelectedDocId(isSelected ? null : doc.id)}
-                                className="w-3.5 h-3.5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer" 
+                              <input
+                                type="checkbox"
+                                checked={bulkIds.has(doc.id)}
+                                onChange={() => toggleBulk(doc.id)}
+                                title="Chọn để thao tác hàng loạt"
+                                className="w-3.5 h-3.5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
                               />
                            </div>
                            <div className="flex items-center gap-3 pr-4 overflow-hidden">
@@ -1047,6 +1171,34 @@ export function DocumentsTab({
                         Xem bản vẽ <ExternalLink size={10} />
                       </span>
                     </div>
+                  )}
+               </div>
+
+               {/* Toàn vẹn dữ liệu (SHA-256) */}
+               <div className="bg-surface-container-low border border-outline-variant/40 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-on-surface uppercase tracking-wider">
+                     <Fingerprint size={13} className="text-primary" /> Toàn vẹn dữ liệu (SHA-256)
+                  </div>
+                  {selectedDoc.hashSha256 ? (
+                     <>
+                        <p className="font-mono text-[10px] text-on-surface-variant break-all leading-relaxed">{selectedDoc.hashSha256}</p>
+                        <div className="flex items-center gap-2">
+                           <button
+                              onClick={() => handleVerifyIntegrity(selectedDoc)}
+                              disabled={!selectedDoc.fileUrl || verify?.state === 'checking'}
+                              className="text-[11px] font-bold text-primary hover:underline disabled:text-outline disabled:no-underline flex items-center gap-1"
+                           >
+                              {verify?.docId === selectedDoc.id && verify.state === 'checking'
+                                 ? <><Loader2 size={12} className="animate-spin" /> Đang kiểm tra…</>
+                                 : <><ShieldCheck size={12} /> Kiểm tra toàn vẹn</>}
+                           </button>
+                           {verify?.docId === selectedDoc.id && verify.state === 'ok' && <span className="text-[10.5px] font-bold text-success flex items-center gap-1"><CheckCircle size={12} /> Khớp — chưa bị thay đổi</span>}
+                           {verify?.docId === selectedDoc.id && verify.state === 'fail' && <span className="text-[10.5px] font-bold text-error flex items-center gap-1"><AlertTriangle size={12} /> KHÔNG khớp — đã bị thay đổi!</span>}
+                           {verify?.docId === selectedDoc.id && verify.state === 'error' && <span className="text-[10.5px] text-outline">Lỗi: {verify.msg}</span>}
+                        </div>
+                     </>
+                  ) : (
+                     <p className="text-[10.5px] text-outline italic">Chưa có mã băm (tài liệu mẫu hoặc tải lên trước khi bật tính năng).</p>
                   )}
                </div>
 
@@ -1232,6 +1384,42 @@ export function DocumentsTab({
          </aside>
       )}
 
+      {/* Modal Nhật ký kiểm toán (bất biến) */}
+      {auditOpen && (
+        <div className="fixed inset-0 bg-inverse-on-surface/40 backdrop-blur-[2px] flex items-center justify-center z-[120] p-6" onClick={() => setAuditOpen(false)}>
+          <div className="bg-surface-container-lowest w-full max-w-3xl max-h-[80vh] rounded-2xl shadow-2xl border border-outline-variant flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
+              <h3 className="font-bold text-[15px] text-on-surface flex items-center gap-2"><ScrollText size={17} className="text-primary" /> Nhật ký kiểm toán <span className="text-[11px] font-normal text-on-surface-variant">(bất biến — phục vụ thanh tra)</span></h3>
+              <button onClick={() => setAuditOpen(false)} className="p-1 text-on-surface-variant hover:bg-surface-container-low rounded-full"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+              {auditLoading ? (
+                <div className="py-10 text-center text-on-surface-variant text-sm flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" /> Đang tải…</div>
+              ) : auditEntries.length === 0 ? (
+                <div className="py-10 text-center text-on-surface-variant text-sm">Chưa có bản ghi kiểm toán nào.</div>
+              ) : (
+                <ol className="space-y-2">
+                  {auditEntries.map(e => (
+                    <li key={e.id} className="bg-surface border border-outline-variant/50 rounded-xl p-3 text-[12px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-on-surface flex items-center gap-1.5"><ShieldCheck size={13} className="text-primary" /> {auditActionLabel(e.action)}</span>
+                        <span className="text-[10.5px] text-outline font-mono">{new Date(e.at).toLocaleString('vi-VN')}</span>
+                      </div>
+                      <div className="text-on-surface-variant mt-1">
+                        <span className="font-semibold">{e.actorName ?? 'Hệ thống'}</span>
+                        {e.entityId && <> · <span className="font-mono text-[11px]">{e.entityId}</span></>}
+                        {e.detail?.from && e.detail?.to && <> · <span className="text-error">{e.detail.from}</span> → <span className="text-success">{e.detail.to}</span></>}
+                      </div>
+                      {e.hashAfter && <div className="font-mono text-[9.5px] text-outline break-all mt-1">SHA-256: {e.hashAfter}</div>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. CAD SHEET PREVIEW MODAL */}
       {/* Modal Lịch sử phiên bản */}
       {versionsOpen && (
@@ -1310,6 +1498,10 @@ export function DocumentsTab({
               
               {/* Left Viewport (Canvas Area) */}
               <div className="flex-1 bg-surface-container-high/40 relative overflow-hidden flex items-center justify-center select-none border-r border-outline-variant">
+                {/* Xem trước PDF thật (phủ lên canvas mock khi tài liệu là PDF có URL) */}
+                {selectedDoc.fileType === 'pdf' && selectedDoc.fileUrl && /^https?:/i.test(selectedDoc.fileUrl) && (
+                  <iframe src={selectedDoc.fileUrl} title="Xem trước PDF" className="absolute inset-0 w-full h-full border-0 bg-white z-50" />
+                )}
                 {/* Control Panel Floating Overlay */}
                 <div className="absolute top-4 left-4 z-40 bg-surface-container-lowest/95 backdrop-blur-sm border border-outline-variant/60 rounded-xl p-2 shadow-md flex items-center gap-2">
                   <button 

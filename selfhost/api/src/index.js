@@ -1,6 +1,8 @@
 import express from 'express';
 import { geminiProxyHandler } from './routes/gemini-proxy.js';
 import { scanVirusHandler } from './routes/scan-virus.js';
+import { convertIfcHandler } from './routes/convert-ifc.js';
+import { startConvertWorker } from './worker/convert-worker.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,7 +26,10 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'cde-api' })
 
 app.post('/gemini-proxy', geminiProxyHandler);
 app.post('/scan-virus', scanVirusHandler);
+app.post('/convert-ifc', convertIfcHandler);
 
 app.listen(PORT, () => {
   console.log(`[api] CDE CIC Self-Host API running on port ${PORT}`);
+  // Trụ 2: worker convert IFC->Fragments phía server (DB-driven).
+  startConvertWorker();
 });

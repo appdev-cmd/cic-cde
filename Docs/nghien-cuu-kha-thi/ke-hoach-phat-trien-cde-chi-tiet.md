@@ -197,7 +197,7 @@ Tháng 12 - 18: [Phân hệ 1] Hoàn thiện công nghệ Streaming .cic3d + [Ph
    - Chịu trách nhiệm phân tích yêu cầu nghiệp vụ xây dựng (ISO 19650, các quy chuẩn QCVN), viết tài liệu hướng dẫn, kiểm thử chất lượng phần mềm (Manual & Auto-testing) và hỗ trợ vận hành máy chủ Cloud.
    - Quỹ lương: 30 triệu VNĐ/tháng.
 
-### 4.2. Bảng phân bổ Chi phí Đầu tư CAPEX (3.50 tỷ VNĐ)
+### 4.2. Bảng phân bổ Chi phí Đầu tư (0 VNĐ)
 Toàn bộ chi phí đầu tư trong 18 tháng được phân phối chặt chẽ vào các nhóm hạng mục phục vụ trực tiếp cho công tác nghiên cứu và đạt chứng nhận sản phẩm:
 
 * **Nhân sự lõi (CAP-01)**: **2.00 tỷ VNĐ** (Chi phí lương cứng, bảo hiểm, bản quyền công cụ hỗ trợ AI và chi phí dự phòng milestone cho đội ngũ 2 người trong 18 tháng).
@@ -206,4 +206,4 @@ Toàn bộ chi phí đầu tư trong 18 tháng được phân phối chặt ch�
 * **Hoạt động Marketing & Tiếp cận thị trường (CAP-04)**: **0.50 tỷ VNĐ** (Chi phí tổ chức các buổi hội thảo giới thiệu giải pháp đến các Ban Quản lý Dự án và các Sở Xây dựng địa phương).
 * **Tư vấn chuyên gia & Pháp lý an ninh (CAP-05)**: **0.60 tỷ VNĐ** (Chi phí thuê đơn vị chuyên môn đánh giá an toàn thông tin, rà quét mã nguồn độc lập và hoàn thiện hồ sơ đạt chứng nhận hợp quy QCVN 12 của Bộ Công an).
 
-**Tổng chi phí CAPEX R&D**: **3.50 tỷ VNĐ** (Cam kết không phát sinh chi phí ngoài dự toán, đảm bảo biên an toàn tài chính cho CIC).
+**Tổng chi phí CAPEX R&D**: **0 VNĐ** (sản phẩm đã hoàn thiện) (Cam kết không phát sinh chi phí ngoài dự toán, đảm bảo biên an toàn tài chính cho CIC).

@@ -375,7 +375,7 @@ function getTable6_5_1(calcs) {
     `| Chi phí đầu tư CAPEX | ${fmtVal(-calcs.totalCapexYearly[0])} | ${fmtVal(-calcs.totalCapexYearly[1])} | ${fmtVal(-calcs.totalCapexYearly[2])} | — | — | ${fmtVal(-sumCapex)} |`,
     `| Chi phí vận hành OPEX | ${fmtVal(-calcs.totalOpexYearly[0])} | ${fmtVal(-calcs.totalOpexYearly[1])} | ${fmtVal(-calcs.totalOpexYearly[2])} | ${fmtVal(-calcs.totalOpexYearly[3])} | ${fmtVal(-calcs.totalOpexYearly[4])} | ${fmtVal(-sumOpex)} |`,
     `| **Lợi nhuận trước thuế (EBIT)** | **${fmtVal(calcs.ebit[0])}** | **${fmtVal(calcs.ebit[1])}** | **${fmtVal(calcs.ebit[2], 2)}** | **${fmtVal(calcs.ebit[3], 2)}** | **${fmtVal(calcs.ebit[4], 2)}** | **${fmtVal(sumEbit, 2)}** |`,
-    `| Thuếu TNDN (*)| — | — | — | — | — | — |`,
+    `| Thuế TNDN (*)| — | — | — | — | — | — |`,
     `| **Dòng tiền ròng dự án** | **${fmtVal(calcs.netCashFlow[0])}** | **${fmtVal(calcs.netCashFlow[1])}** | **${fmtVal(calcs.netCashFlow[2], 2)}** | **${fmtVal(calcs.netCashFlow[3], 2)}** | **${fmtVal(calcs.netCashFlow[4], 2)}** | **${fmtVal(sumNet, 2)}** |`,
     `| **Dòng tiền ròng tích lũy** | **${fmtVal(calcs.cumulativeNetCashFlow[0])}** | **${fmtVal(calcs.cumulativeNetCashFlow[1])}** | **${fmtVal(calcs.cumulativeNetCashFlow[2], 2)}** | **${fmtVal(calcs.cumulativeNetCashFlow[3], 2)}** | **${fmtVal(calcs.cumulativeNetCashFlow[4], 2)}** | |`
   ].join('\n');

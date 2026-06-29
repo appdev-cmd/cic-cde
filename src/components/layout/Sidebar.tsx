@@ -1,8 +1,8 @@
-import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut, Scale, TrendingUp } from 'lucide-react';
+import { Building2, LayoutDashboard, Folder, Map, Settings, Sun, Moon, LogOut, Scale, TrendingUp, BookOpen } from 'lucide-react';
 
 interface SidebarProps {
-  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study';
-  setActiveModule: (module: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study') => void;
+  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study' | 'bim-library';
+  setActiveModule: (module: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study' | 'bim-library') => void;
   isCollapsed: boolean;
   darkMode: boolean;
   toggleTheme: () => void;
@@ -76,6 +76,14 @@ export function Sidebar({ activeModule, setActiveModule, isCollapsed, darkMode, 
         >
           <TrendingUp size={20} className={iconClasses(activeModule === 'feasibility-study')} />
           {!isCollapsed && <span>Nghiên cứu khả thi</span>}
+        </div>
+        <div 
+          onClick={() => setActiveModule('bim-library')}
+          className={`group ${itemClasses(activeModule === 'bim-library')} ${isCollapsed ? 'justify-center !px-2' : ''}`} 
+          title="Thư viện BIM"
+        >
+          <BookOpen size={20} className={iconClasses(activeModule === 'bim-library')} />
+          {!isCollapsed && <span>Thư viện BIM</span>}
         </div>
       </nav>
 

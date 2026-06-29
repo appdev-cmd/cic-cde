@@ -27,6 +27,7 @@ function mapDocument(row: any): DocumentRecord {
     fileUrl: row.file_url ?? undefined,
     suitabilityCode: row.suitability_code ?? undefined,
     fragUrl: row.frag_url ?? undefined,
+    hashSha256: row.hash_sha256 ?? undefined,
   };
 }
 

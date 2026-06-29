@@ -70,8 +70,7 @@ const EXPL: Record<string, string> = {
   npv: 'Giá trị hiện tại ròng — tổng dòng tiền ròng 5 năm chiết khấu về hiện tại theo WACC. NPV > 0 nghĩa là dự án tạo giá trị.',
   irr: 'Tỷ suất sinh lời nội bộ — mức chiết khấu làm NPV = 0. Ở đây rất cao (>100%) do chi phí siêu tinh gọn, mang tính lý thuyết, không nên dùng làm chỉ số quyết định chính.',
   payback: 'Thời điểm dòng tiền tích lũy chuyển dương (hoàn vốn).',
-  cashburn: 'Mức âm sâu nhất của dòng tiền tích lũy — phản ánh nhu cầu vốn lưu động đỉnh điểm cần chuẩn bị.',
-  workingCap: 'Vốn lưu động đối ứng CIC cần chuẩn bị để vượt qua giai đoạn dòng tiền âm (đã gồm biên an toàn).',
+
 };
 
 function HelpTip({ text }: { text: string }) {
@@ -154,15 +153,15 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
   };
 
   const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
-  const pct = inputs.costMode === 'pct'; // chế độ nhập theo % doanh thu
-  const setMode = (m: 'value' | 'pct') => update((n) => { n.costMode = m; });
-  const totalCapex = sum(calcs.totalCapexYearly); // tổng CAPEX hiệu dụng theo chế độ hiện tại
 
   const scA = calcs.scenarioResults[0];
   const scB = calcs.scenarioResults[1];
   const scC = calcs.scenarioResults[2];
   const cashBurn = (sc: any) => Math.min(...sc.cumulativeFlows);
-  const paybackLabel = (sc: any) => sc.payback ? `Q${Math.ceil((sc.payback % 1) * 4) || 4}/${Math.floor(2026 + sc.payback)}` : 'Sau 2031';
+  const paybackLabel = (sc: any) => {
+    if (sc.payback === 0) return 'Ngay lập tức (CAPEX = 0)';
+    return sc.payback ? `Q${Math.ceil((sc.payback % 1) * 4) || 4}/${Math.floor(2026 + sc.payback)}` : 'Sau 2031';
+  };
 
   const resultRow = (label: string, arr: number[], opts?: { bold?: boolean; accent?: boolean; tip?: string }) => {
     const { bold, accent, tip } = opts ?? {};
@@ -174,21 +173,6 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
       </tr>
     );
   };
-
-  // Ô OPEX theo chế độ: % doanh thu năm t hoặc giá trị tuyệt đối
-  const opexCell = (key: string, t: number) => pct
-    ? <NumCell step={0.5} unit="%" value={+(inputs.opexPct[key][t] * 100).toFixed(2)} onCommit={(v) => update(n => { n.opexPct[key][t] = v / 100; })} />
-    : <NumCell step={0.1} value={inputs.opex[key][t]} onCommit={(v) => update(n => { n.opex[key][t] = v; })} />;
-
-  // Ô CAPEX theo chế độ: % tổng DT 5 năm (kèm giá trị quy đổi) hoặc giá trị tuyệt đối
-  const capexCell = (key: string, effKey: string) => pct
-    ? (
-      <span className="inline-flex items-center gap-2 justify-end">
-        <NumCell step={0.05} unit="%" value={+(inputs.capexPct[key] * 100).toFixed(3)} onCommit={(v) => update(n => { n.capexPct[key] = v / 100; })} />
-        <span className="text-[11px] text-on-surface-variant font-mono whitespace-nowrap">= {fmt(calcs.capexEffective[effKey])} tỷ</span>
-      </span>
-    )
-    : <NumCell step={0.05} unit="tỷ" value={inputs.capex[key]} onCommit={(v) => update(n => { n.capex[key] = v; })} />;
 
   return (
     <div className="max-w-7xl mx-auto px-2 space-y-8">
@@ -206,32 +190,15 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
           </div>
         </div>
         <div className="shrink-0 flex items-center gap-3">
-          {/* Toggle chế độ nhập chi phí */}
-          <div className="flex items-center bg-surface-container rounded-lg p-0.5 border border-outline-variant/60">
-            <button
-              onClick={() => setMode('value')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${!pct ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              Giá trị (tỷ)
-            </button>
-            <button
-              onClick={() => setMode('pct')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${pct ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              % Doanh thu
-            </button>
-          </div>
           <button onClick={reset} className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant hover:text-primary border border-outline-variant/60 rounded-lg px-3 py-1.5 hover:bg-surface-container transition-colors cursor-pointer">
             <RotateCcw size={13} /> Mặc định
           </button>
         </div>
       </div>
 
-      {pct && (
-        <div className="bg-primary-container/15 border border-primary/30 rounded-xl px-4 py-3 text-[12px] text-on-surface-variant leading-relaxed">
-          <b className="text-primary">Chế độ % Doanh thu đang bật.</b> Chi phí được tính = % × doanh thu. <b>COGS</b> và <b>OPEX</b> theo % doanh thu <b>từng năm</b>; <b>CAPEX</b> theo <b>% tổng doanh thu 5 năm</b> (vì là đầu tư trả trước). Lưu ý: năm 2026 doanh thu ≈ 0 nên chi phí theo % sẽ ≈ 0 — nếu cần giữ chi phí chuẩn bị ban đầu, dùng chế độ <b>Giá trị (tỷ)</b>.
-        </div>
-      )}
+      <div className="bg-primary-container/15 border border-primary/30 rounded-xl px-4 py-3 text-[12px] text-on-surface-variant leading-relaxed">
+        <b className="text-primary">Mô hình Chi phí theo % Doanh thu.</b> Chi phí vận hành được tính tự động dựa trên tỷ lệ % doanh thu của từng kênh (SaaS và On-Premise). Chi phí đầu tư ban đầu <b>CAPEX = 0</b> do sản phẩm công nghệ đã được hoàn thiện.
+      </div>
 
       {/* 0. Cơ sở & Công thức (tham chiếu) */}
       <details className="bg-surface border border-outline-variant/60 rounded-2xl shadow-sm overflow-hidden">
@@ -247,15 +214,15 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
                   {[
                     ['User cuối kỳ', 'User đầu kỳ × (1 − churn) + User mới'],
                     ['Doanh thu SaaS', 'User_TB × ARPU × Số tháng thu phí'],
-                    ['User TB (năm)', '(User đầu kỳ + User cuối kỳ) / 2'],
                     ['Doanh thu On-Prem', 'HĐ mới × Giá/HĐ + AMC'],
                     ['AMC', 'Σ giá trị HĐ lũy kế trước × 15%/năm'],
-                    ['Giá vốn (COGS)', 'Doanh thu × tỷ lệ giá vốn (%)'],
-                    ['Lợi nhuận gộp', 'Doanh thu − COGS'],
-                    ['Dòng tiền ròng', 'LN gộp − CAPEX − OPEX − Thuế'],
+                    ['Chi phí R&D & Vận hành', 'Doanh thu × 35%'],
+                    ['Chi phí Marketing & Sales', 'DT On-Prem × 30% + DT SaaS × 25%'],
+                    ['Chi phí Hạ tầng Cloud', 'DT SaaS × 5%'],
+                    ['Lợi nhuận trước thuế (EBIT)', 'Doanh thu − Tổng Chi phí (bằng 35% Doanh thu)'],
+                    ['Dòng tiền ròng', 'EBIT − Thuế'],
                     ['NPV', 'Σ [ CF(t) / (1+WACC)^t ], năm gốc 2026'],
                     ['IRR', 'mức r sao cho NPV(r) = 0'],
-                    ['Hoàn vốn', 'năm mà dòng tiền tích lũy ≥ 0'],
                   ].map(([k, v]) => (
                     <tr key={k}>
                       <td className="py-1.5 pr-5 font-semibold text-on-surface whitespace-nowrap align-top">{k}</td>
@@ -266,65 +233,76 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
               </table>
             </div>
           </div>
-          <div>
-            <h4 className="font-bold text-xs uppercase tracking-wider text-on-surface-variant mb-2">Đối chiếu benchmark ngành 2026 (cơ sở giả định)</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-[12px] border-collapse">
-                <thead>
-                  <tr className="bg-primary text-on-primary">
-                    <th className="px-3 py-2 text-left font-semibold">Chỉ số</th>
-                    <th className="px-3 py-2 text-center font-semibold">CDE CIC</th>
-                    <th className="px-3 py-2 text-left font-semibold">Benchmark ngành</th>
-                    <th className="px-3 py-2 text-center font-semibold">Đánh giá</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/30">
-                  {[
-                    ['Biên LN gộp', '~60%', 'SaaS+Services ~65%; thuần SaaS 75-82%', '✅ Thận trọng'],
-                    ['AMC bảo trì', '15%', 'On-Prem 15-25% (vendor nhỏ 12-18%)', '✅ Thận trọng'],
-                    ['WACC', '12%', 'IT Việt Nam 8-12% (FPT 11,2%)', '✅ Hợp lý'],
-                    ['ARPU SaaS', '$16-24', 'Autodesk $45-120/user/th', '✅ Cạnh tranh'],
-                    ['Churn SaaS', '10% (chỉnh được)', 'SMB 12-15%; Enterprise 5%', '✅ Đã mô hình hóa'],
-                  ].map((r) => (
-                    <tr key={r[0]} className="odd:bg-surface-container-lowest/40">
-                      <td className="px-3 py-1.5 font-semibold text-on-surface">{r[0]}</td>
-                      <td className="px-3 py-1.5 text-center font-mono text-primary font-bold">{r[1]}</td>
-                      <td className="px-3 py-1.5 text-on-surface-variant">{r[2]}</td>
-                      <td className="px-3 py-1.5 text-center whitespace-nowrap">{r[3]}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <p className="text-[11px] text-on-surface-variant italic leading-relaxed">
-            Nguồn: SaaSRise/Benchmarkit 2026, KeyBanc 2024-25, Forrester &amp; The Negotiation Experts (bảo trì phần mềm), valueinvesting.io (WACC FPT/CMC). Dữ liệu kinh doanh CDE CIC: hệ thống CIC-ERP (6/2026). Chi tiết đầy đủ tại §5.1bis của Báo cáo khả thi. <b>Lưu ý:</b> IRR rất cao (&gt;100%) ở kịch bản lạc quan là chỉ số lý thuyết — ưu tiên quyết định theo NPV (Kịch bản B) &amp; nhu cầu vốn lưu động.
-          </p>
         </div>
       </details>
 
-      {/* 1. Tham số chung */}
-      <Section title="1. Tham số chung">
-        <table className="text-sm border-collapse">
-          <tbody>
-            <Row label="WACC (tỷ lệ chiết khấu)" tip={EXPL.wacc}>
-              <NumCell value={+(inputs.fin.wacc * 100).toFixed(2)} step={0.5} unit="%" onCommit={(v) => update(n => { n.fin.wacc = v / 100; })} />
-            </Row>
-            <Row label="Thuế suất TNDN" tip={EXPL.tax}>
-              <NumCell value={+(inputs.fin.taxRate * 100).toFixed(2)} step={1} unit="%" onCommit={(v) => update(n => { n.fin.taxRate = v / 100; })} />
-            </Row>
-            <Row label="Tỷ lệ vốn tự có CIC đối ứng" tip={EXPL.cicShare}>
-              <NumCell value={+(inputs.fin.cicShare * 100).toFixed(0)} step={5} unit="%" onCommit={(v) => update(n => { n.fin.cicShare = v / 100; })} />
-            </Row>
-            <Row label="Tỷ lệ phí bảo trì AMC/năm" tip={EXPL.amc}>
-              <NumCell value={+(inputs.onPrem.amcRate * 100).toFixed(0)} step={1} unit="%" onCommit={(v) => update(n => { n.onPrem.amcRate = v / 100; })} />
-            </Row>
-            <Row label="Tỷ lệ rời bỏ SaaS (churn)/năm" tip={EXPL.saasChurn}>
-              <NumCell value={+(inputs.saas.churn * 100).toFixed(0)} step={1} unit="%" onCommit={(v) => update(n => { n.saas.churn = v / 100; })} />
-            </Row>
-          </tbody>
-        </table>
-      </Section>
+      {/* 1. Tham số chung & Tỷ lệ Chi phí */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Section title="1. Tham số tài chính chung">
+          <table className="text-sm border-collapse w-full">
+            <tbody>
+              <Row label="WACC (tỷ lệ chiết khấu)" tip={EXPL.wacc}>
+                <NumCell value={+(inputs.fin.wacc * 100).toFixed(2)} step={0.5} unit="%" onCommit={(v) => update(n => { n.fin.wacc = v / 100; })} />
+              </Row>
+              <Row label="Thuế suất TNDN" tip={EXPL.tax}>
+                <NumCell value={+(inputs.fin.taxRate * 100).toFixed(2)} step={1} unit="%" onCommit={(v) => update(n => { n.fin.taxRate = v / 100; })} />
+              </Row>
+              <Row label="Tỷ lệ phí bảo trì AMC/năm" tip={EXPL.amc}>
+                <NumCell value={+(inputs.onPrem.amcRate * 100).toFixed(0)} step={1} unit="%" onCommit={(v) => update(n => { n.onPrem.amcRate = v / 100; })} />
+              </Row>
+              <Row label="Tỷ lệ rời bỏ SaaS (churn)/năm" tip={EXPL.saasChurn}>
+                <NumCell value={+(inputs.saas.churn * 100).toFixed(0)} step={1} unit="%" onCommit={(v) => update(n => { n.saas.churn = v / 100; })} />
+              </Row>
+            </tbody>
+          </table>
+        </Section>
+
+        <Section title="2. Tỷ lệ Chi phí tính theo % Doanh thu">
+          <table className="text-sm border-collapse w-full">
+            <thead>
+              <tr className="border-b border-outline-variant/30 text-xs font-bold text-on-surface-variant">
+                <th className="text-left pb-2">Loại chi phí</th>
+                <th className="text-right pb-2 pr-4">Kênh SaaS</th>
+                <th className="text-right pb-2">Kênh On-Premise</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-outline-variant/20">
+                <td className="py-2.5 text-on-surface font-medium">R&D & Đào tạo vận hành</td>
+                <td className="py-2.5 text-right pr-4">
+                  <NumCell value={+((inputs.saas.rdOpsRate ?? 0.35) * 100).toFixed(1)} step={1} unit="%" onCommit={(v) => update(n => { n.saas.rdOpsRate = v / 100; })} />
+                </td>
+                <td className="py-2.5 text-right">
+                  <NumCell value={+((inputs.onPrem.rdOpsRate ?? 0.35) * 100).toFixed(1)} step={1} unit="%" onCommit={(v) => update(n => { n.onPrem.rdOpsRate = v / 100; })} />
+                </td>
+              </tr>
+              <tr className="border-b border-outline-variant/20">
+                <td className="py-2.5 text-on-surface font-medium">Marketing & Sales</td>
+                <td className="py-2.5 text-right pr-4">
+                  <NumCell value={+((inputs.saas.marketingRate ?? 0.25) * 100).toFixed(1)} step={1} unit="%" onCommit={(v) => update(n => { n.saas.marketingRate = v / 100; })} />
+                </td>
+                <td className="py-2.5 text-right">
+                  <NumCell value={+((inputs.onPrem.marketingRate ?? 0.30) * 100).toFixed(1)} step={1} unit="%" onCommit={(v) => update(n => { n.onPrem.marketingRate = v / 100; })} />
+                </td>
+              </tr>
+              <tr className="border-b border-outline-variant/20">
+                <td className="py-2.5 text-on-surface font-medium">Hạ tầng Cloud</td>
+                <td className="py-2.5 text-right pr-4">
+                  <NumCell value={+((inputs.saas.infraRate ?? 0.05) * 100).toFixed(1)} step={0.5} unit="%" onCommit={(v) => update(n => { n.saas.infraRate = v / 100; })} />
+                </td>
+                <td className="py-2.5 text-right">
+                  <NumCell value={+((inputs.onPrem.infraRate ?? 0.00) * 100).toFixed(1)} step={0.5} unit="%" onCommit={(v) => update(n => { n.onPrem.infraRate = v / 100; })} />
+                </td>
+              </tr>
+              <tr className="font-bold text-primary">
+                <td className="py-2.5">Tổng tỷ lệ chi phí</td>
+                <td className="py-2.5 text-right pr-4">{(((inputs.saas.rdOpsRate ?? 0.35) + (inputs.saas.marketingRate ?? 0.25) + (inputs.saas.infraRate ?? 0.05)) * 100).toFixed(0)}%</td>
+                <td className="py-2.5 text-right">{(((inputs.onPrem.rdOpsRate ?? 0.35) + (inputs.onPrem.marketingRate ?? 0.30) + (inputs.onPrem.infraRate ?? 0.00)) * 100).toFixed(0)}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </Section>
+      </div>
 
       {/* 2. SaaS */}
       <Section title="2. Giả định kênh SaaS (theo năm)">
@@ -401,58 +379,34 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
         </Grid>
       </Section>
 
-      {/* 4. COGS — luôn theo % doanh thu */}
-      <Section title="4. Giá vốn (COGS) — % doanh thu từng năm">
-        <Grid headers={['Chỉ tiêu', ...YEARS.map(String)]}>
-          <tr>
-            <LabelCell text="Tỷ lệ giá vốn (% DT)" tip={EXPL.cogs} />
-            <td className={grey()}>—</td>
-            {[1, 2, 3, 4].map(t => (
-              <td key={t} className={INPUTCELL}><NumCell step={1} unit="%" value={+(inputs.cogsPct[t] * 100).toFixed(1)} onCommit={(v) => update(n => { n.cogsPct[t] = v / 100; })} /></td>
-            ))}
-          </tr>
-          <tr className="bg-surface-container-low font-bold">
-            <LabelCell text="→ Giá vốn (tỷ)" />
-            {YEARS.map((_, t) => <td key={t} className={grey(true)}>{fmt(calcs.cogs[t])}</td>)}
-          </tr>
-        </Grid>
-      </Section>
-
       {/* 5. CAPEX */}
-      <Section title={pct ? '5. Chi phí đầu tư CAPEX (% tổng doanh thu 5 năm)' : '5. Chi phí đầu tư CAPEX (tổng từng hạng mục, tỷ VNĐ)'}>
-        <table className="text-sm border-collapse">
-          <tbody>
-            <Row label="CAP-01 — Nhân sự phát triển lõi" tip={EXPL.cap01}>{capexCell('cap01_RD_staff', 'cap01')}</Row>
-            <Row label="CAP-02 — Trang thiết bị" tip={EXPL.cap02}>{capexCell('cap02_equip', 'cap02')}</Row>
-            <Row label="CAP-03 — Bản quyền & API" tip={EXPL.cap03}>{capexCell('cap03_license', 'cap03')}</Row>
-            <Row label="CAP-04 — Marketing ra mắt" tip={EXPL.cap04}>{capexCell('cap04_marketing', 'cap04')}</Row>
-            <Row label="CAP-05 — Tư vấn, PM & Pháp lý" tip={EXPL.cap05}>{capexCell('cap05_consulting', 'cap05')}</Row>
-            <tr className="border-t-2 border-primary/30 font-bold">
-              <td className="py-2 pr-6 text-on-surface"><span className="inline-flex items-center">TỔNG CAPEX<HelpTip text={EXPL.capexTotal} /></span></td>
-              <td className="py-2 text-right font-mono text-primary">{fmt(totalCapex)} tỷ</td>
-            </tr>
-          </tbody>
-        </table>
+      <Section title="4. Chi phí đầu tư CAPEX">
+        <div className="p-4 border border-primary/30 bg-primary-container/10 rounded-xl text-xs text-on-surface-variant leading-relaxed">
+          <p className="font-bold text-primary mb-1">Chi phí đầu tư ban đầu CAPEX: 0 VNĐ</p>
+          <p>Nền tảng công nghệ CDE CIC đã được nghiên cứu và phát triển hoàn thiện phiên bản prototype độ trung thực cao. Dự án không phát sinh thêm chi phí đầu tư ban đầu (CAPEX = 0). Toàn bộ chi phí tiếp theo được hạch toán trực tiếp vào chi phí vận hành thường niên (OPEX).</p>
+        </div>
       </Section>
 
       {/* 6. OPEX */}
-      <Section title={pct ? '6. Chi phí vận hành OPEX (% doanh thu từng năm)' : '6. Chi phí vận hành OPEX (theo năm, tỷ VNĐ)'}>
-        <Grid headers={['Hạng mục', ...YEARS.map(String), 'Tổng (tỷ)']}>
-          {([
-            ['staff', 'OPX-01 — Nhân sự vận hành', EXPL.opxStaff],
-            ['cloud', 'OPX-02 — Hạ tầng Cloud', EXPL.opxCloud],
-            ['others', 'OPX-03 — Vận hành khác', EXPL.opxOthers],
-          ] as const).map(([key, name, tip]) => (
-            <tr key={key}>
-              <LabelCell text={name} tip={tip} />
-              {YEARS.map((_, t) => (
-                <td key={t} className={INPUTCELL}>{opexCell(key, t)}</td>
-              ))}
-              <td className={grey(true)}>{fmt(sum(calcs.opexEffective[key]))}</td>
-            </tr>
-          ))}
+      <Section title="5. Chi phí vận hành OPEX (tính tự động theo % Doanh thu, tỷ VNĐ)">
+        <Grid headers={['Hạng mục chi phí', ...YEARS.map(String), 'Tổng (tỷ)']}>
+          <tr>
+            <LabelCell text="OPX-01 — R&D & Đào tạo vận hành (35% DT)" tip="Chi phí nhân sự lập trình nâng cấp, bảo trì hệ thống và đào tạo chuyển giao công nghệ." />
+            {YEARS.map((_, t) => <td key={t} className={grey()}>{fmt(calcs.opexEffective.staff[t])}</td>)}
+            <td className={grey(true)}>{fmt(sum(calcs.opexEffective.staff))}</td>
+          </tr>
+          <tr>
+            <LabelCell text="OPX-02 — Chi phí Marketing & Sales (30% Prem / 25% SaaS)" tip="Chi phí tiếp cận thị trường B2G, làm việc trực tiếp với PMU/Sở, tài liệu truyền thông và hoa hồng bán hàng." />
+            {YEARS.map((_, t) => <td key={t} className={grey()}>{fmt(calcs.opexEffective.others[t])}</td>)}
+            <td className={grey(true)}>{fmt(sum(calcs.opexEffective.others))}</td>
+          </tr>
+          <tr>
+            <LabelCell text="OPX-03 — Chi phí hạ tầng Cloud (5% SaaS)" tip="Chi phí thuê máy chủ Cloud, lưu trữ đối tượng S3 cho file BIM, cơ sở dữ liệu HA và bảo mật." />
+            {YEARS.map((_, t) => <td key={t} className={grey()}>{fmt(calcs.opexEffective.cloud[t])}</td>)}
+            <td className={grey(true)}>{fmt(sum(calcs.opexEffective.cloud))}</td>
+          </tr>
           <tr className="bg-surface-container-low font-bold">
-            <LabelCell text="TỔNG OPEX (tỷ)" tip={EXPL.opexTotal} />
+            <LabelCell text="TỔNG CHI PHÍ VẬN HÀNH (65% DT, tỷ)" tip={EXPL.opexTotal} />
             {YEARS.map((_, t) => <td key={t} className={grey(true)}>{fmt(calcs.totalOpexYearly[t])}</td>)}
             <td className={grey(true)}>{fmt(sum(calcs.totalOpexYearly))}</td>
           </tr>
@@ -460,14 +414,15 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
       </Section>
 
       {/* 7. Kết quả — Dòng tiền (read-only) */}
-      <Section title="7. Kết quả — Dòng tiền dự án (Kịch bản A, tự tính)">
+      <Section title="6. Kết quả — Dòng tiền dự án (Kịch bản A, tự tính)">
         <Grid headers={['Chỉ tiêu', ...YEARS.map(String), 'Tổng']}>
           {resultRow('Doanh thu', calcs.totalRevenues, { tip: EXPL.rev })}
-          {resultRow('Giá vốn (COGS)', calcs.cogs.map((v: number) => -v), { tip: EXPL.cogs })}
-          {resultRow('Lợi nhuận gộp', calcs.grossProfit, { bold: true, tip: EXPL.gp })}
-          {resultRow('CAPEX', calcs.totalCapexYearly.map((v: number) => -v), { tip: EXPL.capexRow })}
-          {resultRow('OPEX', calcs.totalOpexYearly.map((v: number) => -v), { tip: EXPL.opexRow })}
-          {resultRow('Dòng tiền ròng', calcs.netCashFlow, { bold: true, accent: true, tip: EXPL.netCash })}
+          {resultRow('Chi phí R&D & Đào tạo vận hành (-)', calcs.opexEffective.staff.map((v: number) => -v))}
+          {resultRow('Chi phí Marketing & Sales (-)', calcs.opexEffective.others.map((v: number) => -v))}
+          {resultRow('Chi phí hạ tầng Cloud (-)', calcs.opexEffective.cloud.map((v: number) => -v))}
+          {resultRow('Lợi nhuận trước thuế (EBIT)', calcs.ebit, { bold: true, tip: 'Lợi nhuận trước thuế = Doanh thu - Chi phí vận hành (bằng 35% Doanh thu)' })}
+          {resultRow('Thuế TNDN (-)', calcs.tax.map((v: number) => -v), { tip: EXPL.tax })}
+          {resultRow('Dòng tiền ròng dự án', calcs.netCashFlow, { bold: true, accent: true, tip: EXPL.netCash })}
           <tr className="font-bold bg-surface-container-low">
             <td className={HEAD}><span className="inline-flex items-center">Dòng tiền tích lũy<HelpTip text={EXPL.cumCash} /></span></td>
             {YEARS.map((_, t) => <td key={t} className={grey(true)}>{fmt(calcs.cumulativeNetCashFlow[t])}</td>)}
@@ -477,7 +432,7 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
       </Section>
 
       {/* 8. KPI theo kịch bản (read-only) */}
-      <Section title="8. Chỉ số hiệu quả theo kịch bản (WACC động)">
+      <Section title="7. Chỉ số hiệu quả theo kịch bản (WACC động)">
         <Grid headers={['Chỉ số', 'A (Lạc quan)', 'B (Cơ sở 55%)', 'C (Bi quan 25%)']}>
           <tr>
             <LabelCell text="NPV toàn dự án (tỷ)" tip={EXPL.npv} />
@@ -497,21 +452,10 @@ export function FinancialTab({ inputs, setInputs, calcs, defaults }: FinancialTa
             <td className={grey()}>{paybackLabel(scB)}</td>
             <td className={grey()}>{paybackLabel(scC)}</td>
           </tr>
-          <tr>
-            <LabelCell text="Cash burn tối đa (tỷ)" tip={EXPL.cashburn} />
-            <td className={grey()}>{fmt(cashBurn(scA))}</td>
-            <td className={grey()}>{fmt(cashBurn(scB))}</td>
-            <td className={grey()}>{fmt(cashBurn(scC))}</td>
-          </tr>
-          <tr>
-            <LabelCell text="Vốn lưu động cần (tỷ)" tip={EXPL.workingCap} />
-            <td className={grey()}>~{Math.abs(cashBurn(scA) * inputs.fin.cicShare).toFixed(1)}</td>
-            <td className={grey()}>~{Math.abs(cashBurn(scB) * inputs.fin.cicShare).toFixed(1)}</td>
-            <td className={grey()}>~{Math.abs(cashBurn(scC) * inputs.fin.cicShare).toFixed(1)}</td>
-          </tr>
+
         </Grid>
         <p className="text-[11px] text-on-surface-variant italic mt-3 leading-relaxed">
-          ⚠️ IRR ở Kịch bản A/B rất cao (&gt;100%) do cơ cấu chi phí siêu tinh gọn (CAPEX {fmt(totalCapex)} + OPEX {fmt(sum(calcs.totalOpexYearly))} tỷ nhỏ so với doanh thu) — không nên dùng làm chỉ số quyết định chính. Quyết định nên dựa trên <b>NPV Kịch bản B</b>, nhu cầu vốn lưu động đỉnh điểm và lợi thế tuân thủ QCVN 12/VNeID.
+          ⚠️ IRR ở Kịch bản A/B rất cao (&gt;100%) là chỉ số lý thuyết do dự án đã hoàn thiện xong sản phẩm (CAPEX = 0) và chi phí vận hành được tối ưu hóa ở mức 65% doanh thu — không nên dùng làm chỉ số quyết định chính. Dự án tự hào là mô hình <b>Tự cấp vốn hoàn toàn (Zero Working Capital)</b> với lợi thế tuân thủ độc quyền QCVN 12/VNeID.
         </p>
       </Section>
     </div>

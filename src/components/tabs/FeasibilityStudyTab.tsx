@@ -55,6 +55,10 @@ function calculateNPV(cashFlows: number[], wacc: number) {
 }
 
 function calculateIRR(cashFlows: number[]) {
+  // Nếu không có dòng tiền âm nào (dự án không cần bỏ vốn đầu tư ban đầu)
+  if (cashFlows.every(v => v >= 0)) {
+    return Infinity;
+  }
   let x0 = 0.1;
   let x1 = 0.2;
   let maxIter = 1000;
@@ -79,6 +83,10 @@ function calculateIRR(cashFlows: number[]) {
 }
 
 function calculatePaybackPeriod(cumulativeFlows: number[], netFlows: number[]) {
+  // Nếu không có dòng tiền âm nào (dòng tiền tích lũy luôn dương)
+  if (cumulativeFlows.every(v => v >= 0)) {
+    return 0; // Hoàn vốn ngay lập tức
+  }
   let lastNegativeYear = -1;
   for (let t = 0; t < cumulativeFlows.length; t++) {
     if (cumulativeFlows[t] < 0) {
@@ -237,13 +245,14 @@ function getTable6_5bis_d(calcs: any, inputs: any) {
     `| Chỉ số | **A (Lạc quan)** | **B (Cơ sở)** | **C (Bi quan)** |`,
     `|---|:---:|:---:|:---:|`,
     `| **NPV toàn dự án** | ${fmtVal(scLacQuan.npv)} tỷ | ${fmtVal(scCoSo.npv)} tỷ | ${fmtVal(scBiQuan.npv)} tỷ |`,
-    `| **IRR** | ${scLacQuan.irr ? (scLacQuan.irr*100).toFixed(0)+'%' : 'Âm'} | ${scCoSo.irr ? (scCoSo.irr*100).toFixed(0)+'%' : 'Âm'} | ${scBiQuan.irr ? (scBiQuan.irr*100).toFixed(0)+'%' : 'Âm'} |`,
-    `| **Thời gian hoàn vốn** | ${paybackA} | ${paybackB} | Sau 2031 |`,
+    `| **IRR** | ${formatIrrVal(scLacQuan.irr)} | ${formatIrrVal(scCoSo.irr)} | ${formatIrrVal(scBiQuan.irr)} |`,
+    `| **Thời gian hoàn vốn** | ${formatPaybackVal(scLacQuan.payback)} | ${formatPaybackVal(scCoSo.payback)} | ${formatPaybackVal(scBiQuan.payback)} |`,
     `| **Cash burn tối đa** | ${fmtVal(minCashBurnA)} tỷ | ${fmtVal(minCashBurnB)} tỷ | ${fmtVal(minCashBurnC)} tỷ |`,
     `| **Vốn lưu động CIC cần chuẩn bị** | ~${Math.abs(minCashBurnA * inputs.fin.cicShare).toFixed(1)} tỷ | ~${Math.abs(minCashBurnB * inputs.fin.cicShare).toFixed(1)} tỷ | ~${Math.abs(minCashBurnC * inputs.fin.cicShare).toFixed(1)} tỷ |`
   ].join('\n');
 }
 
+// Default inputs representing the baseline financial model
 // Default inputs representing the baseline financial model
 const DEFAULT_INPUTS = {
   fin: {
@@ -256,53 +265,43 @@ const DEFAULT_INPUTS = {
     months: [0, 6, 12, 12, 12],
     // User MỚI (gross adds) mỗi năm — user cuối kỳ được suy ra theo churn
     grossAdds: [0, 500, 2550, 4800, 7250],
-    churn: 0.10 // tỷ lệ rời bỏ/năm (mặc định 10% — pha trộn SMB/B2G)
+    churn: 0.10, // tỷ lệ rời bỏ/năm (mặc định 10% — pha trộn SMB/B2G)
+    rdOpsRate: 0.35,     // 35% cho R&D & Đào tạo vận hành
+    marketingRate: 0.25, // 25% cho Marketing & Sales
+    infraRate: 0.05      // 5% cho Hạ tầng Cloud
   },
   onPrem: {
     pmu: {
       newHd: [0, 1, 5, 8, 12],
-      price: [0, 2.0, 2.3, 2.6, 3.0]
+      price: [0, 0.75, 0.75, 0.75, 0.75]
     },
     soXd: {
       newHd: [0, 0, 2, 4, 6],
-      price: [0, 1.8, 2.0, 2.2, 2.5]
+      price: [0, 0.75, 0.75, 0.75, 0.75]
     },
     enterprise: {
       newHd: [0, 1, 2, 3, 5],
-      price: [0, 3.0, 3.4, 3.8, 4.2]
+      price: [0, 1.5, 1.5, 1.5, 1.5]
     },
-    amcRate: 0.15
-  },
-  capex: {
-    cap01_RD_staff: 2.00,
-    cap02_equip: 0.10,
-    cap03_license: 0.30,
-    cap04_marketing: 0.50,
-    cap05_consulting: 0.60
-  },
-  opex: {
-    staff: [0.0, 1.40, 2.00, 2.80, 3.00],
-    cloud: [0.20, 0.60, 2.50, 4.00, 5.80],
-    others: [0.0, 1.00, 2.50, 3.50, 4.00]
-  },
-  // Chế độ nhập chi phí: 'value' = giá trị tuyệt đối (tỷ); 'pct' = % doanh thu
-  costMode: 'value' as 'value' | 'pct',
-  // COGS luôn là % doanh thu theo năm (giá vốn)
-  cogsPct: [0.0, 0.45, 0.40, 0.39, 0.40],
-  // OPEX theo % doanh thu từng năm (dùng khi costMode === 'pct'); 2026 doanh thu ≈ 0
-  opexPct: {
-    staff: [0.0, 0.2500, 0.0614, 0.0366, 0.0188],
-    cloud: [0.0, 0.1071, 0.0768, 0.0522, 0.0363],
-    others: [0.0, 0.1786, 0.0768, 0.0457, 0.0251]
-  },
-  // CAPEX theo % TỔNG doanh thu 5 năm (đầu tư trả trước — không dùng % doanh thu từng năm)
-  capexPct: {
-    cap01_RD_staff: 0.00729,
-    cap02_equip: 0.000365,
-    cap03_license: 0.001093,
-    cap04_marketing: 0.001823,
-    cap05_consulting: 0.002187
+    amcRate: 0.15,
+    rdOpsRate: 0.35,     // 35% cho R&D & Đào tạo vận hành
+    marketingRate: 0.30, // 30% cho Marketing & Sales
+    infraRate: 0.00      // 0% cho Hạ tầng Cloud
   }
+};
+
+// Helper định dạng IRR và Payback động
+const formatIrrVal = (v: number | null) => {
+  if (v === Infinity) return 'N/A (CAPEX = 0)';
+  if (v === null) return '—';
+  if (v < 0) return 'Âm';
+  return `${(v * 100).toFixed(0)}%`;
+};
+
+const formatPaybackVal = (v: number | null) => {
+  if (v === 0) return 'Ngay lập tức (CAPEX = 0)';
+  if (v === null) return 'Sau 2031';
+  return `Q${Math.ceil((v % 1) * 4) || 4}/${Math.floor(2026 + v)}`;
 };
 
 export function FeasibilityStudyTab() {
@@ -314,15 +313,17 @@ export function FeasibilityStudyTab() {
         const merged: any = { ...DEFAULT_INPUTS, ...p };
         // Deep-merge các nhánh có thể thiếu ở dữ liệu cũ (tránh undefined)
         merged.saas = { ...DEFAULT_INPUTS.saas, ...(p.saas || {}) };
-        merged.opex = { ...DEFAULT_INPUTS.opex, ...(p.opex || {}) };
-        merged.opexPct = { ...DEFAULT_INPUTS.opexPct, ...(p.opexPct || {}) };
-        merged.capexPct = { ...DEFAULT_INPUTS.capexPct, ...(p.capexPct || {}) };
-        merged.cogsPct = p.cogsPct ?? DEFAULT_INPUTS.cogsPct;
-        merged.costMode = p.costMode ?? DEFAULT_INPUTS.costMode;
-        // Di trú: dữ liệu cũ chỉ có `users` (cuối kỳ) → suy ra `grossAdds` theo churn
-        if (!merged.saas.grossAdds && p.saas?.users) {
-          const u = p.saas.users; const ch = merged.saas.churn ?? 0;
-          merged.saas.grossAdds = u.map((v: number, t: number) => t === 0 ? 0 : v - (u[t - 1] * (1 - ch)));
+        merged.onPrem = { ...DEFAULT_INPUTS.onPrem, ...(p.onPrem || {}) };
+        
+        // Tự động cập nhật đơn giá mới nếu phát hiện dữ liệu đơn giá cũ trong localStorage
+        if (
+          merged.onPrem?.pmu?.price?.[4] !== 0.75 ||
+          merged.onPrem?.soXd?.price?.[4] !== 0.75 ||
+          merged.onPrem?.enterprise?.price?.[4] !== 1.5
+        ) {
+          merged.onPrem.pmu.price = [...DEFAULT_INPUTS.onPrem.pmu.price];
+          merged.onPrem.soXd.price = [...DEFAULT_INPUTS.onPrem.soXd.price];
+          merged.onPrem.enterprise.price = [...DEFAULT_INPUTS.onPrem.enterprise.price];
         }
         return merged;
       }
@@ -459,59 +460,47 @@ export function FeasibilityStudyTab() {
     
     // Total Revenues
     const totalRevenues = new Array(tCount).fill(0);
+    const onPremRevenues = new Array(tCount).fill(0);
     for (let t = 0; t < tCount; t++) {
-      totalRevenues[t] = saasRevenues[t] + pmuRevenues[t] + soXdRevenues[t] + entRevenues[t];
+      onPremRevenues[t] = pmuRevenues[t] + soXdRevenues[t] + entRevenues[t];
+      totalRevenues[t] = saasRevenues[t] + onPremRevenues[t];
     }
     
-    // COGS & GP — giá vốn luôn theo % doanh thu (cogsPct)
-    const cogsRates = inputs.cogsPct;
-    const cogs = new Array(tCount).fill(0);
-    const grossProfit = new Array(tCount).fill(0);
-    for (let t = 0; t < tCount; t++) {
-      cogs[t] = totalRevenues[t] * cogsRates[t];
-      grossProfit[t] = totalRevenues[t] - cogs[t];
-    }
-
-    const total5yrRev = totalRevenues.reduce((a, b) => a + b, 0);
-    const capPct = inputs.costMode === 'pct';
-    const opPct = inputs.costMode === 'pct';
-
-    // CAPEX — chế độ 'pct': % TỔNG doanh thu 5 năm (đầu tư trả trước)
-    const capexRD = capPct ? inputs.capexPct.cap01_RD_staff * total5yrRev : inputs.capex.cap01_RD_staff;
-    const capexEquip = capPct ? inputs.capexPct.cap02_equip * total5yrRev : inputs.capex.cap02_equip;
-    const capexLicense = capPct ? inputs.capexPct.cap03_license * total5yrRev : inputs.capex.cap03_license;
-    const capexMarketing = capPct ? inputs.capexPct.cap04_marketing * total5yrRev : inputs.capex.cap04_marketing;
-    const capexConsulting = capPct ? inputs.capexPct.cap05_consulting * total5yrRev : inputs.capex.cap05_consulting;
-    const totalCapexVal = capexRD + capexEquip + capexLicense + capexMarketing + capexConsulting;
-    
-    const capexRD_dist = [0.60/2.00, 1.10/2.00, 0.30/2.00];
-    const capexEquip_dist = [0.08/0.10, 0.02/0.10, 0];
-    const capexLicense_dist = [0.08/0.30, 0.18/0.30, 0.04/0.30];
-    const capexMarketing_dist = [0.10/0.50, 0.35/0.50, 0.05/0.50];
-    const capexConsulting_dist = [0.14/0.60, 0.45/0.60, 0.01/0.60];
-    
-    const capexRD_yearly = [capexRD * capexRD_dist[0], capexRD * capexRD_dist[1], capexRD * capexRD_dist[2], 0, 0];
-    const capexEquip_yearly = [capexEquip * capexEquip_dist[0], capexEquip * capexEquip_dist[1], capexEquip * capexEquip_dist[2], 0, 0];
-    const capexLicense_yearly = [capexLicense * capexLicense_dist[0], capexLicense * capexLicense_dist[1], capexLicense * capexLicense_dist[2], 0, 0];
-    const capexMarketing_yearly = [capexMarketing * capexMarketing_dist[0], capexMarketing * capexMarketing_dist[1], capexMarketing * capexMarketing_dist[2], 0, 0];
-    const capexConsulting_yearly = [capexConsulting * capexConsulting_dist[0], capexConsulting * capexConsulting_dist[1], capexConsulting * capexConsulting_dist[2], 0, 0];
-    
+    // CAPEX = 0
     const totalCapexYearly = new Array(tCount).fill(0);
-    for (let t = 0; t < tCount; t++) {
-      totalCapexYearly[t] = capexRD_yearly[t] + capexEquip_yearly[t] + capexLicense_yearly[t] + capexMarketing_yearly[t] + capexConsulting_yearly[t];
-    }
     
-    // OPEX — chế độ 'pct': % doanh thu TỪNG NĂM; chế độ 'value': giá trị tuyệt đối
-    const opexStaff = totalRevenues.map((r, t) => opPct ? inputs.opexPct.staff[t] * r : inputs.opex.staff[t]);
-    const opexCloud = totalRevenues.map((r, t) => opPct ? inputs.opexPct.cloud[t] * r : inputs.opex.cloud[t]);
-    const opexOthers = totalRevenues.map((r, t) => opPct ? inputs.opexPct.others[t] * r : inputs.opex.others[t]);
-    const opexEffective = { staff: opexStaff, cloud: opexCloud, others: opexOthers };
+    // 3 Loại chi phí vận hành mới tính theo % doanh thu từng phân khúc
+    const rdOpsCost = new Array(tCount).fill(0);
+    const marketingCost = new Array(tCount).fill(0);
+    const infraCost = new Array(tCount).fill(0);
     const totalOpexYearly = new Array(tCount).fill(0);
+
+    const saasRdRate = inputs.saas.rdOpsRate ?? 0.35;
+    const saasMktRate = inputs.saas.marketingRate ?? 0.25;
+    const saasInfraRate = inputs.saas.infraRate ?? 0.05;
+
+    const premRdRate = inputs.onPrem.rdOpsRate ?? 0.35;
+    const premMktRate = inputs.onPrem.marketingRate ?? 0.30;
+    const premInfraRate = inputs.onPrem.infraRate ?? 0.00;
+
     for (let t = 0; t < tCount; t++) {
-      totalOpexYearly[t] = opexStaff[t] + opexCloud[t] + opexOthers[t];
+      rdOpsCost[t] = saasRevenues[t] * saasRdRate + onPremRevenues[t] * premRdRate;
+      marketingCost[t] = saasRevenues[t] * saasMktRate + onPremRevenues[t] * premMktRate;
+      infraCost[t] = saasRevenues[t] * saasInfraRate + onPremRevenues[t] * premInfraRate;
+      totalOpexYearly[t] = rdOpsCost[t] + marketingCost[t] + infraCost[t];
     }
+
+    const opexEffective = {
+      staff: rdOpsCost,     // Map R&D & Ops vào staff để dùng chung giao diện cũ
+      cloud: infraCost,     // Map Infra vào cloud
+      others: marketingCost // Map Marketing vào others
+    };
+
+    // COGS = 0, Gross Profit = Total Revenues
+    const cogs = new Array(tCount).fill(0);
+    const grossProfit = [...totalRevenues];
     
-    // Project Cash Flow (Kịch bản A - Lạc quan)
+    // Project Cash Flow
     const ebit = new Array(tCount).fill(0);
     const tax = new Array(tCount).fill(0);
     const netCashFlow = new Array(tCount).fill(0);
@@ -519,63 +508,53 @@ export function FeasibilityStudyTab() {
     
     let cumFlow = 0;
     for (let t = 0; t < tCount; t++) {
-      ebit[t] = grossProfit[t] - totalCapexYearly[t] - totalOpexYearly[t];
+      ebit[t] = grossProfit[t] - totalOpexYearly[t]; // CAPEX = 0
       tax[t] = ebit[t] > 0 ? ebit[t] * inputs.fin.taxRate : 0;
       netCashFlow[t] = ebit[t] - tax[t];
       cumFlow += netCashFlow[t];
       cumulativeNetCashFlow[t] = cumFlow;
     }
     
-    // CIC Cash Flow
-    const capexCIC = totalCapexYearly.map(v => v * inputs.fin.cicShare);
-    const cicNetCashFlow = new Array(tCount).fill(0);
-    const cicCumulativeNetCashFlow = new Array(tCount).fill(0);
-    
-    let cicCumFlow = 0;
-    for (let t = 0; t < tCount; t++) {
-      const cicEbit = grossProfit[t] - capexCIC[t] - totalOpexYearly[t];
-      const cicTax = cicEbit > 0 ? cicEbit * inputs.fin.taxRate : 0;
-      cicNetCashFlow[t] = cicEbit - cicTax;
-      cicCumFlow += cicNetCashFlow[t];
-      cicCumulativeNetCashFlow[t] = cicCumFlow;
-    }
+    // CIC Cash Flow (Share = 100%, bằng Project Cash Flow)
+    const capexCIC = new Array(tCount).fill(0);
+    const cicNetCashFlow = [...netCashFlow];
+    const cicCumulativeNetCashFlow = [...cumulativeNetCashFlow];
     
     // NPV / IRR / Payback (Project & CIC)
     const npvProject = calculateNPV(netCashFlow, inputs.fin.wacc);
     const irrProject = calculateIRR(netCashFlow);
     const paybackProject = calculatePaybackPeriod(cumulativeNetCashFlow, netCashFlow);
     
-    const npvCic = calculateNPV(cicNetCashFlow, inputs.fin.wacc);
-    const irrCic = calculateIRR(cicNetCashFlow);
-    const paybackCic = calculatePaybackPeriod(cicCumulativeNetCashFlow, cicNetCashFlow);
+    const npvCic = npvProject;
+    const irrCic = irrProject;
+    const paybackCic = paybackProject;
     
     // Sensitivity scenarios
     const scenarios = [
-      { name: 'Lạc quan', revCoeff: 1.0, opexCoeff: 1.0 },
-      { name: 'Cơ sở', revCoeff: 0.55, opexCoeff: 1.0 },
-      { name: 'Bi quan', revCoeff: 0.25, opexCoeff: 1.0 }
+      { name: 'Lạc quan', revCoeff: 1.0 },
+      { name: 'Cơ sở', revCoeff: 0.55 },
+      { name: 'Bi quan', revCoeff: 0.25 }
     ];
     
-    const opexPctSum = totalRevenues.map((_, t) => inputs.opexPct.staff[t] + inputs.opexPct.cloud[t] + inputs.opexPct.others[t]);
-    const capexPctSum = inputs.capexPct.cap01_RD_staff + inputs.capexPct.cap02_equip + inputs.capexPct.cap03_license + inputs.capexPct.cap04_marketing + inputs.capexPct.cap05_consulting;
+    const total5yrRev = totalRevenues.reduce((a, b) => a + b, 0);
 
     const scenarioResults = scenarios.map(sc => {
       const scRev = totalRevenues.map(r => r * sc.revCoeff);
-      const scCogs = scRev.map((r, t) => r * cogsRates[t]);
-      const scGp = scRev.map((r, t) => r - scCogs[t]);
-      // Ở chế độ %, OPEX & CAPEX co giãn theo doanh thu của kịch bản; ở chế độ giá trị thì giữ cố định
-      const scOpex = opPct
-        ? scRev.map((r, t) => opexPctSum[t] * r)
-        : totalOpexYearly.map(o => o * sc.opexCoeff);
-      const scTotal5 = scRev.reduce((a, b) => a + b, 0);
-      const scCapexTotal = capPct ? capexPctSum * scTotal5 : totalCapexVal;
-      const scCapexYearly = totalCapexYearly.map(v => totalCapexVal > 0 ? (v / totalCapexVal) * scCapexTotal : 0);
+      const scSaasRev = saasRevenues.map(r => r * sc.revCoeff);
+      const scPremRev = onPremRevenues.map(r => r * sc.revCoeff);
+      
       const scNetFlow = new Array(tCount).fill(0);
       const scCumFlow = new Array(tCount).fill(0);
 
       let cum = 0;
       for (let t = 0; t < tCount; t++) {
-        const e = scGp[t] - scCapexYearly[t] - scOpex[t];
+        // Chi phí tự động co giãn theo doanh thu của kịch bản
+        const scRdOps = scSaasRev[t] * saasRdRate + scPremRev[t] * premRdRate;
+        const scMkt = scSaasRev[t] * saasMktRate + scPremRev[t] * premMktRate;
+        const scInfra = scSaasRev[t] * saasInfraRate + scPremRev[t] * premInfraRate;
+        const scOpexTotal = scRdOps + scMkt + scInfra;
+
+        const e = scRev[t] - scOpexTotal;
         const tx = e > 0 ? e * inputs.fin.taxRate : 0;
         scNetFlow[t] = e - tx;
         cum += scNetFlow[t];
@@ -617,16 +596,10 @@ export function FeasibilityStudyTab() {
       totalRevenues,
       cogs,
       grossProfit,
-      capexRD_yearly,
-      capexEquip_yearly,
-      capexLicense_yearly,
-      capexMarketing_yearly,
-      capexConsulting_yearly,
       totalCapexYearly,
       totalOpexYearly,
       opexEffective,
       total5yrRev,
-      capexEffective: { cap01: capexRD, cap02: capexEquip, cap03: capexLicense, cap04: capexMarketing, cap05: capexConsulting },
       ebit,
       tax,
       netCashFlow,
@@ -640,7 +613,14 @@ export function FeasibilityStudyTab() {
       npvCic,
       irrCic,
       paybackCic,
-      scenarioResults
+      scenarioResults,
+      // Mock data các biến cũ để tránh lỗi tương thích UI
+      capexRD_yearly: new Array(tCount).fill(0),
+      capexEquip_yearly: new Array(tCount).fill(0),
+      capexLicense_yearly: new Array(tCount).fill(0),
+      capexMarketing_yearly: new Array(tCount).fill(0),
+      capexConsulting_yearly: new Array(tCount).fill(0),
+      capexEffective: { cap01: 0, cap02: 0, cap03: 0, cap04: 0, cap05: 0 }
     };
   }, [inputs]);
 
@@ -660,7 +640,15 @@ export function FeasibilityStudyTab() {
   const handleNestedInputChange = (category: string, subCategory: string, index: number, value: number) => {
     setInputs(prev => {
       const next = JSON.parse(JSON.stringify(prev));
-      next[category][subCategory][index] = value;
+      if (category === 'onPrem' && (subCategory === 'pmu' || subCategory === 'soXd' || subCategory === 'enterprise') && index === 4) {
+        // Áp dụng đơn giá phẳng cho tất cả các năm hoạt động (2027-2030)
+        next[category][subCategory][1] = value;
+        next[category][subCategory][2] = value;
+        next[category][subCategory][3] = value;
+        next[category][subCategory][4] = value;
+      } else {
+        next[category][subCategory][index] = value;
+      }
       return next;
     });
   };
@@ -1038,77 +1026,9 @@ export function FeasibilityStudyTab() {
         switch (id) {
           case '6_2A':
             return (
-              <div key={index} className="my-6 overflow-x-auto border border-outline-variant rounded-xl bg-surface">
-                <table className="min-w-full text-xs text-left">
-                  <thead>
-                    <tr className="bg-primary text-on-primary">
-                      <th className="px-4 py-3 font-semibold">Mã</th>
-                      <th className="px-4 py-3 font-semibold">Hạng mục đầu tư</th>
-                      <th className="px-4 py-3 font-semibold text-center">2026 (Q3-Q4)</th>
-                      <th className="px-4 py-3 font-semibold text-center">2027 (Full Year)</th>
-                      <th className="px-4 py-3 font-semibold text-center">2028 (Q1)</th>
-                      <th className="px-4 py-3 font-semibold text-center">Tổng</th>
-                      <th className="px-4 py-3 font-semibold">Giải trình</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/50">
-                    <tr>
-                      <td className="px-4 py-2.5 font-mono">CAP-01</td>
-                      <td className="px-4 py-2.5 font-semibold">Nhân sự phát triển lõi</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexRD_yearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexRD_yearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexRD_yearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.capex.cap01_RD_staff)}</td>
-                      <td className="px-4 py-2.5 text-on-surface-variant">Lương gộp R&D & AI tools.</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2.5 font-mono">CAP-02</td>
-                      <td className="px-4 py-2.5 font-semibold">Trang thiết bị văn phòng</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexEquip_yearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexEquip_yearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexEquip_yearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.capex.cap02_equip)}</td>
-                      <td className="px-4 py-2.5 text-on-surface-variant">Workstations R&D đồ họa.</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2.5 font-mono">CAP-03</td>
-                      <td className="px-4 py-2.5 font-semibold">Bản quyền & API tích hợp</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexLicense_yearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexLicense_yearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexLicense_yearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.capex.cap03_license)}</td>
-                      <td className="px-4 py-2.5 text-on-surface-variant">API AI, hạ tầng GIS (MapBox).</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2.5 font-mono">CAP-04</td>
-                      <td className="px-4 py-2.5 font-semibold">Marketing & Sales ra mắt</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexMarketing_yearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexMarketing_yearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexMarketing_yearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.capex.cap04_marketing)}</td>
-                      <td className="px-4 py-2.5 text-on-surface-variant">Khảo sát Sở XD/PMU, hội thảo.</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2.5 font-mono">CAP-05</td>
-                      <td className="px-4 py-2.5 font-semibold">Tư vấn, PM & Pháp lý</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexConsulting_yearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexConsulting_yearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.capexConsulting_yearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.capex.cap05_consulting)}</td>
-                      <td className="px-4 py-2.5 text-on-surface-variant">Kiểm định QCVN 12, bản quyền.</td>
-                    </tr>
-                    <tr className="bg-surface-container-low font-bold">
-                      <td className="px-4 py-3" colSpan={2}>TỔNG CỘNG CAPEX</td>
-                      <td className="px-4 py-3 text-center">{fNum(calcs.totalCapexYearly[0])}</td>
-                      <td className="px-4 py-3 text-center">{fNum(calcs.totalCapexYearly[1])}</td>
-                      <td className="px-4 py-3 text-center">{fNum(calcs.totalCapexYearly[2])}</td>
-                      <td className="px-4 py-3 text-center text-primary">{fNum(calcs.totalCapexYearly.reduce((a,b)=>a+b, 0))}</td>
-                      <td className="px-4 py-3 text-[11px] text-on-surface-variant">
-                        100% tự đầu tư bởi CIC (không sử dụng ngân sách nhà nước).
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div key={index} className="my-6 p-5 border border-primary/30 bg-primary-container/10 rounded-xl text-xs text-on-surface-variant leading-relaxed">
+                <p className="font-bold text-primary mb-1">Dự toán Chi phí Đầu tư (CAPEX): 0 VNĐ</p>
+                <p>Nền tảng CDE CIC hiện đã được nghiên cứu và phát triển hoàn thiện phiên bản prototype độ trung thực cao. Dự án không phát sinh thêm chi phí đầu tư ban đầu (CAPEX = 0). Toàn bộ chi phí tiếp theo được hạch toán trực tiếp vào chi phí vận hành thường niên (OPEX).</p>
               </div>
             );
           case '6_2C':
@@ -1118,7 +1038,7 @@ export function FeasibilityStudyTab() {
                   <thead>
                     <tr className="bg-primary text-on-primary">
                       <th className="px-4 py-3 font-semibold">Mã</th>
-                      <th className="px-4 py-3 font-semibold">Hạng mục chi phí vận hành</th>
+                      <th className="px-4 py-3 font-semibold">Hạng mục chi phí vận hành (OPEX)</th>
                       <th className="px-4 py-3 font-semibold text-center">2026</th>
                       <th className="px-4 py-3 font-semibold text-center">2027</th>
                       <th className="px-4 py-3 font-semibold text-center">2028</th>
@@ -1130,36 +1050,36 @@ export function FeasibilityStudyTab() {
                   <tbody className="divide-y divide-outline-variant/50">
                     <tr>
                       <td className="px-4 py-2.5 font-mono">OPX-01</td>
-                      <td className="px-4 py-2.5 font-semibold">Nhân sự vận hành (gồm overhead)</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.staff[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.staff[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.staff[2])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.staff[3])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.staff[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.opex.staff.reduce((a,b)=>a+b, 0))}</td>
+                      <td className="px-4 py-2.5 font-semibold">R&D & Đào tạo vận hành (35% DT)</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.staff[0])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.staff[1])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.staff[2])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.staff[3])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.staff[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold">{fNum(calcs.opexEffective.staff.reduce((a,b)=>a+b, 0))}</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2.5 font-mono">OPX-02</td>
-                      <td className="px-4 py-2.5 font-semibold">Chi phí thuê hạ tầng đám mây (Cloud)</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.cloud[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.cloud[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.cloud[2])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.cloud[3])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.cloud[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.opex.cloud.reduce((a,b)=>a+b, 0))}</td>
+                      <td className="px-4 py-2.5 font-semibold">Chi phí Marketing & Sales (30% Prem / 25% SaaS)</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.others[0])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.others[1])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.others[2])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.others[3])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.others[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold">{fNum(calcs.opexEffective.others.reduce((a,b)=>a+b, 0))}</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2.5 font-mono">OPX-03</td>
-                      <td className="px-4 py-2.5 font-semibold">Các chi phí vận hành khác</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.others[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.others[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.others[2])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.others[3])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(inputs.opex.others[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(inputs.opex.others.reduce((a,b)=>a+b, 0))}</td>
+                      <td className="px-4 py-2.5 font-semibold">Chi phí hạ tầng Cloud (5% SaaS)</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.cloud[0])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.cloud[1])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.cloud[2])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.cloud[3])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.opexEffective.cloud[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold">{fNum(calcs.opexEffective.cloud.reduce((a,b)=>a+b, 0))}</td>
                     </tr>
                     <tr className="bg-surface-container-low font-bold">
-                      <td className="px-4 py-3" colSpan={2}>TỔNG OPEX TOÀN HỆ THỐNG</td>
+                      <td className="px-4 py-3" colSpan={2}>TỔNG CHI PHÍ VẬN HÀNH (65% DT)</td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.totalOpexYearly[0])}</td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.totalOpexYearly[1])}</td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.totalOpexYearly[2])}</td>
@@ -1338,58 +1258,49 @@ export function FeasibilityStudyTab() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/50">
-                    <tr className="font-semibold">
+                    <tr className="font-semibold bg-surface-container-lowest">
                       <td className="px-4 py-2.5">Doanh thu</td>
                       <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[0])}</td>
                       <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[1])}</td>
                       <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[2])}</td>
                       <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[3])}</td>
                       <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(calcs.totalRevenues.reduce((a,b)=>a+b,0))}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-primary">{fNum(calcs.totalRevenues.reduce((a,b)=>a+b,0))}</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5">Giá vốn hàng bán (COGS)</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.cogs[0])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.cogs[1])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.cogs[2])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.cogs[3])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.cogs[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.cogs.reduce((a,b)=>a+b,0))}</td>
-                    </tr>
-                    <tr className="bg-surface-container-low font-bold">
-                      <td className="px-4 py-2.5">Lợi nhuận gộp</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[2])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[3])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[4])}</td>
-                      <td className="px-4 py-2.5 text-center text-primary">{fNum(calcs.grossProfit.reduce((a,b)=>a+b,0))}</td>
+                      <td className="px-4 py-2.5">Chi phí R&D & Đào tạo vận hành (35%)</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.staff[0])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.staff[1])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.staff[2])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.staff[3])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.staff[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.opexEffective.staff.reduce((a,b)=>a+b,0))}</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5">Chi chi đầu tư CAPEX</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalCapexYearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalCapexYearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalCapexYearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center">—</td>
-                      <td className="px-4 py-2.5 text-center">—</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.totalCapexYearly.reduce((a,b)=>a+b,0))}</td>
+                      <td className="px-4 py-2.5">Chi phí Marketing & Sales (30% / 25%)</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.others[0])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.others[1])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.others[2])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.others[3])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.others[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.opexEffective.others.reduce((a,b)=>a+b,0))}</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5">Chi phí vận hành OPEX</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[0])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[1])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[2])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[3])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.totalOpexYearly.reduce((a,b)=>a+b,0))}</td>
+                      <td className="px-4 py-2.5">Chi phí hạ tầng Cloud (5% SaaS)</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.cloud[0])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.cloud[1])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.cloud[2])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.cloud[3])}</td>
+                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.opexEffective.cloud[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.opexEffective.cloud.reduce((a,b)=>a+b,0))}</td>
                     </tr>
                     <tr className="bg-surface-container font-bold text-primary">
-                      <td className="px-4 py-3">Dòng tiền ròng dự án (EBIT)</td>
+                      <td className="px-4 py-3">Lợi nhuận trước thuế (EBIT)</td>
                       <td className="px-4 py-3 text-center">
                         {fNum(calcs.ebit[0])}
                         <FormulaInfo 
-                          formula="EBIT = Lợi nhuận gộp - CAPEX - OPEX" 
-                          calcDetail={`2026: ${fNum(calcs.grossProfit[0])} - ${fNum(calcs.totalCapexYearly[0])} - ${fNum(calcs.totalOpexYearly[0])} = ${fNum(calcs.ebit[0])} tỷ`}
+                          formula="EBIT = Doanh thu - Chi phí vận hành" 
+                          calcDetail={`2026: ${fNum(calcs.totalRevenues[0])} - ${fNum(calcs.totalOpexYearly[0])} = ${fNum(calcs.ebit[0])} tỷ`}
                         />
                       </td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.ebit[1])}</td>
@@ -1427,26 +1338,17 @@ export function FeasibilityStudyTab() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/50">
-                    <tr>
-                      <td className="px-4 py-2.5">Lợi nhuận gộp</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[0])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[1])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[2])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[3])}</td>
-                      <td className="px-4 py-2.5 text-center">{fNum(calcs.grossProfit[4])}</td>
-                      <td className="px-4 py-2.5 text-center font-bold">{fNum(calcs.grossProfit.reduce((a,b)=>a+b,0))}</td>
+                    <tr className="font-semibold bg-surface-container-lowest">
+                      <td className="px-4 py-2.5">Doanh thu</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[0])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[1])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[2])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[3])}</td>
+                      <td className="px-4 py-2.5 text-center">{fNum(calcs.totalRevenues[4])}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-primary">{fNum(calcs.totalRevenues.reduce((a,b)=>a+b,0))}</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5">CAPEX của CIC ({fPct(inputs.fin.cicShare)})</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.capexCIC[0])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.capexCIC[1])}</td>
-                      <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.capexCIC[2])}</td>
-                      <td className="px-4 py-2.5 text-center">—</td>
-                      <td className="px-4 py-2.5 text-center">—</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.capexCIC.reduce((a,b)=>a+b,0))}</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2.5">OPEX</td>
+                      <td className="px-4 py-2.5">Tổng chi phí vận hành (65%)</td>
                       <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[0])}</td>
                       <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[1])}</td>
                       <td className="px-4 py-2.5 text-center text-error">{fNum(-calcs.totalOpexYearly[2])}</td>
@@ -1455,14 +1357,8 @@ export function FeasibilityStudyTab() {
                       <td className="px-4 py-2.5 text-center font-bold text-error">{fNum(-calcs.totalOpexYearly.reduce((a,b)=>a+b,0))}</td>
                     </tr>
                     <tr className="bg-surface-container font-bold text-primary">
-                      <td className="px-4 py-3">Dòng tiền ròng CIC</td>
-                      <td className="px-4 py-3 text-center">
-                        {fNum(calcs.cicNetCashFlow[0])}
-                        <FormulaInfo 
-                          formula="CF_CIC = Lợi nhuận gộp - (CAPEX * 70%) - OPEX" 
-                          calcDetail={`2026: ${fNum(calcs.grossProfit[0])} - ${fNum(calcs.capexCIC[0])} - ${fNum(calcs.totalOpexYearly[0])} = ${fNum(calcs.cicNetCashFlow[0])} tỷ`}
-                        />
-                      </td>
+                      <td className="px-4 py-3">Dòng tiền ròng CIC (100% đối ứng)</td>
+                      <td className="px-4 py-3 text-center">{fNum(calcs.cicNetCashFlow[0])}</td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.cicNetCashFlow[1])}</td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.cicNetCashFlow[2])}</td>
                       <td className="px-4 py-3 text-center">{fNum(calcs.cicNetCashFlow[3])}</td>
@@ -1610,26 +1506,26 @@ export function FeasibilityStudyTab() {
                     <tr>
                       <td className="px-4 py-2.5 font-semibold">Tỷ suất sinh lời nội bộ (IRR)</td>
                       <td className="text-center font-bold">
-                        {calcs.scenarioResults[0].irr ? (calcs.scenarioResults[0].irr*100).toFixed(0)+'%' : 'Âm'}
+                        {formatIrrVal(calcs.scenarioResults[0].irr)}
                         <FormulaInfo 
                           formula="IRR = Rate r where NPV(r) = 0" 
                           calcDetail="Giải thuật tính toán số học trên chuỗi dòng tiền ròng"
                         />
                       </td>
-                      <td className="text-center font-bold">{calcs.scenarioResults[1].irr ? (calcs.scenarioResults[1].irr*100).toFixed(0)+'%' : 'Âm'}</td>
-                      <td className="text-center font-bold text-error">{calcs.scenarioResults[2].irr ? (calcs.scenarioResults[2].irr*100).toFixed(0)+'%' : 'Âm'}</td>
+                      <td className="text-center font-bold">{formatIrrVal(calcs.scenarioResults[1].irr)}</td>
+                      <td className="text-center font-bold text-error">{formatIrrVal(calcs.scenarioResults[2].irr)}</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2.5 font-semibold">Thời gian hoàn vốn</td>
                       <td className="text-center">
-                        {calcs.scenarioResults[0].payback ? `Q${Math.ceil((calcs.scenarioResults[0].payback % 1) * 4)}/${Math.floor(2026 + calcs.scenarioResults[0].payback)}` : 'Sau 2031'}
+                        {formatPaybackVal(calcs.scenarioResults[0].payback)}
                         <FormulaInfo 
                           formula="Hoàn vốn = năm_cuối_âm + (dòng_tích_lũy_âm / dòng_tiền_năm_sau)" 
                           calcDetail={`Kịch bản A: ${(calcs.scenarioResults[0].payback || 0).toFixed(2)} năm kể từ đầu 2026`}
                         />
                       </td>
-                      <td className="text-center">{calcs.scenarioResults[1].payback ? `Q${Math.ceil((calcs.scenarioResults[1].payback % 1) * 4)}/${Math.floor(2026 + calcs.scenarioResults[1].payback)}` : 'Sau 2031'}</td>
-                      <td className="text-center text-error">{calcs.scenarioResults[2].payback ? `Sau 2031` : 'Sau 2031'}</td>
+                      <td className="text-center">{formatPaybackVal(calcs.scenarioResults[1].payback)}</td>
+                      <td className="text-center text-error">{formatPaybackVal(calcs.scenarioResults[2].payback)}</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2.5 font-semibold">Cash burn tối đa (vốn lưu động)</td>
@@ -1684,7 +1580,7 @@ export function FeasibilityStudyTab() {
         `|:---|:---:|:---|`,
         `| **NPV toàn dự án (= riêng CIC)** | ${fmtVal(calcs.npvProject)} tỷ | Chiết khấu WACC ${(inputs.fin.wacc * 100).toFixed(0)}%, năm gốc 2026 |`,
         `| **IRR** | ${calcs.irrProject == null ? 'Âm' : calcs.irrProject > 1 ? '>100% (lý thuyết)' : (calcs.irrProject * 100).toFixed(0) + '%'} | Rất cao do chi phí siêu tinh gọn — không dùng làm chỉ số quyết định chính |`,
-        `| **Thời gian hoàn vốn lũy kế** | ${calcs.paybackProject ? 'trong năm ' + Math.floor(2026 + calcs.paybackProject) : 'Sau 2031'} | |`,
+        `| **Thời gian hoàn vốn lũy kế** | ${calcs.paybackProject !== null ? (calcs.paybackProject === 0 ? 'Ngay lập tức (CAPEX = 0)' : 'trong năm ' + Math.floor(2026 + calcs.paybackProject)) : 'Sau 2031'} | |`,
         `| **Đỉnh điểm dòng tiền âm** | ${fmtVal(Math.min(...calcs.cumulativeNetCashFlow))} tỷ | Vốn lưu động cần chuẩn bị (gồm biên an toàn) |`
       ].join('\n'),
       '6_5BIS_B': getTable6_5bis_b(calcs),
@@ -1995,7 +1891,7 @@ export function FeasibilityStudyTab() {
               <span className="text-primary font-mono">{inputs.onPrem.pmu.price[4]} tỷ</span>
             </label>
             <input 
-              type="range" min="2.0" max="5.0" step="0.1" 
+              type="range" min="0.2" max="2.0" step="0.05" 
               value={inputs.onPrem.pmu.price[4]} 
               onChange={(e) => handleNestedInputChange('onPrem', 'pmu', 4, parseFloat(e.target.value))}
               className="w-full mt-1 accent-primary cursor-pointer" 
@@ -2008,7 +1904,7 @@ export function FeasibilityStudyTab() {
               <span className="text-primary font-mono">{inputs.onPrem.soXd.price[4]} tỷ</span>
             </label>
             <input 
-              type="range" min="1.5" max="4.0" step="0.1" 
+              type="range" min="0.2" max="2.0" step="0.05" 
               value={inputs.onPrem.soXd.price[4]} 
               onChange={(e) => handleNestedInputChange('onPrem', 'soXd', 4, parseFloat(e.target.value))}
               className="w-full mt-1 accent-primary cursor-pointer" 
@@ -2021,7 +1917,7 @@ export function FeasibilityStudyTab() {
               <span className="text-primary font-mono">{inputs.onPrem.enterprise.price[4]} tỷ</span>
             </label>
             <input 
-              type="range" min="3.0" max="6.0" step="0.1" 
+              type="range" min="0.5" max="3.0" step="0.05" 
               value={inputs.onPrem.enterprise.price[4]} 
               onChange={(e) => handleNestedInputChange('onPrem', 'enterprise', 4, parseFloat(e.target.value))}
               className="w-full mt-1 accent-primary cursor-pointer" 
@@ -2240,7 +2136,7 @@ export function FeasibilityStudyTab() {
                     </h3>
                   </div>
                   <div className="text-[11px] text-on-surface-variant font-medium mt-3 pt-2 border-t border-outline-variant/30 flex justify-between">
-                    <span>IRR đầu tư CIC: <b className="text-on-surface">{calcs.irrCic ? (calcs.irrCic*100).toFixed(1)+'%' : 'Âm'}</b></span>
+                    <span>IRR đầu tư CIC: <b className="text-on-surface">{formatIrrVal(calcs.irrCic)}</b></span>
                     <span className="text-primary flex items-center font-bold">WACC: {fPct(inputs.fin.wacc)}</span>
                   </div>
                 </div>
@@ -2255,7 +2151,7 @@ export function FeasibilityStudyTab() {
                     </h3>
                   </div>
                   <div className="text-[11px] text-on-surface-variant font-medium mt-3 pt-2 border-t border-outline-variant/30 flex justify-between">
-                    <span>Hoàn vốn đầu tư CIC: <b className="text-on-surface">{calcs.paybackCic ? `${calcs.paybackCic.toFixed(1)} năm` : 'Sau 2031'}</b></span>
+                    <span>Hoàn vốn đầu tư CIC: <b className="text-on-surface">{calcs.paybackCic !== null ? (calcs.paybackCic === 0 ? 'Ngay lập tức (CAPEX = 0)' : `${calcs.paybackCic.toFixed(1)} năm`) : 'Sau 2031'}</b></span>
                     <span className="text-tertiary flex items-center font-bold">Năm gốc: 2026</span>
                   </div>
                 </div>
@@ -2333,9 +2229,9 @@ export function FeasibilityStudyTab() {
                         </td>
                         <td className="text-center font-semibold">{fNum(calcs.scenarioResults[0].revenues.reduce((a,b)=>a+b,0))} tỷ</td>
                         <td className="text-center font-bold text-success">{fNum(calcs.scenarioResults[0].npv)} tỷ</td>
-                        <td className="text-center font-bold">{calcs.scenarioResults[0].irr ? (calcs.scenarioResults[0].irr*100).toFixed(0)+'%' : 'Âm'}</td>
+                        <td className="text-center font-bold">{formatIrrVal(calcs.scenarioResults[0].irr)}</td>
                         <td className="text-center">
-                          {calcs.scenarioResults[0].payback ? `Q${Math.ceil((calcs.scenarioResults[0].payback % 1) * 4)}/${Math.floor(2026 + calcs.scenarioResults[0].payback)}` : 'Sau 2031'}
+                          {formatPaybackVal(calcs.scenarioResults[0].payback)}
                         </td>
                         <td className="text-center text-error">{fNum(Math.min(...calcs.scenarioResults[0].cumulativeFlows))} tỷ</td>
                       </tr>
@@ -2346,9 +2242,9 @@ export function FeasibilityStudyTab() {
                         </td>
                         <td className="text-center font-semibold">{fNum(calcs.scenarioResults[1].revenues.reduce((a,b)=>a+b,0))} tỷ</td>
                         <td className="text-center font-bold text-success">{fNum(calcs.scenarioResults[1].npv)} tỷ</td>
-                        <td className="text-center font-bold">{calcs.scenarioResults[1].irr ? (calcs.scenarioResults[1].irr*100).toFixed(0)+'%' : 'Âm'}</td>
+                        <td className="text-center font-bold">{formatIrrVal(calcs.scenarioResults[1].irr)}</td>
                         <td className="text-center">
-                          {calcs.scenarioResults[1].payback ? `Q${Math.ceil((calcs.scenarioResults[1].payback % 1) * 4)}/${Math.floor(2026 + calcs.scenarioResults[1].payback)}` : 'Sau 2031'}
+                          {formatPaybackVal(calcs.scenarioResults[1].payback)}
                         </td>
                         <td className="text-center text-error">{fNum(Math.min(...calcs.scenarioResults[1].cumulativeFlows))} tỷ</td>
                       </tr>
@@ -2359,7 +2255,7 @@ export function FeasibilityStudyTab() {
                         </td>
                         <td className="text-center font-semibold">{fNum(calcs.scenarioResults[2].revenues.reduce((a,b)=>a+b,0))} tỷ</td>
                         <td className="text-center font-bold text-error">{fNum(calcs.scenarioResults[2].npv)} tỷ</td>
-                        <td className="text-center font-bold">{calcs.scenarioResults[2].irr ? (calcs.scenarioResults[2].irr*100).toFixed(0)+'%' : 'Âm'}</td>
+                        <td className="text-center font-bold">{formatIrrVal(calcs.scenarioResults[2].irr)}</td>
                         <td className="text-center">Sau 2031</td>
                         <td className="text-center text-error">{fNum(Math.min(...calcs.scenarioResults[2].cumulativeFlows))} tỷ</td>
                       </tr>

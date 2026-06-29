@@ -4,7 +4,7 @@ import { BimViewerRef } from './components/bim/BimViewer';
 import { supabase } from './lib/supabase';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { getSession, onAuthChange, fetchProfile, signOut, updateMyRole, type Profile } from './lib/api/auth';
-import { PROJECT_ROLES, roleLabel } from './lib/roles';
+import { PROJECT_ROLES, roleLabel, isAdmin } from './lib/roles';
 import { fetchProjects, createProject, updateProject } from './lib/api/projects';
 import { fetchDocuments } from './lib/api/documents';
 import { fetchClashes, fetchApprovals, fetchActivities } from './lib/api/data';
@@ -12,7 +12,9 @@ import { AppHeader } from './components/layout/AppHeader';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { DocumentsTab } from './components/tabs/DocumentsTab';
 import { ViewerTab } from './components/tabs/ViewerTab';
-import { ScheduleTab } from './components/tabs/ScheduleTab';
+import { PlanningTab } from './components/tabs/PlanningTab';
+import { EirTab } from './components/tabs/EirTab';
+import { BimLibraryTab } from './components/tabs/BimLibraryTab';
 import { FmTab } from './components/tabs/FmTab';
 import { TasksTab } from './components/tabs/TasksTab';
 import { TeamTab } from './components/tabs/TeamTab';
@@ -25,7 +27,7 @@ import { FeasibilityStudyTab } from './components/tabs/FeasibilityStudyTab';
 import { DocumentItem, ApprovalItem, ClashItem, ActivityItem } from './types';
 import { Sun, Moon } from 'lucide-react';
 
-export type TabContext = 'dashboard' | 'documents' | 'viewer' | 'schedule' | 'fm' | 'tasks' | 'team';
+export type TabContext = 'dashboard' | 'eir' | 'documents' | 'viewer' | 'planning' | 'fm' | 'tasks' | 'team';
 
 const DEFAULT_DOCUMENTS: DocumentItem[] = [
   {
@@ -166,7 +168,7 @@ export default function App() {
 
   const handleSignOut = async () => { await signOut(); };
 
-  const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study'>('projects');
+  const [activeModule, setActiveModule] = useState<'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study' | 'bim-library'>('projects');
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
   const [activeTab, setActiveTab] = useState<TabContext>('dashboard');
   
@@ -428,16 +430,22 @@ export default function App() {
                 <h3 className="font-bold text-sm text-on-surface uppercase tracking-wider text-primary">Vai trò của bạn (phân quyền)</h3>
                 <p className="text-[12px] text-on-surface-variant leading-relaxed">
                   Vai trò quyết định quyền hạn: chỉ <b>Người kiểm / Người phê duyệt / Quản trị</b> mới được phê duyệt & phát hành tài liệu.
-                  <span className="text-warning"> (Pilot: tự chọn để thử; bản chính thức do Quản trị gán.)</span>
+                  {isAdmin(profile?.role)
+                    ? <span className="text-warning"> (Bạn là Quản trị: có thể đổi vai trò; bản chính thức nên gán theo từng dự án.)</span>
+                    : <span className="text-warning"> (Vai trò do Quản trị gán — bạn không tự đổi được.)</span>}
                 </p>
                 <div className="flex items-center gap-3 pt-2">
-                  <select
-                    value={PROJECT_ROLES.includes((profile?.role as any)) ? profile?.role : 'Author'}
-                    onChange={async (e) => { await updateMyRole(e.target.value); const s = await getSession(); if (s) setProfile(await fetchProfile(s.user.id)); }}
-                    className="bg-surface-container border border-outline-variant/60 rounded-lg px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer"
-                  >
-                    {PROJECT_ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
-                  </select>
+                  {isAdmin(profile?.role) ? (
+                    <select
+                      value={PROJECT_ROLES.includes((profile?.role as any)) ? profile?.role : 'Author'}
+                      onChange={async (e) => { await updateMyRole(e.target.value); const s = await getSession(); if (s) setProfile(await fetchProfile(s.user.id)); }}
+                      className="bg-surface-container border border-outline-variant/60 rounded-lg px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer"
+                    >
+                      {PROJECT_ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
+                    </select>
+                  ) : (
+                    <span className="bg-surface-container border border-outline-variant/60 rounded-lg px-3 py-2 text-sm font-semibold text-on-surface-variant">{roleLabel(profile?.role)}</span>
+                  )}
                   <span className="text-[12px] text-on-surface-variant">Hiện tại: <b className="text-on-surface">{roleLabel(profile?.role)}</b></span>
                 </div>
               </div>
@@ -507,6 +515,11 @@ export default function App() {
             <FeasibilityStudyTab />
           )}
 
+          {/* Module 3.7: BIM Library */}
+          {activeModule === 'bim-library' && (
+            <BimLibraryTab />
+          )}
+
           {/* Module 4: Projects */}
           {activeModule === 'projects' && (
             <>
@@ -534,6 +547,9 @@ export default function App() {
                       projectId={selectedProject.id}
                       userRole={profile?.role}
                     />
+                  )}
+                  {activeTab === 'eir' && (
+                    <EirTab />
                   )}
                   {activeTab === 'documents' && (
                     <DocumentsTab
@@ -568,23 +584,17 @@ export default function App() {
                       onDocFragCached={(code, fragUrl) => setDocuments(prev => prev.map(d => d.id === code ? { ...d, fragUrl } : d))}
                     />
                   </div>
-                  {activeTab === 'schedule' && (
-                    <ScheduleTab
-                      viewerProperties={viewerProperties}
-                      setSelectedHighlightIds={setSelectedHighlightIds}
-                      setActiveTab={setActiveTab}
-                      projectId={selectedProject.id}
-                      getQto={() => viewerRef.current?.getQuantityTakeoff() ?? Promise.resolve(null)}
-                    />
+                  {activeTab === 'planning' && (
+                    <PlanningTab />
                   )}
                   {activeTab === 'fm' && (
                     <FmTab projectId={selectedProject.id} />
                   )}
                   {activeTab === 'tasks' && (
-                    <TasksTab projectId={selectedProject.id} />
+                    <TasksTab projectId={selectedProject.id} documents={documents} />
                   )}
                   {activeTab === 'team' && (
-                    <TeamTab projectId={selectedProject.id} />
+                    <TeamTab projectId={selectedProject.id} userRole={profile?.role} />
                   )}
                 </div>
               )}

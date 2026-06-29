@@ -22,6 +22,15 @@ export async function sha256(file: File): Promise<string> {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Tải file từ URL về và tính SHA-256 — dùng để kiểm tra toàn vẹn so với hash đã lưu. */
+export async function sha256OfUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Không tải được file (HTTP ${res.status})`);
+  const buf = await res.arrayBuffer();
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export interface UploadResult {
   path: string;
   publicUrl: string;

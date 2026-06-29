@@ -576,6 +576,19 @@ export const IssuesPanel = forwardRef<IssuesPanelHandle, IssuesPanelProps>(({
         </div>
       </div>
 
+      {/* Thanh thống kê BCF: tồn đọng (chưa Resolved/Closed) + quá hạn */}
+      {(() => {
+        const openCnt = issues.filter(i => i.status === 'Open' || i.status === 'In Progress').length;
+        const overdueCnt = issues.filter(isOverdue).length;
+        return (
+          <div className="flex gap-2 text-[10px] font-bold">
+            <span className="px-2 py-1 rounded-lg bg-surface-container border border-outline-variant/50 text-on-surface-variant">Tổng: {issues.length}</span>
+            <span className="px-2 py-1 rounded-lg bg-warning/10 text-warning border border-warning/20">Tồn đọng: {openCnt}</span>
+            <span className={`px-2 py-1 rounded-lg border ${overdueCnt > 0 ? 'bg-error/10 text-error border-error/20' : 'bg-success/10 text-success border-success/20'}`}>Quá hạn: {overdueCnt}</span>
+          </div>
+        );
+      })()}
+
       <div className="flex gap-1 flex-wrap">
         {(['all', 'Open', 'In Progress', 'Resolved', 'Closed'] as const).map(s => {
           const count = s === 'all' ? issues.length : issues.filter(i => i.status === s).length;

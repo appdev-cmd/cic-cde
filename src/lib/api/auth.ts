@@ -42,6 +42,15 @@ export async function updateMyRole(role: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Gán vai trò toàn cục cho một người dùng. Chỉ super-admin (Manager/Admin) thực
+ * hiện được — RLS/trigger ở DB (trg_guard_profile_role) sẽ chặn nếu không đủ quyền.
+ */
+export async function updateUserRole(userId: string, role: string): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+  if (error) throw error;
+}
+
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error || !data) return null;

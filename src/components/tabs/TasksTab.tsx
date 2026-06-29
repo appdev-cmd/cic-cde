@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ListChecks, Plus, X, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { fetchTasks, addTask, updateTaskStatus, deleteTask, type DeliveryTask } from '../../lib/api/tasks';
+import type { DocumentItem } from '../../types';
 
-interface TasksTabProps { projectId?: string; }
+interface TasksTabProps { projectId?: string; documents?: DocumentItem[]; }
 
 const STATUSES = ['Chưa bắt đầu', 'Đang làm', 'Hoàn thành'];
 const statusColor = (s: string) =>
@@ -12,8 +13,15 @@ const statusColor = (s: string) =>
 
 const isOverdue = (t: DeliveryTask) => t.status !== 'Hoàn thành' && t.dueDate && new Date(t.dueDate) < new Date(new Date().toDateString());
 
-export function TasksTab({ projectId }: TasksTabProps) {
+export function TasksTab({ projectId, documents = [] }: TasksTabProps) {
   const [tasks, setTasks] = useState<DeliveryTask[]>([]);
+
+  // Đối chiếu MIDP/TIDP: tìm hồ sơ thực tế theo mã ISO đã liên kết
+  const reconcile = (t: DeliveryTask): { state: 'ok' | 'missing' | 'none'; doc?: DocumentItem } => {
+    if (!t.linkedDocCode) return { state: 'none' };
+    const doc = documents.find(d => d.id === t.linkedDocCode);
+    return doc ? { state: 'ok', doc } : { state: 'missing' };
+  };
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ title: '', discipline: '', format: 'IFC', milestone: '', dueDate: '', assignee: '' });
 
@@ -38,6 +46,7 @@ export function TasksTab({ projectId }: TasksTabProps) {
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Hoàn thành').length;
   const overdue = tasks.filter(isOverdue).length;
+  const missingDocs = tasks.filter(t => reconcile(t).state === 'missing').length;
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar bg-surface-container-lowest p-6">
@@ -56,11 +65,12 @@ export function TasksTab({ projectId }: TasksTabProps) {
         </div>
 
         {/* KPI */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Tổng nhiệm vụ', value: total, color: 'text-on-surface', icon: <ListChecks size={16} className="text-outline" /> },
             { label: 'Hoàn thành', value: done, color: 'text-success', icon: <CheckCircle2 size={16} className="text-success" /> },
             { label: 'Trễ hạn', value: overdue, color: 'text-error', icon: <AlertTriangle size={16} className="text-error" /> },
+            { label: 'Thiếu hồ sơ', value: missingDocs, color: missingDocs > 0 ? 'text-error' : 'text-success', icon: <AlertTriangle size={16} className={missingDocs > 0 ? 'text-error' : 'text-success'} /> },
           ].map(k => (
             <div key={k.label} className="bg-surface border border-outline-variant/50 rounded-xl p-4 flex items-center justify-between">
               <div><div className="text-[10px] font-bold text-outline uppercase tracking-wider">{k.label}</div><div className={`text-2xl font-extrabold mt-0.5 ${k.color}`}>{k.value}</div></div>
@@ -98,12 +108,13 @@ export function TasksTab({ projectId }: TasksTabProps) {
                 <th className="text-center font-bold py-2.5 px-2">Thời hạn</th>
                 <th className="text-left font-bold py-2.5 px-2">Phụ trách</th>
                 <th className="text-center font-bold py-2.5 px-2">Trạng thái</th>
+                <th className="text-left font-bold py-2.5 px-2">Hồ sơ thực tế (MIDP)</th>
                 <th className="py-2.5 px-2"></th>
               </tr>
             </thead>
             <tbody>
               {tasks.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-on-surface-variant text-xs">Chưa có nhiệm vụ. Bấm "Thêm nhiệm vụ".</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-on-surface-variant text-xs">Chưa có nhiệm vụ. Bấm "Thêm nhiệm vụ".</td></tr>
               ) : tasks.map(t => (
                 <tr key={t.id} className="border-t border-outline-variant/30 hover:bg-surface-container/30">
                   <td className="py-2 px-3 font-semibold text-on-surface">{t.title}</td>
@@ -119,6 +130,14 @@ export function TasksTab({ projectId }: TasksTabProps) {
                     <button onClick={() => cycleStatus(t)} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor(t.status)}`} title="Bấm để đổi trạng thái">
                       {t.status}
                     </button>
+                  </td>
+                  <td className="py-2 px-2">
+                    {(() => {
+                      const r = reconcile(t);
+                      if (r.state === 'ok') return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20" title={`Mã: ${t.linkedDocCode} · ${r.doc?.status}`}>✓ Đã nạp</span>;
+                      if (r.state === 'missing') return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-error/10 text-error border border-error/20" title={`Chưa thấy hồ sơ mã ${t.linkedDocCode}`}>⚠ Thiếu hồ sơ</span>;
+                      return <span className="text-[10px] text-outline">— chưa liên kết</span>;
+                    })()}
                   </td>
                   <td className="py-2 px-2 text-right"><button onClick={() => handleDelete(t.id)} className="text-on-surface-variant hover:text-error"><X size={13} /></button></td>
                 </tr>

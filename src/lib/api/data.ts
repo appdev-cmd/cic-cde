@@ -24,6 +24,30 @@ export async function updateClashStatus(projectId: string, code: string, status:
   if (error) console.error('updateClashStatus error:', error.message);
 }
 
+/**
+ * Lưu kết quả phát hiện xung đột tự động vào hồ sơ dự án (bảng clashes) để đồng
+ * bộ với Dashboard. Ghi đè kết quả lần kiểm trước (mã CLH-*), giữ nguyên các
+ * xung đột nhập thủ công (mã khác). Trả về số bản ghi đã lưu.
+ */
+export async function saveClashes(projectId: string, rows: Array<{
+  modelAName: string; modelBName: string; localIdA: number; localIdB: number; center: [number, number, number];
+}>): Promise<number> {
+  await supabase.from('clashes').delete().eq('project_id', projectId).like('code', 'CLH-%');
+  if (!rows.length) return 0;
+  const payload = rows.map((c, i) => ({
+    project_id: projectId,
+    code: `CLH-${String(i + 1).padStart(3, '0')}`,
+    elements: `#${c.localIdA} (${c.modelAName}) ↔ #${c.localIdB} (${c.modelBName})`,
+    discipline: `${c.modelAName} / ${c.modelBName}`,
+    severity: 'Trung bình',
+    status: 'Chưa xử lý',
+    description: `Xung đột hình học tại (${c.center.map(n => n.toFixed(2)).join(', ')}).`,
+  }));
+  const { error } = await supabase.from('clashes').insert(payload);
+  if (error) { console.error('saveClashes error:', error.message); return 0; }
+  return payload.length;
+}
+
 // ---------------- Approvals ----------------
 function mapApproval(row: any): ApprovalItem {
   return {
@@ -295,6 +319,8 @@ export interface Viewpoint {
   name: string;
   camera: { position: number[]; target: number[] };
   hiddenModels: string[];
+  hiddenElements?: Record<string, number[]>;            // cấu kiện ẩn theo model (P3.1)
+  clipping?: { normal: number[]; origin: number[] }[];   // mặt phẳng cắt (P3.1)
   recentered: boolean;
   screenshot?: string;
   createdByName?: string;
@@ -310,6 +336,8 @@ export async function fetchViewpoints(projectId: string): Promise<Viewpoint[]> {
     name: r.name,
     camera: r.camera,
     hiddenModels: r.hidden_models ?? [],
+    hiddenElements: r.hidden_elements ?? undefined,
+    clipping: r.clipping ?? undefined,
     recentered: r.recentered ?? false,
     screenshot: r.screenshot ?? undefined,
     createdByName: r.created_by_name ?? undefined,
@@ -320,12 +348,15 @@ export async function fetchViewpoints(projectId: string): Promise<Viewpoint[]> {
 export async function createViewpoint(projectId: string, vp: {
   name: string; camera: { position: number[]; target: number[] };
   hiddenModels: string[]; recentered: boolean; screenshot?: string; createdByName?: string;
+  hiddenElements?: Record<string, number[]>; clipping?: { normal: number[]; origin: number[] }[];
 }): Promise<Viewpoint | null> {
   const { data, error } = await supabase.from('viewpoints').insert({
     project_id: projectId,
     name: vp.name,
     camera: vp.camera,
     hidden_models: vp.hiddenModels,
+    hidden_elements: vp.hiddenElements ?? null,
+    clipping: vp.clipping ?? null,
     recentered: vp.recentered,
     screenshot: vp.screenshot ?? null,
     created_by_name: vp.createdByName ?? null,
@@ -333,7 +364,10 @@ export async function createViewpoint(projectId: string, vp: {
   if (error) { console.error('createViewpoint error:', error.message); return null; }
   return {
     id: data.id, name: data.name, camera: data.camera,
-    hiddenModels: data.hidden_models ?? [], recentered: data.recentered ?? false,
+    hiddenModels: data.hidden_models ?? [],
+    hiddenElements: data.hidden_elements ?? undefined,
+    clipping: data.clipping ?? undefined,
+    recentered: data.recentered ?? false,
     screenshot: data.screenshot ?? undefined, createdByName: data.created_by_name ?? undefined,
     createdAt: data.created_at,
   };
@@ -375,5 +409,25 @@ export async function fetchElementProperties(documentId: string, expressId: numb
     return null;
   }
   return data?.properties ?? null;
+}
+
+/**
+ * Lưu thuộc tính một cấu kiện vào DB (cache lazy theo lượt chọn) để tra cứu khi
+ * mô hình chưa được nạp. document_id = mã ISO 19650 (modelId của viewer).
+ */
+export async function saveElementProps(
+  projectId: string | undefined, documentId: string, expressId: number, props: Record<string, any>
+): Promise<void> {
+  if (!documentId || expressId == null) return;
+  const { error } = await supabase.from('elements').upsert({
+    project_id: projectId ?? null,
+    document_id: documentId,
+    express_id: expressId,
+    global_id: props.GlobalId ?? props.GUID ?? null,
+    name: props.Name ?? null,
+    category: props.type ?? props.ObjectType ?? null,
+    properties: props,
+  }, { onConflict: 'document_id,express_id' });
+  if (error) console.error('saveElementProps error:', error.message);
 }
 

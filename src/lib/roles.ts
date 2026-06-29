@@ -30,3 +30,6 @@ export const canPublish = (role?: string) => ['Approver', 'Manager'].includes(no
 
 /** Được tạo/sửa/tải tài liệu WIP. */
 export const canEdit = (role?: string) => ['Author', 'Checker', 'Approver', 'Manager'].includes(norm(role));
+
+/** Quản trị: được gán vai trò cho người khác (super-admin toàn cục). */
+export const isAdmin = (role?: string) => norm(role) === 'Manager';

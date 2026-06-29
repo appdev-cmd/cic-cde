@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Filter, ChevronDown, ChevronRight, Folder, FolderOpen, Box, 
-  Scissors, Ruler, MessageSquare, EyeOff, X, Copy, RefreshCw, Upload,
-  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download, Image as ImageIcon
+  Filter, ChevronDown, ChevronRight, ChevronLeft, Folder, FolderOpen, Box, 
+  Scissors, Ruler, Square, Triangle, MessageSquare, EyeOff, X, Copy, RefreshCw, Upload,
+  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download, Image as ImageIcon, Zap
 } from 'lucide-react';
 import { BimViewer, BimViewerRef, QtoResult, QtoDetailRow, LoadedModelInfo, ClashResult } from '../bim/BimViewer';
 import { IssuesPanel, IssuesPanelHandle, type BcfIssue } from '../bim/IssuesPanel';
 import { DocumentItem } from '../../types';
 import { analyzeElement } from '../../lib/ai/gemini';
 import { ifcClassLabel } from '../../lib/ifcLabels';
-import { fetchViewpoints, createViewpoint, deleteViewpoint, type Viewpoint } from '../../lib/api/data';
+import { fetchViewpoints, createViewpoint, deleteViewpoint, saveClashes, type Viewpoint } from '../../lib/api/data';
 import { fetchMembers } from '../../lib/api/team';
 import { uploadFile, uploadDataUrl, compressIfcToZip, uploadArrayBuffer } from '../../lib/api/storage';
 import { createDocument, deleteDocument, setDocumentFrag } from '../../lib/api/documents';
@@ -55,6 +55,35 @@ export function ViewerTab({
   // Sidebar controls
   const [leftSidebarTab, setLeftSidebarTab] = useState<'models' | 'spatial' | 'classes'>('models');
   const [rightPanelTab, setRightPanelTab] = useState<'properties' | 'bcf' | 'ids'>('properties');
+  
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('cic_cde_left_sidebar_collapsed') === 'true';
+  });
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('cic_cde_right_sidebar_collapsed') === 'true';
+  });
+
+
+
+  useEffect(() => {
+    localStorage.setItem('cic_cde_left_sidebar_collapsed', String(leftSidebarCollapsed));
+  }, [leftSidebarCollapsed]);
+
+  useEffect(() => {
+    localStorage.setItem('cic_cde_right_sidebar_collapsed', String(rightSidebarCollapsed));
+  }, [rightSidebarCollapsed]);
+
+  useEffect(() => {
+    if (isActive) {
+      window.dispatchEvent(new Event('resize'));
+      const t1 = setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
+      const t2 = setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [leftSidebarCollapsed, rightSidebarCollapsed, isActive]);
   
   // Issues (Vấn đề) — module riêng IssuesPanel quản lý dữ liệu
   const issuesPanelRef = useRef<IssuesPanelHandle>(null);
@@ -106,6 +135,34 @@ export function ViewerTab({
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
   const [recentered, setRecentered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    setSearchTerm('');
+  }, [selectedModelUrl]);
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    if (!term.trim() || !properties || !viewerRef.current) {
+      viewerRef.current?.highlightElements([]);
+      return;
+    }
+    const matchedIds: number[] = [];
+    const lower = term.toLowerCase();
+    for (const idStr in properties) {
+      const p = properties[idStr];
+      const name = String(p.Name || '').toLowerCase();
+      const type = String(p.type || '').toLowerCase();
+      const guid = String(p.GlobalId || p.GUID || '').toLowerCase();
+      const id = String(p.expressID || p.expressId || '');
+      if (name.includes(lower) || type.includes(lower) || guid.includes(lower) || id === lower) {
+        matchedIds.push(Number(idStr));
+      }
+    }
+    // Highlight các cấu kiện khớp (tối đa 100 để tránh lag)
+    viewerRef.current.highlightElements(matchedIds.slice(0, 100));
+  };
 
   const handleToggleRecenter = () => {
     if (!viewerRef.current) return;
@@ -163,8 +220,12 @@ export function ViewerTab({
     const screenshot = viewerRef.current.captureScreenshot() || undefined;
     setSavingVp(true);
     try {
+      // P3.1: chụp thêm cấu kiện đang ẩn (theo model) + mặt cắt để khôi phục đúng hiện trạng.
+      const hiddenElements = await viewerRef.current.getHiddenElements();
+      const clipping = viewerRef.current.getClippingPlanes();
       const vp = await createViewpoint(projectId, {
         name, camera: cam, hiddenModels: Array.from(hiddenModelIds), recentered, screenshot,
+        hiddenElements, clipping,
       });
       if (vp) setViewpoints(prev => [vp, ...prev]);
       setNewVpName('');
@@ -173,17 +234,23 @@ export function ViewerTab({
     }
   };
 
-  const handleRestoreViewpoint = (vp: Viewpoint) => {
+  const handleRestoreViewpoint = async (vp: Viewpoint) => {
     if (!viewerRef.current) return;
     // Khôi phục căn tâm nếu khác
     if (vp.recentered !== recentered) {
       setRecentered(vp.recentered);
       viewerRef.current.setModelsRecentered(vp.recentered);
     }
-    // Khôi phục ẩn/hiện model
+    // Khôi phục ẩn/hiện model (mức model)
     const hide = new Set(vp.hiddenModels);
     loadedModels.forEach(m => viewerRef.current!.setModelVisibility(m.id, !hide.has(m.id)));
     setHiddenModelIds(hide);
+    // P3.1: khôi phục cấu kiện ẩn (mức cấu kiện) — bỏ qua model đã ẩn toàn bộ.
+    if (vp.hiddenElements) {
+      await viewerRef.current.applyHiddenElements(vp.hiddenElements, vp.hiddenModels);
+    }
+    // P3.1: khôi phục mặt cắt
+    viewerRef.current.applyClippingPlanes(vp.clipping ?? []);
     // Khôi phục camera
     viewerRef.current.setCameraState(vp.camera);
   };
@@ -238,6 +305,23 @@ export function ViewerTab({
 
   const handleFocusClash = (c: ClashResult) => {
     viewerRef.current?.focusClash(c);
+  };
+
+  const [clashSaving, setClashSaving] = useState(false);
+  const handleSaveClashes = async () => {
+    if (!projectId || !clashes || !clashes.length) return;
+    setClashSaving(true);
+    try {
+      const n = await saveClashes(projectId, clashes.map(c => ({
+        modelAName: c.modelAName, modelBName: c.modelBName,
+        localIdA: c.localIdA, localIdB: c.localIdB, center: c.center,
+      })));
+      alert(`Đã lưu ${n} xung đột vào hồ sơ dự án (đồng bộ với Dashboard).`);
+    } catch (e: any) {
+      alert('Không lưu được clash: ' + (e?.message ?? e));
+    } finally {
+      setClashSaving(false);
+    }
   };
 
   const handleClashToBcf = async (c: ClashResult) => {
@@ -479,109 +563,15 @@ export function ViewerTab({
   // Tool state variables
   const [clippingActive, setClippingActive] = useState(false);
   const [measurementActive, setMeasurementActive] = useState(false);
+  const [areaActive, setAreaActive] = useState(false);
+  const [angleActive, setAngleActive] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
   // AI analysis state for the selected element
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // QTO (Quantity Take-Off): chọn phạm vi (bộ môn/hạng mục/cấu kiện) TRƯỚC, rồi bóc tách
-  const [qtoOpen, setQtoOpen] = useState(false);
-  const [qtoLoading, setQtoLoading] = useState(false);
-  const [qtoExtracted, setQtoExtracted] = useState(false);
-  const [qtoResult, setQtoResult] = useState<QtoResult | null>(null);
-  // Danh mục nhanh (mô hình + lớp cấu kiện) — lấy NGAY khi mở, không cần trích nặng
-  const [qtoScope, setQtoScope] = useState<{ modelId: string; modelName: string; categories: string[] }[]>([]);
-  const [qtoDiscFilter, setQtoDiscFilter] = useState<Set<string>>(new Set());
-  const [qtoModelFilter, setQtoModelFilter] = useState<Set<string>>(new Set());
-  const [qtoCatFilter, setQtoCatFilter] = useState<Set<string>>(new Set());
 
-  // Mở bảng QTO: hiện bộ chọn phạm vi NGAY (không trích xuất gì cả)
-  const handleOpenQto = () => {
-    setQtoOpen(true);
-    setQtoLoading(false);
-    setQtoExtracted(false);
-    setQtoResult(null);
-    const scope = viewerRef.current?.getModelCategories() ?? [];
-    setQtoScope(scope);
-    // Mặc định chọn tất cả
-    setQtoDiscFilter(new Set(scope.map(s => deriveDiscipline(s.modelName))));
-    setQtoModelFilter(new Set(scope.map(s => s.modelId)));
-    setQtoCatFilter(new Set(scope.flatMap(s => s.categories)));
-  };
-
-  // Bóc tách khối lượng theo phạm vi đã chọn (bộ môn + hạng mục)
-  const handleRunQto = async () => {
-    const ids = qtoScope
-      .filter(s => qtoDiscFilter.has(deriveDiscipline(s.modelName)) && qtoModelFilter.has(s.modelId))
-      .map(s => s.modelId);
-    if (ids.length === 0) return;
-    setQtoLoading(true);
-    setQtoExtracted(true);
-    try {
-      const result = await viewerRef.current?.getQuantityTakeoff(ids);
-      setQtoResult(result ?? null);
-    } catch (err) {
-      console.error(err);
-      setQtoResult(null);
-    } finally {
-      setQtoLoading(false);
-    }
-  };
-
-  // Bật/tắt một mục trong tập bộ lọc
-  const toggleInSet = (set: Set<string>, setFn: (s: Set<string>) => void, key: string) => {
-    const next = new Set(set);
-    next.has(key) ? next.delete(key) : next.add(key);
-    setFn(next);
-  };
-
-  // Lựa chọn bộ lọc lấy từ DANH MỤC NHANH (có ngay, trước khi bóc tách)
-  const qtoDisciplines: string[] = Array.from(new Set(qtoScope.map(s => deriveDiscipline(s.modelName))));
-  const qtoModels: { id: string; name: string }[] = qtoScope.map(s => ({ id: s.modelId, name: s.modelName }));
-  // Lớp cấu kiện chỉ hiện của các mô hình/bộ môn đang chọn
-  const qtoCategories: string[] = Array.from(new Set<string>(
-    qtoScope
-      .filter(s => qtoDiscFilter.has(deriveDiscipline(s.modelName)) && qtoModelFilter.has(s.modelId))
-      .flatMap(s => s.categories)
-  )).sort();
-  const qtoDetailRows: QtoDetailRow[] = qtoResult?.detail ?? [];
-
-  // Lọc chi tiết theo 3 tiêu chí rồi gộp lại theo lớp cấu kiện để hiển thị
-  const qtoFilteredDetail = qtoDetailRows.filter(d =>
-    qtoDiscFilter.has(deriveDiscipline(d.modelName)) &&
-    qtoModelFilter.has(d.modelId) &&
-    qtoCatFilter.has(d.category)
-  );
-  const qtoDisplayRows = (() => {
-    const agg: Record<string, { category: string; count: number; area: number; volume: number; length: number }> = {};
-    for (const d of qtoFilteredDetail) {
-      const a = (agg[d.category] ||= { category: d.category, count: 0, area: 0, volume: 0, length: 0 });
-      a.count += d.count; a.area += d.area; a.volume += d.volume; a.length += d.length;
-    }
-    return Object.values(agg).sort((x, y) => y.volume - x.volume || y.count - x.count);
-  })();
-
-  const handleExportQtoCsv = () => {
-    if (qtoFilteredDetail.length === 0) return;
-    // Xuất chi tiết theo Bộ môn / Hạng mục / Lớp cấu kiện (đúng phạm vi đang lọc)
-    const header = 'Bo mon,Hang muc (mo hinh),Loai cau kien (IFC),So luong,Dien tich (m2),The tich (m3),Chieu dai (m)';
-    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
-    const lines = qtoFilteredDetail
-      .slice()
-      .sort((a, b) => a.modelName.localeCompare(b.modelName) || a.category.localeCompare(b.category))
-      .map(r =>
-        [esc(deriveDiscipline(r.modelName)), esc(r.modelName), esc(r.category), r.count, r.area.toFixed(2), r.volume.toFixed(2), r.length.toFixed(2)].join(',')
-      );
-    const csv = [header, ...lines].join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `QTO_BocKhoiLuong_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleAnalyzeAI = async () => {
     if (!selectedElement) return;
@@ -629,19 +619,35 @@ export function ViewerTab({
     setSelectedElement(props);
   };
 
+  const resetTools = () => { setMeasurementActive(false); setAreaActive(false); setAngleActive(false); setClippingActive(false); };
+
   const handleToggleClipping = () => {
     const nextState = !clippingActive;
-    setClippingActive(nextState);
-    if (nextState) setMeasurementActive(false);
+    resetTools(); setClippingActive(nextState);
     viewerRef.current?.toggleClipping(nextState);
     viewerRef.current?.toggleMeasurement(false);
+    viewerRef.current?.toggleAreaMeasurement(false);
+    viewerRef.current?.toggleAngleMeasurement(false);
   };
 
   const handleToggleMeasurement = () => {
     const nextState = !measurementActive;
-    setMeasurementActive(nextState);
-    if (nextState) setClippingActive(false);
+    resetTools(); setMeasurementActive(nextState);
     viewerRef.current?.toggleMeasurement(nextState);
+    viewerRef.current?.toggleClipping(false);
+  };
+
+  const handleToggleArea = () => {
+    const nextState = !areaActive;
+    resetTools(); setAreaActive(nextState);
+    viewerRef.current?.toggleAreaMeasurement(nextState);
+    viewerRef.current?.toggleClipping(false);
+  };
+
+  const handleToggleAngle = () => {
+    const nextState = !angleActive;
+    resetTools(); setAngleActive(nextState);
+    viewerRef.current?.toggleAngleMeasurement(nextState);
     viewerRef.current?.toggleClipping(false);
   };
 
@@ -696,7 +702,9 @@ export function ViewerTab({
     <div className="flex-1 flex overflow-hidden relative selection:bg-none">
       
       {/* Left Spatial Tree / IFC Filter */}
-      <aside className="w-[300px] xl:w-[340px] bg-surface-container-lowest border-r border-outline-variant flex flex-col z-20 shrink-0 shadow-sm">
+      <aside className={`w-[300px] xl:w-[340px] bg-surface-container-lowest border-r border-outline-variant flex flex-col z-20 shrink-0 shadow-sm transition-all duration-300 ease-in-out ${
+        leftSidebarCollapsed ? '!w-0 !border-r-0 overflow-hidden opacity-0' : 'opacity-100'
+      }`}>
          <div className="p-3 border-b border-outline-variant flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between gap-1">
               <div className="flex bg-surface-container-low rounded-lg p-0.5 border border-outline-variant/60 flex-1">
@@ -757,6 +765,29 @@ export function ViewerTab({
                 </span>
               )}
             </div>
+            {/* Search Input khai thác dữ liệu IFC */}
+            {properties && (
+              <div className="relative mt-1 animate-in fade-in duration-200">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm cấu kiện (Tên, Class, GUID, ID)..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full pl-8 pr-8 py-1.5 bg-surface-container border border-outline-variant/60 rounded-lg text-[12px] text-on-surface placeholder-outline focus:outline-none focus:border-primary/50 transition-colors font-medium"
+                />
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-outline/60">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                {searchTerm && (
+                  <button
+                    onClick={() => handleSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-outline/60 hover:text-on-surface p-0.5 rounded-full"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
          </div>
 
          {/* Left Sidebar Body */}
@@ -967,12 +998,31 @@ export function ViewerTab({
 
       {/* Center 3D Workspace */}
       <div className="flex-1 relative bg-surface-container-low overflow-hidden flex items-center justify-center">
+         {/* Toggle Left Sidebar Button */}
+         <button
+           onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+           className="absolute left-0 top-1/2 -translate-y-1/2 z-30 bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface-variant border border-outline-variant border-l-0 rounded-r-xl py-4 px-1 shadow-md transition-all cursor-pointer group"
+           title={leftSidebarCollapsed ? "Mở rộng bảng trái" : "Thu gọn bảng trái"}
+         >
+           {leftSidebarCollapsed ? <ChevronRight size={14} className="group-hover:scale-110 transition-transform" /> : <ChevronLeft size={14} className="group-hover:scale-110 transition-transform" />}
+         </button>
+
+         {/* Toggle Right Sidebar Button */}
+         <button
+           onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+           className="absolute right-0 top-1/2 -translate-y-1/2 z-30 bg-surface-container-lowest hover:bg-primary hover:text-on-primary text-on-surface-variant border border-outline-variant border-r-0 rounded-l-xl py-4 px-1 shadow-md transition-all cursor-pointer group"
+           title={rightSidebarCollapsed ? "Mở rộng bảng phải" : "Thu gọn bảng phải"}
+         >
+           {rightSidebarCollapsed ? <ChevronLeft size={14} className="group-hover:scale-110 transition-transform" /> : <ChevronRight size={14} className="group-hover:scale-110 transition-transform" />}
+         </button>
          
          {/* Render actual BimViewer component */}
-         <BimViewer 
+         <BimViewer
             ref={viewerRef}
             onModelLoaded={handleModelLoaded}
             onElementSelected={handleElementSelected}
+            projectId={projectId}
+            isActive={isActive}
          />
 
          {/* Floating Fly/Walk/Minimap toggles */}
@@ -1064,11 +1114,23 @@ export function ViewerTab({
               active={clippingActive}
               onClick={handleToggleClipping}
             />
-            <ToolButton 
-              icon={<Ruler size={20} />} 
-              label="Đo khoảng cách (Click đúp đặt điểm)" 
+            <ToolButton
+              icon={<Ruler size={20} />}
+              label="Đo khoảng cách (Click đúp đặt điểm)"
               active={measurementActive}
               onClick={handleToggleMeasurement}
+            />
+            <ToolButton
+              icon={<Square size={20} />}
+              label="Đo diện tích (Click đúp đặt đỉnh)"
+              active={areaActive}
+              onClick={handleToggleArea}
+            />
+            <ToolButton
+              icon={<Triangle size={20} />}
+              label="Đo góc (Click đúp đặt 3 điểm)"
+              active={angleActive}
+              onClick={handleToggleAngle}
             />
             <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
             <ToolButton
@@ -1077,19 +1139,6 @@ export function ViewerTab({
               active={rightPanelTab === 'bcf'}
               onClick={() => setRightPanelTab(rightPanelTab === 'bcf' ? 'properties' : 'bcf')}
             />
-            <ToolButton
-              icon={<ClipboardList size={20} />}
-              label="Bóc tách khối lượng (QTO)"
-              active={qtoOpen}
-              onClick={handleOpenQto}
-            />
-            <ToolButton
-              icon={<AlertCircle size={20} />}
-              label="Kiểm tra xung đột (Clash)"
-              active={clashOpen}
-              onClick={handleDetectClashes}
-            />
-            <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
             <ToolButton 
               icon={<EyeOff size={20} />} 
               label="Ẩn / Xóa đo đạc" 
@@ -1103,7 +1152,9 @@ export function ViewerTab({
       </div>
 
       {/* Right Sidebar Panel */}
-      <aside className="w-[320px] xl:w-[360px] bg-surface-container-lowest border-l border-outline-variant flex flex-col z-20 shrink-0 shadow-[-4px_0_12px_rgba(0,0,0,0.02)]">
+      <aside className={`w-[320px] xl:w-[360px] bg-surface-container-lowest border-l border-outline-variant flex flex-col z-20 shrink-0 shadow-[-4px_0_12px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out ${
+        rightSidebarCollapsed ? '!w-0 !border-l-0 overflow-hidden opacity-0' : 'opacity-100'
+      }`}>
          
          {/* Right Sidebar Tabs Switcher */}
          <div className="p-3 border-b border-outline-variant flex bg-surface-container-low shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
@@ -1155,12 +1206,41 @@ export function ViewerTab({
                    </p>
                 </div>
                 {selectedElement && (
-                  <button 
-                    onClick={() => setSelectedElement(null)}
-                    className="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container p-1 rounded-full shrink-0"
-                  >
-                     <X size={18} />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        const json = JSON.stringify(selectedElement, null, 2);
+                        navigator.clipboard.writeText(json);
+                        alert('Đã sao chép toàn bộ thuộc tính cấu kiện dưới dạng JSON!');
+                      }}
+                      className="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container p-1.5 rounded-full shrink-0 cursor-pointer"
+                      title="Sao chép thuộc tính JSON"
+                    >
+                      <Copy size={15} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const json = JSON.stringify(selectedElement, null, 2);
+                        const blob = new Blob([json], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `ElementProps_${selectedElement.expressID || selectedElement.expressId}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container p-1.5 rounded-full shrink-0 cursor-pointer"
+                      title="Xuất thuộc tính ra file JSON"
+                    >
+                      <Download size={15} />
+                    </button>
+                    <button 
+                      onClick={() => setSelectedElement(null)}
+                      className="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container p-1.5 rounded-full shrink-0 cursor-pointer"
+                    >
+                       <X size={18} />
+                    </button>
+                  </div>
                 )}
              </div>
 
@@ -1219,23 +1299,38 @@ export function ViewerTab({
                     </PropertyGroup>
 
                     {/* Render other properties dynamically if present */}
-                    {Object.keys(selectedElement).filter(key => 
-                      !['Name', 'GlobalId', 'GUID', 'ObjectType', 'type', 'expressID', 'expressId'].includes(key) && 
-                      selectedElement[key] !== null && 
+                    {Object.keys(selectedElement).filter(key =>
+                      !['Name', 'GlobalId', 'GUID', 'ObjectType', 'type', 'expressID', 'expressId', '_psets'].includes(key) &&
+                      !key.startsWith('_') &&
+                      selectedElement[key] !== null &&
                       selectedElement[key] !== undefined
                     ).length > 0 && (
                       <PropertyGroup title="Thông số Thuộc tính (Parameters)">
-                         {Object.keys(selectedElement).filter(key => 
-                           !['Name', 'GlobalId', 'GUID', 'ObjectType', 'type', 'expressID', 'expressId'].includes(key)
+                         {Object.keys(selectedElement).filter(key =>
+                           !['Name', 'GlobalId', 'GUID', 'ObjectType', 'type', 'expressID', 'expressId', '_psets'].includes(key) &&
+                           !key.startsWith('_')
                          ).map(key => (
-                           <PropertyRow 
-                             key={key} 
-                             label={key} 
-                             value={getPropValue(selectedElement[key])} 
+                           <PropertyRow
+                             key={key}
+                             label={key}
+                             value={getPropValue(selectedElement[key])}
                            />
                          ))}
                       </PropertyGroup>
                     )}
+
+                    {/* Property Sets (Pset) — phục vụ kiểm tra quy chuẩn (TC2) */}
+                    {selectedElement._psets && Object.keys(selectedElement._psets).length > 0 &&
+                      Object.entries(selectedElement._psets as Record<string, Record<string, any>>).map(([psetName, psetProps]) => (
+                        <React.Fragment key={psetName}>
+                          <PropertyGroup title={`Pset · ${psetName}`}>
+                            {Object.entries(psetProps).map(([k, v]) => (
+                              <PropertyRow key={k} label={k} value={getPropValue(v)} />
+                            ))}
+                          </PropertyGroup>
+                        </React.Fragment>
+                      ))
+                    }
                   </>
                 ) : (
                    <div className="h-full flex flex-col items-center justify-center p-6 text-center text-on-surface-variant gap-2">
@@ -1327,6 +1422,14 @@ export function ViewerTab({
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[12px] font-bold text-error">Phát hiện {clashes.length} xung đột{clashes.length >= 500 ? '+ (giới hạn 500)' : ''}</span>
+                    <button
+                      onClick={handleSaveClashes}
+                      disabled={clashSaving}
+                      className="text-[10.5px] font-bold text-primary hover:underline disabled:text-outline disabled:no-underline"
+                      title="Lưu kết quả vào hồ sơ dự án (đồng bộ Dashboard)"
+                    >
+                      {clashSaving ? 'Đang lưu…' : 'Lưu vào hồ sơ'}
+                    </button>
                   </div>
                   <div className="space-y-2">
                     {clashes.map(c => (
@@ -1358,160 +1461,7 @@ export function ViewerTab({
         </div>
       )}
 
-      {/* QTO Modal */}
-      {qtoOpen && (
-        <div
-          className="absolute inset-0 bg-inverse-on-surface/40 backdrop-blur-[2px] flex items-center justify-center z-[100] animate-in fade-in duration-200 p-6"
-          onClick={() => setQtoOpen(false)}
-        >
-          <div
-            className="bg-surface-container-lowest w-full max-w-3xl max-h-[80vh] rounded-2xl shadow-2xl border border-outline-variant flex flex-col animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-2">
-                <ClipboardList size={18} className="text-primary" />
-                <h3 className="font-bold text-[15px] text-on-surface">Bảng Bóc tách Khối lượng (QTO)</h3>
-              </div>
-              <button
-                onClick={() => setQtoOpen(false)}
-                className="p-1 text-on-surface-variant hover:bg-surface-container rounded-full transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
-              {qtoScope.length === 0 ? (
-                <div className="h-40 flex flex-col items-center justify-center gap-2 text-center text-on-surface-variant px-6">
-                  <AlertCircle size={28} className="text-outline/50" />
-                  <p className="text-sm font-medium">Chưa có mô hình nào được nạp.</p>
-                  <p className="text-[11px] text-outline">Hãy nạp ít nhất một mô hình IFC ở tab “Mô hình” rồi mở lại bảng bóc tách.</p>
-                </div>
-              ) : (
-                <>
-                  {/* BƯỚC 1: Chọn phạm vi bóc tách (hiện ngay, không cần trích nặng) */}
-                  <div className="space-y-2.5 mb-4 bg-surface-container-low/40 border border-outline-variant/40 rounded-xl p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-on-surface">
-                      <Filter size={13} className="text-primary" /> Bước 1 — Chọn phạm vi bóc tách
-                    </div>
-                    <QtoFilterGroup
-                      label="Bộ môn"
-                      items={qtoDisciplines.map(d => ({ key: d, label: d }))}
-                      selected={qtoDiscFilter}
-                      onToggle={(k) => toggleInSet(qtoDiscFilter, setQtoDiscFilter, k)}
-                      onAll={() => setQtoDiscFilter(new Set(qtoDisciplines))}
-                      onNone={() => setQtoDiscFilter(new Set())}
-                    />
-                    <QtoFilterGroup
-                      label="Hạng mục"
-                      items={qtoModels.map(m => ({ key: m.id, label: m.name }))}
-                      selected={qtoModelFilter}
-                      onToggle={(k) => toggleInSet(qtoModelFilter, setQtoModelFilter, k)}
-                      onAll={() => setQtoModelFilter(new Set(qtoModels.map(m => m.id)))}
-                      onNone={() => setQtoModelFilter(new Set())}
-                    />
-                    <QtoFilterGroup
-                      label="Cấu kiện"
-                      items={qtoCategories.map(c => ({ key: c, label: ifcClassLabel(c) ? `${c} · ${ifcClassLabel(c)}` : c }))}
-                      selected={qtoCatFilter}
-                      onToggle={(k) => toggleInSet(qtoCatFilter, setQtoCatFilter, k)}
-                      onAll={() => setQtoCatFilter(new Set(qtoCategories))}
-                      onNone={() => setQtoCatFilter(new Set())}
-                      scroll
-                    />
-                    <button
-                      onClick={handleRunQto}
-                      disabled={qtoLoading || qtoScope.filter(s => qtoDiscFilter.has(deriveDiscipline(s.modelName)) && qtoModelFilter.has(s.modelId)).length === 0}
-                      className="w-full mt-1 flex items-center justify-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12.5px] font-bold py-2 rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {qtoLoading ? <><RefreshCw size={14} className="animate-spin" /> Đang bóc tách...</> : <><ClipboardList size={14} /> Bóc tách khối lượng</>}
-                    </button>
-                  </div>
-
-                  {qtoLoading ? (
-                    <div className="h-32 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
-                      <RefreshCw size={26} className="animate-spin text-primary" />
-                      <span className="text-[13px] font-medium">Đang trích xuất khối lượng từ mô hình đã chọn...</span>
-                    </div>
-                  ) : !qtoExtracted ? (
-                    <div className="h-28 flex flex-col items-center justify-center gap-1.5 text-center text-on-surface-variant">
-                      <ClipboardList size={24} className="text-outline/50" />
-                      <p className="text-[12.5px] font-medium">Chọn phạm vi ở trên rồi bấm <span className="font-bold text-primary">Bóc tách khối lượng</span>.</p>
-                    </div>
-                  ) : !qtoResult || qtoResult.rows.length === 0 ? (
-                    <div className="h-28 flex flex-col items-center justify-center gap-1.5 text-center text-on-surface-variant px-6">
-                      <AlertCircle size={24} className="text-outline/50" />
-                      <p className="text-[12.5px] font-medium">Phạm vi đã chọn không có dữ liệu khối lượng (Qto_*BaseQuantities) trong IFC.</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-[11px] text-on-surface-variant font-medium">
-                          Hiển thị <span className="font-bold text-primary">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</span> cấu kiện
-                          ({qtoDisplayRows.length} lớp) / đã bóc {qtoResult.totalElements} · {qtoResult.elementsWithQuantities} có khối lượng.
-                        </div>
-                        <button
-                          onClick={handleExportQtoCsv}
-                          disabled={qtoFilteredDetail.length === 0}
-                          className="flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary/95 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Upload size={13} /> Xuất CSV
-                        </button>
-                      </div>
-                      {qtoDisplayRows.length === 0 ? (
-                        <div className="h-24 flex items-center justify-center text-center text-[12px] text-outline">
-                          Không có cấu kiện nào khớp lọc “Cấu kiện”. Hãy chọn thêm lớp cấu kiện.
-                        </div>
-                      ) : (
-                      <table className="w-full text-[12.5px] border-collapse">
-                        <thead>
-                          <tr className="text-[10px] uppercase tracking-wider text-outline border-b border-outline-variant">
-                            <th className="text-left font-bold py-2 px-2">Loại cấu kiện (IFC)</th>
-                            <th className="text-right font-bold py-2 px-2">Số lượng</th>
-                            <th className="text-right font-bold py-2 px-2">Diện tích (m²)</th>
-                            <th className="text-right font-bold py-2 px-2">Thể tích (m³)</th>
-                            <th className="text-right font-bold py-2 px-2">Chiều dài (m)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {qtoDisplayRows.map((r) => (
-                            <tr key={r.category} className="border-b border-outline-variant/30 hover:bg-surface-container/40 transition-colors">
-                              <td className="py-2 px-2 font-semibold text-on-surface">
-                                {r.category}{ifcClassLabel(r.category) && <span className="text-outline font-normal"> · {ifcClassLabel(r.category)}</span>}
-                              </td>
-                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.count}</td>
-                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.area > 0 ? r.area.toFixed(2) : "—"}</td>
-                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.volume > 0 ? r.volume.toFixed(2) : "—"}</td>
-                              <td className="py-2 px-2 text-right font-mono text-on-surface-variant">{r.length > 0 ? r.length.toFixed(2) : "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t-2 border-outline-variant font-bold text-on-surface">
-                            <td className="py-2 px-2">TỔNG CỘNG</td>
-                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.count, 0)}</td>
-                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.area, 0).toFixed(2)}</td>
-                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.volume, 0).toFixed(2)}</td>
-                            <td className="py-2 px-2 text-right font-mono">{qtoDisplayRows.reduce((s, r) => s + r.length, 0).toFixed(2)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                      )}
-                      <p className="text-[10.5px] text-outline mt-4 leading-relaxed">
-                        * Khối lượng được trích trực tiếp từ bộ thuộc tính <code className="font-mono">Qto_*BaseQuantities</code> trong tệp IFC.
-                        Đây là nền tảng cho dự toán 5D (gắn đơn giá định mức Bộ Xây dựng) ở giai đoạn sau.
-                      </p>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Copy Toast Alert */}
       {copySuccess && (
