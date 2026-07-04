@@ -1805,7 +1805,16 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       const idsSet: Set<number> = await model.getLocalIds();
       const ids = Array.from(idsSet) as number[];
       await model.setVisible(ids, visible);
-      if (model.object) model.object.visible = visible;
+      if (model.object) {
+        model.object.visible = visible;
+        if (worldRef.current) {
+          if (visible) {
+            worldRef.current.scene.three.add(model.object);
+          } else {
+            worldRef.current.scene.three.remove(model.object);
+          }
+        }
+      }
       // Bắt buộc fragments engine cập nhật để render lại
       await fragmentsRef.current?.core?.update?.(true);
     },
