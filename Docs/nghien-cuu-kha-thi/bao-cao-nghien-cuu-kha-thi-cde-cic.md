@@ -1,19 +1,32 @@
 # Báo cáo Nghiên cứu Khả thi Dự án CDE CIC
 ## Đề án Nghiên cứu Công nghệ, Thiết kế Kiến trúc và Kế hoạch Thương mại hóa Nền tảng CDE
 
-> **Phiên bản:** v2.0 (rà soát, hiệu đính & chuẩn hóa số liệu)  
-> **Ngày lập báo cáo:** 30/06/2026  
+> **Phiên bản:** v1.0 (Bản chính thức)  
+> **Ngày lập báo cáo:** 04/07/2026  
 > **Đơn vị thực hiện:** Công ty Cổ phần Công nghệ và Tư vấn CIC  
 > **Mục đích:** Đánh giá toàn diện năng lực công nghệ của các đối thủ trong nước và quốc tế, từ đó đề xuất mô hình kiến trúc, phương án nhân sự tối ưu hóa bằng AI, dự toán tài chính 5 năm và lộ trình triển khai chi tiết cho hệ thống CDE CIC trước khi ra quyết định đầu tư.
 
 ---
 
-> ### Nhật ký hiệu đính v1 → v2 (Changelog)
-> 1. **Chuẩn hóa CAPEX = 0 VNĐ** (Sản phẩm đã hoàn thiện prototype, không phát sinh chi phí đầu tư ban đầu); **chi phí 100% biến đổi theo doanh thu** (~65% DT: team 35% + marketing/sale 25–30% + hạ tầng 0–5%), **lợi nhuận gộp ~35%**; bỏ phân tích kịch bản và IRR/NPV.
-> 2. **Cơ cấu vốn = 100% CIC** (loại bỏ giả định 30% Ngân sách Nhà nước).
-> 3. **Phạm vi:** GIS/GeoBIM, 4D/5D, FM, AI/ML = **Roadmap Giai đoạn 2** (sau MVP).
-> 4. **Pháp lý:** NĐ 217/2026/NĐ-CP ban hành 19/6/2026, hiệu lực 01/7/2026; làm rõ BIM bắt buộc cấp II+, CDE bắt buộc cấp I+ đầu tư công; mô tả đúng cơ chế Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA).
-> 5. Phần tài chính được tách thành tab riêng với bảng cho phép nhập tay điều chỉnh giả định.
+## Tóm tắt Tổng quan cho Ban Giám đốc (Executive Summary)
+
+**Cơ hội:** Hành lang pháp lý mới (NĐ 217/2026: BIM bắt buộc cấp II+, CDE bắt buộc cấp I+ đầu tư công) tạo ra thị trường bắt buộc tại phân khúc B2G. Thị trường khả dụng gồm 34 Sở Xây dựng, ~102 Ban QLDA cấp tỉnh và các doanh nghiệp xây dựng lớn. Không đối thủ nào (quốc tế lẫn nội địa) hiện đáp ứng QCVN 12:2026/BCA — tạo cửa sổ first-mover 1–2 năm.
+
+**Giải pháp:** Nền tảng CDE CIC tự chủ 100%, kiến trúc Go + Python + TypeScript, triển khai On-Premise trên hạ tầng cloud nội địa do khách hàng lựa chọn và mua sắm (Viettel Cloud/VNPT Cloud/FPT Cloud hoặc máy chủ riêng), CIC tư vấn & setup để đảm bảo tuân thủ QCVN 12. Bán On-Premise trọn gói (0,75–1,5 tỷ/HĐ, không giới hạn user) + phí bảo trì AMC 20%/năm.
+
+**Tài chính (5 năm):**
+
+| Chỉ tiêu | Giá trị |
+|:---|:---:|
+| Doanh thu tổng | 52,35 tỷ VNĐ |
+| Lợi nhuận ròng sau thuế (TNDN 20%) | 14,66 tỷ VNĐ |
+| Biên lợi nhuận ròng | ~28% |
+| CAPEX giai đoạn thương mại hóa | 0 (sunk cost CIC tự chịu) |
+| Dự phòng vốn lưu động | 1–2 tỷ VNĐ |
+
+**Rủi ro chính:** Rủi ro phụ thuộc nhân sự (Bus Factor) cao (2 nhân sự cốt lõi); PMU có thể không dùng CDE thương mại; đối thủ nội địa có thể bắt kịp về sự tuân thủ; các tập đoàn công nghệ lớn (Big Tech) tại Việt Nam có thể tự xây dựng CDE.
+
+**Khuyến nghị:** Phê duyệt triển khai Giai đoạn 1 với 5 điều kiện — xem §7.3.
 
 ---
 
@@ -33,24 +46,24 @@ graph TD
     A[Mạng lưới Tư vấn BIM sẵn có của CIC] -->|Tiếp cận trực tiếp| B[Các Ban QLDA PMU, Sở Xây dựng toàn quốc]
     B -->|Đào tạo quy trình phối hợp| C[Thúc đẩy áp dụng tiêu chuẩn CDE bắt buộc]
     C -->|Cung cấp bản quyền| D[Nền tảng CDE-CIC tích hợp Dịch vụ công]
-    D -->|Khóa khách hàng bền vững| E[Recurring Revenue - Doanh thu thuê bao dài hạn]
+    D -->|Khóa khách hàng bền vững| E[Recurring Revenue - AMC 20%/năm]
 ```
 
 Quyết định đầu tư xây dựng nền tảng CDE CIC của Ban Lãnh đạo CIC không chỉ dựa trên xu hướng pháp lý mà còn được bảo đảm vững chắc bởi dữ liệu thực tế hoạt động kinh doanh chuyên biệt của hai mảng BIM và CDE, được trích xuất trực tiếp từ cơ sở dữ liệu hệ thống CIC-ERP tính đến tháng 6/2026:
 
-1. **Thị trường sẵn có và tệp khách hàng VIP trung thành của mảng BIM & CDE**:
+##### a) Thị trường sẵn có và tệp khách hàng VIP trung thành của mảng BIM & CDE
    - Nhờ hoạt động mạnh mẽ trong mảng tư vấn BIM và phân phối phần mềm, CIC đã xây dựng được một tệp khách hàng VIP vững chắc, tạo bước đệm hoàn hảo để thương mại hóa CDE-CIC nội địa. Phân tích dữ liệu từ hệ thống ERP mang lại các Insight chiến lược sau:
-   - **Hiệu quả Tài chính Khối Kinh doanh Lõi**: Đã ký kết **78 hợp đồng** với tổng giá trị **66,13 tỷ VNĐ** (chính xác là 66.134.952.935 VNĐ), mang lại biên lợi nhuận gộp quản trị trung bình rất ấn tượng đạt **36,36%**.
-   - **Insight Khách hàng: Sự trung thành & Giá trị vòng đời (LTV) cao**: Toàn hệ thống ghi nhận **48 khách hàng độc bản**. Đặc biệt, nhóm khách hàng quay lại (phát sinh từ 2 hợp đồng trở lên) chỉ chiếm **20,8%** (10 khách hàng) nhưng đóng góp tới **40,22 tỷ VNĐ** (chính xác là 40.220.048.656 VNĐ), tương đương **60,8% tổng doanh số** toàn thời gian của mảng. Điều này chứng minh "độ dính" cực cao của sản phẩm.
+   - **Hiệu quả Tài chính Khối Kinh doanh Lõi**: Đã ký kết **78 hợp đồng** với tổng giá trị **66,13 tỷ VNĐ** (chính xác là 66.134.952.935 VNĐ), mang lại biên lợi nhuận gộp quản trị trung bình đạt **36,36%**.
+   - **Insight Khách hàng: Sự trung thành & Giá trị vòng đời (LTV) cao**: Toàn hệ thống ghi nhận **48 khách hàng độc bản**. Đặc biệt, nhóm khách hàng quay lại (phát sinh từ 2 hợp đồng trở lên) chỉ chiếm **20,8%** (10 khách hàng) nhưng đóng góp tới **40,22 tỷ VNĐ** (chính xác là 40.220.048.656 VNĐ), tương đương **60,8% tổng doanh số** toàn thời gian của mảng. Điều này chứng minh tỷ lệ giữ chân khách hàng cao của sản phẩm.
    - **Cơ cấu Phân khúc Khách hàng Chiến lược**: Sự áp đảo của khối **Chính phủ (B2G)** và các **Tập đoàn lớn**, khớp 100% với định hướng sản phẩm CDE-CIC On-Premise:
      * *Khối Cơ quan QLNN & PMU (B2G)*: Ngân sách công lớn, yêu cầu bảo mật cao, bắt buộc tuân thủ pháp lý (QCVN 12). Phù hợp bán gói **On-Premise (0,75 tỷ/HĐ)**. Tiêu biểu: Ban QLDA DD&CN TP.HCM (8,5 tỷ); Ban QLDA DD TP.Hà Nội (7,5 tỷ).
      * *Khối CĐT & Tập đoàn lớn (Enterprise)*: Đầu tư hàng chục tỷ đồng cho CDE ngoại, yêu cầu quản trị đa dự án. Rất phù hợp bán gói **On-Premise Doanh nghiệp (1,5 tỷ/HĐ)**. Tiêu biểu: Đô thị DL Cần Giờ (19,1 tỷ); TCT 319 BQP (5,2 tỷ); Eurowindow.
      * *Khối FDI & Tư vấn Quốc tế*: Tuân thủ tiêu chuẩn BIM toàn cầu (ISO 19650). Tiềm năng triển khai **bản quyền On-Premise doanh nghiệp**. Tiêu biểu: Daewoo E&C (3,9 tỷ); Junglim Architecture (3,9 tỷ).
-   - **Insight cốt lõi**: Tệp khách hàng VIP B2G và Enterprise sẵn có này là "tài sản thương mại vô giá". Thay vì tốn hàng chục tỷ đồng chi phí giáo dục thị trường, CIC có thể lập tức chào bán chéo (cross-selling) giải pháp CDE-CIC nội địa, rút ngắn thời gian hoàn vốn. *(Các số liệu kinh doanh nêu trên trích từ hệ thống CIC‑ERP 6/2026 — là số nội bộ, cần khảo sát/kiểm toán độc lập trước khi dùng làm căn cứ đầu tư chính thức.)*
+   - **Insight cốt lõi**: Tệp khách hàng VIP B2G và Enterprise sẵn có này là lợi thế thương mại quan trọng. Thay vì tốn hàng chục tỷ đồng chi phí giáo dục thị trường, CIC có thể lập tức chào bán chéo (cross-selling) giải pháp CDE-CIC nội địa, rút ngắn thời gian hoàn vốn. *(Các số liệu kinh doanh nêu trên trích từ hệ thống CIC‑ERP 6/2026 — là số nội bộ, cần khảo sát/kiểm toán độc lập trước khi dùng làm căn cứ đầu tư chính thức.)*
 
-2. **Khắc phục tình trạng phụ thuộc phần mềm nước ngoài và rò rỉ lợi nhuận (Profit Leakage)**:
-   - Việc bán lại bản quyền phần mềm nước ngoài làm CIC đối mặt với biên lợi nhuận thấp hơn và rủi ro rò rỉ lợi nhuận lớn cho các hãng nước ngoài. Đặc biệt, các giải pháp cloud nước ngoài (như Autodesk ACC lưu trữ trên AWS US Cloud) không thể tuân thủ Quy chuẩn an ninh mạng quốc gia **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)** (buộc phải lưu trữ dữ liệu trong nước đối với khối đầu tư công B2G).
-   - Đầu tư phát triển nền tảng CDE CIC tự chủ 100% đặt trên hạ tầng đám mây nội địa (Viettel Cloud + VNPT Cloud) là lời giải triệt để. Nó giúp CIC bảo vệ tệp khách hàng đầu tư công VIP sẵn có, giữ lại toàn bộ dòng doanh thu bản quyền On-Premise, và tạo động lực tăng trưởng đột phá nhờ chiến lược bán chéo (bundle): **Dịch vụ tư vấn BIM + Bản quyền phần mềm CDE CIC**.
+##### b) Khắc phục tình trạng phụ thuộc phần mềm nước ngoài và rò rỉ lợi nhuận (Profit Leakage)
+   - Việc bán lại bản quyền phần mềm nước ngoài làm CIC đối mặt với biên lợi nhuận thấp hơn và rủi ro rò rỉ lợi nhuận lớn cho các hãng nước ngoài. Đặc biệt, các giải pháp cloud nước ngoài (như Autodesk ACC lưu trữ trên AWS US Cloud) không thể đáp ứng các yêu cầu kỹ thuật an ninh mạng tại **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)** — quy chuẩn yêu cầu hạ tầng lưu trữ phải đặt trong lãnh thổ Việt Nam, nhà cung cấp phải có đại diện pháp lý tại VN, và cấm phần mềm tự động gửi dữ liệu ra nước ngoài (call-home) — áp dụng cho mọi hệ thống lưu trữ tài liệu điện tử trong cơ quan Nhà nước (hiệu lực từ 01/7/2026, lộ trình tuân thủ 12–18 tháng tùy cấp độ hệ thống).
+   - Đầu tư phát triển nền tảng CDE CIC tự chủ 100%, triển khai On-Premise trên hạ tầng đám mây nội địa (Viettel Cloud/VNPT Cloud/FPT Cloud) do khách hàng lựa chọn, kèm dịch vụ tư vấn & setup của CIC để đảm bảo tuân thủ, là lời giải triệt để. Nó giúp CIC bảo vệ tệp khách hàng đầu tư công VIP sẵn có, giữ lại toàn bộ dòng doanh thu bản quyền On-Premise, và tạo động lực tăng trưởng đột phá nhờ chiến lược bán chéo (bundle): **Dịch vụ tư vấn BIM + Bản quyền phần mềm CDE CIC**.
 
 
 
@@ -64,13 +77,17 @@ Trong kỷ nguyên số hóa ngành xây dựng và quản lý đô thị thông
 
 Sự tích hợp chặt chẽ này biến CDE từ một kho lưu trữ tài liệu đơn thuần thành một hệ điều hành bản sao số sống động. Mọi biến động vật lý ngoài thực địa được cảm biến IoT ghi nhận, định vị chính xác trên không gian GIS và phản ánh trực quan trên mô hình BIM của CDE. Đây chính là nền tảng cốt lõi để hiện thực hóa các giải pháp quản lý đô thị thông minh, tối ưu hóa bảo trì dự phòng (predictive maintenance) và mô phỏng phản ứng sự cố trong thời gian thực.
 
+#### Kết luận §1.1
+
+Ba yếu tố trên — **(i)** hành lang pháp lý bắt buộc (NĐ 217: CDE bắt buộc cấp I+ đầu tư công, QCVN 12: tiêu chuẩn ANM loại trừ cloud nước ngoài), **(ii)** tệp khách hàng B2G/Enterprise sẵn có (48 khách hàng, 66,13 tỷ doanh thu, biên LN 36%), và **(iii)** tiềm năng Digital Twin dài hạn — hội tụ thành luận cứ đầu tư rõ ràng: CIC có cả cơ sở pháp lý, nền tảng thương mại lẫn tầm nhìn công nghệ để phát triển nền tảng CDE tự chủ.
+
 ### 1.2. Mục tiêu chiến lược và Định hướng phát triển CDE CIC
 Để định hình rõ nét vai trò và hướng đi của dự án, Ban chỉ đạo R&D xác lập các mục tiêu và định hướng phát triển cụ thể của CDE CIC như sau:
 
 1. **Mục tiêu ngắn hạn (1 - 2 năm)**:
    - **Tự chủ công nghệ 100%**: Phát triển hoàn chỉnh hệ thống quản lý dữ liệu bản vẽ, mô hình BIM và luồng phê duyệt theo tiêu chuẩn ISO 19650, thay thế hoàn toàn phần mềm ngoại nhập.
    - **Thương mại hóa nhanh**: Chuyển đổi tối thiểu 30% tệp khách hàng BIM hiện tại sang sử dụng bản quyền CDE CIC, tạo nguồn doanh thu bản quyền & bảo trì ổn định.
-   - **Chứng nhận an toàn thông tin Cấp độ 3 (Thông tư 47/2026/TT-BCA)**: Hoàn thành thủ tục đánh giá độc lập và nhận giấy chứng nhận hợp quy Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) của Cục A05 (Bộ Công an) cho hạ tầng Viettel Cloud trong vòng 12 tháng kể từ khi vận hành thử nghiệm.
+   - **Xây dựng cấu hình tham chiếu đạt chuẩn Cấp độ 3 (Thông tư 47/2026/TT-BCA)**: Thiết lập một cấu hình triển khai tham chiếu (reference deployment) trên Viettel Cloud, hoàn thành thủ tục đánh giá độc lập và nhận giấy chứng nhận hợp quy Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) của Cục A05 (Bộ Công an) cho cấu hình này trong vòng 12 tháng kể từ khi vận hành thử nghiệm, làm mẫu nhân bản khi tư vấn & setup hạ tầng cho từng khách hàng On-Premise (Viettel/VNPT/FPT). *Lưu ý: hồ sơ hợp quy/đảm bảo an toàn hệ thống của mỗi khách hàng vẫn do đơn vị chủ quản hệ thống (PMU/Sở) đứng tên; CIC đóng vai trò tư vấn & setup giúp khách hàng đạt đánh giá cấp độ nhanh hơn nhờ cấu hình mẫu đã kiểm chứng, không "chứng nhận thay" khách hàng.*
    - **Liên thông dữ liệu quốc gia**: Tích hợp liên thông trực tiếp với Cổng NDXP/LGSP quốc gia và API của Bộ Xây dựng (`csdlhdxd.gov.vn`), phục vụ công tác nộp file mô hình thiết kế, thẩm định quy hoạch và cấp phép xây dựng số (Ưu tiên thực hiện sớm để tạo lợi thế cạnh tranh B2G).
 
 2. **Mục tiêu dài hạn (3 - 5 năm)**:
@@ -78,7 +95,7 @@ Sự tích hợp chặt chẽ này biến CDE từ một kho lưu trữ tài li�
    - **Bộ não đô thị thông minh (GeoBIM Digital Twin)**: Phát triển CDE của CIC thành nền tảng lõi và bộ não Digital Twin phục vụ thí điểm quản lý quy hoạch và phát triển đô thị thông minh tại các thành phố trực thuộc trung ương thí điểm Digital Twin theo Nghị quyết số 57/NQ-CP của Chính phủ.
 
 3. **Định hướng phát triển sản phẩm**:
-   - **Chủ quyền dữ liệu**: Đặt toàn bộ hệ thống trên hạ tầng đám mây nội địa (Viettel Cloud), bảo đảm an toàn thông tin cấp độ 3 và tuân thủ tuyệt đối quy định lưu trữ dữ liệu quốc gia.
+   - **Chủ quyền dữ liệu**: Triển khai On-Premise trên hạ tầng đám mây nội địa do khách hàng lựa chọn (Viettel Cloud/VNPT Cloud/FPT Cloud), với sự tư vấn & setup của CIC để bảo đảm an toàn thông tin cấp độ 3 và tuân thủ tuyệt đối quy định lưu trữ dữ liệu quốc gia.
    - **Mở rộng dựa trên OpenBIM**: Tuân thủ tuyệt đối định dạng file mở IFC (OpenBIM), cung cấp hệ thống API mở (REST, gRPC) để dễ dàng tích hợp với các hệ thống ERP doanh nghiệp và phần mềm quản lý đầu tư công khác.
    - **Tập trung dữ liệu & Khai thác tài sản số**: Định vị CDE là nền tảng tập trung dữ liệu toàn diện của dự án xây dựng, tối ưu hóa lưu trữ, quản lý vòng đời tài liệu và khai thác hiệu quả tài sản số (digital assets) kết hợp trợ lý ảo AI để hỗ trợ phát triển, sinh test tự động và quản trị vận hành hệ thống.
 
@@ -86,7 +103,7 @@ Sự tích hợp chặt chẽ này biến CDE từ một kho lưu trữ tài li�
 ### 1.3. Mục đích báo cáo
 Báo cáo này phân tích sâu sắc cấu trúc công nghệ của các giải pháp CDE nội địa (NovaCDE, VinaCDE, BuildTab,...) và quốc tế (Autodesk Construction Cloud, Trimble Connect,...), từ đó kiến nghị:
 * Mô hình kiến trúc phần mềm tối ưu dựa trên nền tảng Go + Python + TypeScript.
-* Mô hình hạ tầng đám mây bảo mật cao Dual-Cloud (Viettel Cloud làm Primary, VNPT làm DR) đạt quy chuẩn an ninh mạng QCVN 12:2026/BCA và Cấp độ 3.
+* Mô hình triển khai On-Premise trên hạ tầng cloud nội địa do khách hàng lựa chọn (Viettel Cloud/VNPT Cloud/FPT Cloud), kèm dịch vụ tư vấn & setup của CIC đạt quy chuẩn an ninh mạng QCVN 12:2026/BCA và Cấp độ 3; CIC duy trì một cấu hình tham chiếu Dual-Cloud (Viettel Cloud chính, VNPT dự phòng) làm mẫu.
 * Mô hình nhân sự siêu tinh gọn phối hợp AI (Mô hình AI-Conductor), gồm đúng 02 nhân sự cốt lõi (CTO kiêm Developer chính và 01 Trợ lý Dev/QA/BA) làm việc cùng AI Claude để tối ưu hóa tối đa chi phí.
 * Dự toán tài chính chi tiết trong vòng 5 năm (CAPEX = 0 VNĐ, chi phí vận hành ~65% doanh thu, lợi nhuận gộp ~35%) và lộ trình triển khai cụ thể theo Sprint.
 
@@ -94,7 +111,7 @@ Báo cáo này phân tích sâu sắc cấu trúc công nghệ của các giải
 * **Định dạng lưu trữ mở & Engine độc lập**: Sử dụng IFC 4.0 làm định dạng dữ liệu hình học cốt lõi (OpenBIM), kết hợp ThatOpen Engine render trực tiếp trên trình duyệt bằng WebGL/WebGPU để loại bỏ sự phụ thuộc vào các engine thương mại đắt đỏ của nước ngoài.
 * **R&D mô hình AI-Conductor & Khai thác dữ liệu**: Phát triển mô hình AI-Conductor giúp tối ưu hóa nhân sự tối đa còn 2 người, sử dụng AI thế hệ mới để hỗ trợ viết code, tạo kịch bản kiểm thử, và tự động hóa quy trình nghiệp vụ.
 * **Đồng bộ CSDL Quốc gia & Hỗ trợ Thẩm định số**: Xây dựng phân hệ API liên thông trực tiếp với CSDL Quốc gia về hoạt động xây dựng (`csdlhdxd.gov.vn`) để tự động đồng bộ mô hình hoàn công; tích hợp công cụ hỗ trợ cơ quan QLNN tự động kiểm tra sự tuân thủ quy chuẩn (mật độ, khoảng lùi, chiều cao), phát hiện xung đột và trích xuất khối lượng phục vụ thẩm định thiết kế, nghiệm thu số không dùng giấy.
-* **Tuân thủ Quy chuẩn Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)**: Thiết lập hệ thống lưu trữ hoàn toàn trên đám mây nội địa (Viettel Cloud), tích hợp định danh VNeID SSO và cơ chế ghi log bất biến (Immutable WORM logging) để đáp ứng tuyệt đối các yêu cầu về an ninh mạng quốc gia phục vụ khối đầu tư công (B2G).
+* **Tuân thủ Quy chuẩn Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)**: Tư vấn & setup hệ thống lưu trữ trên đám mây nội địa (Viettel/VNPT/FPT) do khách hàng lựa chọn, tích hợp định danh VNeID SSO và cơ chế ghi log bất biến (Immutable WORM logging) để đáp ứng tuyệt đối các yêu cầu về an ninh mạng quốc gia phục vụ khối đầu tư công (B2G).
 
 ---
 
@@ -112,7 +129,7 @@ Giai đoạn cuối năm 2025 và giữa năm 2026 đánh dấu bước ngoặt 
 | 4 | **Nghị định số 207/2026/NĐ-CP** | 19/06/2026 | Quản lý chất lượng công trình XD | BIM trong thi công, nghiệm thu |
 | 5 | **Nghị định số 210/2026/NĐ-CP** | 19/06/2026 | Hợp đồng xây dựng | Hợp đồng tư vấn BIM hợp pháp |
 | 6 | **Nghị định số 206/2026/NĐ-CP** | 15/06/2026 | Quản lý chi phí đầu tư XD | Định mức giá, chi phí CNTT trong dự toán |
-| 7 | **Thông tư số 47/2026/TT-BCA** | 2026 | Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) về an ninh mạng | Quy chuẩn an ninh hạ tầng Cloud nội địa |
+| 7 | **Thông tư số 47/2026/TT-BCA** | 12/05/2026 | Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) về an ninh mạng | Quy chuẩn an ninh hạ tầng Cloud nội địa |
 
 ### 2.2. BIM được Luật hóa — Luật Xây dựng số 135/2025/QH15
 
@@ -180,12 +197,12 @@ Theo quy định pháp lý quốc tế về sở hữu trí tuệ phần mềm, 
 
 CDE CIC phục vụ phân khúc B2G (dự án đầu tư công) phải tuân thủ nghiêm ngặt các quy chuẩn an ninh quốc gia:
 
-* **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)** (ban hành kèm Thông tư số 47/2026/TT-BCA): Quy chuẩn kỹ thuật quốc gia về an ninh mạng đối với hệ thống thông tin. CDE CIC đặt hạ tầng Cloud hoàn toàn trong nước (Viettel Cloud + VNPT Cloud) để đáp ứng tuyệt đối.
+* **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)**: Quy chuẩn kỹ thuật quốc gia về an ninh mạng cho **hệ thống thông tin lưu trữ tài liệu điện tử** trong cơ quan Đảng, Nhà nước. *Lưu ý: QCVN 12 không trực tiếp bắt buộc mua phần mềm CDE cụ thể, mà đặt 22 nhóm yêu cầu kỹ thuật an ninh mạng (lưu trữ nội địa, WORM log, hash toàn vẹn, sao lưu air-gap, cấm call-home...) mà bất kỳ hệ thống lưu trữ TLĐT nào cũng phải đáp ứng. Các yêu cầu này tạo rào cản tự nhiên loại trừ cloud nước ngoài và shared drive đơn giản.* CDE CIC được triển khai On-Premise trên hạ tầng Cloud nội địa do khách hàng lựa chọn (Viettel Cloud/VNPT Cloud/FPT Cloud), với CIC tư vấn & setup để hướng tới đáp ứng đầy đủ; đồng thời CIC duy trì một cấu hình tham chiếu Dual-Cloud (Viettel Cloud + VNPT Cloud) làm mẫu đã kiểm chứng. Lộ trình tuân thủ: hệ thống cấp 3,4,5 phải đáp ứng trong 12 tháng (hạn 01/7/2027), cấp 1,2 trong 18 tháng (hạn 01/1/2028).
 * **Luật Dữ liệu số 60/2024/QH15**: Tuân thủ quy định bảo vệ dữ liệu lớn trong hệ sinh thái xây dựng.
-* **Luật Bảo vệ Dữ liệu cá nhân số 91/2025/QH15**: Bảo vệ thông tin cá nhân của người dùng hệ thống (nhân sự ban quản lý dự án, kỹ sư thi công).
+* **Luật Bảo vệ Dữ liệu cá nhân số 91/2025/QH15**: Bảo vệ thông tin cá nhân của người dùng hệ thống (nhân sự ban quản lý dự án, các thành viên tham gia dự án).
 
 > **Giải pháp kỹ thuật tương thích**:
-> * Mô hình Dual-Cloud (Viettel Cloud làm chính, VNPT làm dự phòng) đảm bảo chủ quyền dữ liệu đặt hoàn toàn tại Việt Nam.
+> * Triển khai On-Premise trên hạ tầng nội địa khách hàng lựa chọn (Viettel/VNPT/FPT), với cấu hình tham chiếu Dual-Cloud (Viettel Cloud làm chính, VNPT làm dự phòng) của CIC làm mẫu, đảm bảo chủ quyền dữ liệu đặt hoàn toàn tại Việt Nam.
 > * Cơ chế ghi nhật ký kiểm toán bất biến (Audit Trail WORM) chống giả mạo, đáp ứng Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA).
 > * Tích hợp cổng API mở (REST/gRPC) sẵn sàng kết nối trực tiếp với Cổng CSDL quốc gia tại `https://csdlhdxd.gov.vn`.
 
@@ -194,6 +211,20 @@ CDE CIC phục vụ phân khúc B2G (dự án đầu tư công) phải tuân th�
 
 
 ## Chương 3: Phân tích Thị trường & Đối thủ Cạnh tranh (Market & Competitor Analysis)
+
+### 3.0. Quy mô Thị trường Mục tiêu (TAM/SAM/SOM)
+
+Để đánh giá tiềm năng thương mại của CDE CIC, báo cáo ước tính quy mô thị trường theo phương pháp bottom-up dựa trên cơ cấu hành chính và quy định pháp lý hiện hành (7/2026):
+
+| Cấp độ | Định nghĩa | Ước tính quy mô |
+|:---|:---|:---|
+| **TAM** (Toàn bộ thị trường) | Tất cả tổ chức tại VN có nhu cầu CDE/BIM (cả công và tư) | ~200+ đơn vị (Sở XD, PMU, tư vấn, nhà thầu, CĐT lớn) |
+| **SAM** (Thị trường khả dụng) | Đơn vị bắt buộc hoặc có nhu cầu cao về CDE theo NĐ 217 | **34 Sở XD** (34 tỉnh/TP) + **~102 Ban QLDA cấp tỉnh** (34 × ~3 Ban/tỉnh) + Ban QLDA cấp Bộ/TW + DN xây dựng lớn |
+| **SOM** (Mục tiêu 5 năm) | Khách hàng CDE CIC nhắm tới 2027–2030 | 26 PMU + 12 Sở + 11 DN = **49 đơn vị** (Bảng 6.4a) |
+
+> *Nguồn ước tính: Bộ Nội vụ (cơ cấu 34 tỉnh/TP trực thuộc TW sau sắp xếp), NĐ 217/2026/NĐ-CP, dữ liệu CIC-ERP. SOM = mục tiêu lũy kế đến 2030 tại Bảng 6.4a. Quy mô TAM cần khảo sát bổ sung để xác nhận chính xác.*
+
+**Phân tích:** SOM/SAM ≈ 49/(34+102+BộTW+DN) cho thấy mục tiêu thâm nhập thị trường ở mức **vừa phải** (~25-30% phân khúc B2G trong 5 năm). Biến số rủi ro lớn nhất là tốc độ thâm nhập thực tế, phụ thuộc vào chu kỳ mua sắm công và mức sẵn sàng ứng dụng BIM tại các địa phương.
 
 ### 3.1a. Tổng quan đối thủ Việt Nam
 
@@ -219,7 +250,7 @@ Do tính chất phân khúc thị trường có sự khác biệt rõ rệt gi�
 | **AI/ML** | ✅ Phân loại tài liệu | ❌ | ❌ | ❌ | ❌ | **🎯 Roadmap GĐ2** |
 | **API mở** | ✅ REST API | ✅ Hệ sinh thái | ✅ API | ⚠️ Hạn chế | ⚠️ Hạn chế | **🎯 gRPC + REST** |
 | **Thị trường** | SME, hạ tầng giao thông | SME, nhà thầu, tư vấn | Enterprise, vận hành | Quản lý dự án | Hạ tầng giao thông | **B2G (PMU, Sở XD), Enterprise** |
-| **Hạ tầng Cloud** | VN Cloud | VN Cloud | AWS + VN Cloud | VN Cloud | VN Cloud / Server riêng | **🎯 Viettel Cloud + VNPT Cloud (DR)** |
+| **Hạ tầng Cloud** | VN Cloud | VN Cloud | AWS + VN Cloud | VN Cloud | VN Cloud / Server riêng | **🎯 On-Premise (Viettel/VNPT/FPT do khách chọn)** |
 | **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)** | ❌ Chưa có | ❌ Chưa có | ⚠️ Khó (AWS) | ❌ Chưa có | ❌ Chưa có | **🎯 Thiết kế tuân thủ từ đầu** |
 | **VNeID SSO** | ❌ | ❌ | ❌ | ❌ | ❌ | **🎯 Tích hợp định danh VNeID** |
 
@@ -242,7 +273,7 @@ Do tính chất phân khúc thị trường có sự khác biệt rõ rệt gi�
 | **4D/5D BIM** | ✅ Autodesk Takeoff | ✅ Trimble Gecat | ✅ Bentley Synchro | ❌ | **🎯 Roadmap GĐ2** |
 | **FM (Vận hành)** | ✅ Autodesk Tandem | ✅ Trimble FM | ✅ Bentley AssetWise | ❌ | **🎯 Roadmap GĐ2** |
 | **AI/ML** | ✅ Autodesk AI | ⚠️ Hạn chế | ✅ Bentley AI | ❌ | **🎯 Roadmap GĐ2** |
-| **Hạ tầng Cloud** | AWS (Global) | AWS + Azure | Azure (Global) | Azure (EU) | **🎯 Viettel Cloud + VNPT Cloud (DR)** |
+| **Hạ tầng Cloud** | AWS (Global) | AWS + Azure | Azure (Global) | Azure (EU) | **🎯 On-Premise (Viettel/VNPT/FPT do khách chọn)** |
 | **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA)** | ❌ Không đạt (US Cloud) | ❌ Không đạt (US Cloud) | ❌ Không đạt (US Cloud) | ❌ Không đạt (EU Cloud) | **🎯 Thiết kế tuân thủ từ đầu** |
 | **Liên thông NDXP**| ❌ | ❌ | ❌ | ❌ | **🎯 Hỗ trợ liên thông LGSP/NDXP** |
 | **VNeID SSO** | ❌ | ❌ | ❌ | ❌ | **🎯 Tích hợp định danh VNeID** |
@@ -286,11 +317,26 @@ CIC hoàn toàn có thể phá vỡ thế độc quyền của đối thủ và 
 #### 3.2.6. Tổng kết & Khoảng trống thị trường — Định vị của CDE CIC
 Tổng hợp khảo sát 5 đối thủ nội địa cho thấy ba kết luận chiến lược:
 
-1. **Khoảng trống B2G chưa ai lấp:** *Không một đối thủ nội địa nào* hiện đạt đồng thời **Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) + liên thông NDXP/LGSP + định danh VNeID** — đúng bộ ba yêu cầu bắt buộc của phân khúc đầu tư công sau 01/7/2026. Đây là khoảng trống mà CDE CIC nhắm chiếm trước. *Lưu ý: với đối thủ nội địa, đây là lợi thế **first‑mover ~1–2 năm** — họ có thể bổ sung compliance trong 12–18 tháng (xem §3.6), nên cần tận dụng nhanh.*
+1. **Khoảng trống B2G chưa ai lấp:** *Không một đối thủ nội địa nào* hiện đáp ứng đồng thời các yêu cầu kỹ thuật an ninh mạng theo **QCVN 12:2026/BCA** (hạ tầng nội địa, WORM log, hash toàn vẹn, cấm call-home) + **liên thông NDXP/LGSP** + **định danh VNeID** — bộ ba yêu cầu thực tế bắt buộc của phân khúc đầu tư công. Hệ thống cấp 3+ phải tuân thủ QCVN 12 trước 01/7/2027 (12 tháng sau khi TT47 có hiệu lực). Đây là khoảng trống mà CDE CIC nhắm chiếm trước. *Lưu ý: với đối thủ nội địa, đây là lợi thế **tiên phong (first‑mover) ~1–2 năm** — họ có thể hoàn thiện sự tuân thủ trong 12–18 tháng (xem §3.6), nên cần tận dụng nhanh.*
 2. **Mô hình hệ sinh thái là chìa khóa:** Các đối thủ mạnh đều dựa trên hệ sinh thái sẵn có (Nova, VinaCAD/VCC, ADSCivil, DP Unity). CIC tái lập lợi thế này bằng **tệp khách hàng BIM & mạng lưới tư vấn sẵn có** + chiến lược bundle "Tư vấn BIM + License CDE CIC".
 3. **Tham chiếu định giá:** Giá công khai của đối thủ (VinaCDE 2,9–8,2 triệu/tháng theo gói; BuildTab Single User từ 50 triệu) cho thấy khung giá On-Premise của CDE CIC (§6.1) là cạnh tranh và hợp lý; đồng thời phân khúc On-Prem B2G cấp Bộ/tỉnh còn nhiều dư địa định giá cao mà nhóm SME-focused chưa khai thác.
 
 > *Nguồn tham chiếu: website sản phẩm các nhà cung cấp (novabim.vn, vina-cde.com, buildtab.vn, bimnext.dpunity.com, baezenisoft.com) và nghiên cứu khoa học của Trường ĐH Giao thông vận tải trên Tạp chí Xây dựng — Bộ Xây dựng (19/11/2025). Thông tin kiến trúc/đánh giá có thể không phản ánh đầy đủ năng lực thực tế và lộ trình cập nhật của đối thủ.*
+
+### 3.7. Phân tích SWOT — CDE CIC
+
+| | **Tích cực** | **Tiêu cực** |
+|:---:|:---|:---|
+| **Nội bộ** | **Điểm mạnh (Strengths)** | **Điểm yếu (Weaknesses)** |
+| | • Tệp 48 khách hàng BIM/CDE sẵn có, biên LN 36% | • Đội ngũ core chỉ 2 người (Bus Factor cao) |
+| | • Thiết kế tuân thủ QCVN 12 từ đầu | • Sản phẩm mới đạt ~70%, còn ~30% (tối ưu, đóng gói thương mại) |
+| | • Tự chủ công nghệ 100%, không phụ thuộc engine thương mại | • Phụ thuộc AI (Claude) cho mô hình phát triển |
+| | • Chi phí vận hành thấp nhờ mô hình AI-Conductor | • Chưa có chứng nhận QCVN 12 (mới chỉ là mục tiêu thiết kế) |
+| **Bên ngoài** | **Cơ hội (Opportunities)** | **Thách thức (Threats)** |
+| | • NĐ 217 tạo thị trường bắt buộc (CDE cấp I+ đầu tư công) | • NovaCDE có thể bắt kịp về sự tuân thủ trong 12–18 tháng |
+| | • Không đối thủ nào (nội + ngoại) đạt QCVN 12 hiện tại | • Tập đoàn công nghệ lớn trong nước (FPT, Viettel, VNPT) có thể tự xây CDE |
+| | • NĐ 206 cho phép đưa chi phí CDE vào dự toán đầu tư công | • PMU dùng giải pháp lưu trữ chung (shared drive) tự phát — tuy nhiên các giải pháp này không đáp ứng QCVN 12 |
+| | • Xu hướng Digital Twin, Smart City tại VN | • Tốc độ áp dụng BIM tại các PMU/Sở Xây dựng hiện còn thấp |
 
 ---
 
@@ -354,12 +400,12 @@ Khi CDE CIC ra mắt thị trường, các đối thủ hiện hữu sẽ không
 
 | Đối thủ | Phản ứng dự kiến | Mức độ đe dọa | Phương án đối phó CDE CIC |
 |---|---|:---:|---|
-| **NovaCDE** | Bổ sung compliance Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA), hạ giá cạnh tranh phân khúc B2G. Có thể đạt Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) trong 12-18 tháng. | 🔴 Cao | Tận dụng lợi thế first-mover Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) (nếu đạt trước) kết hợp với chi phí đầu tư và vận hành cực kỳ cạnh tranh nhờ mô hình nhân sự tối giản phối hợp AI. |
+| **NovaCDE** | Bổ sung sự tuân thủ Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA), hạ giá cạnh tranh phân khúc B2G. Có thể đạt Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) trong 12-18 tháng. | 🔴 Cao | Tận dụng lợi thế tiên phong (first-mover) Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) (nếu đạt trước) kết hợp với chi phí đầu tư và vận hành cực kỳ cạnh tranh nhờ mô hình nhân sự tối giản phối hợp AI. |
 | **VinaCDE** | Khai thác tệp khách hàng VinaCAD sẵn có, ưu đãi giá bundle. | 🟠 TB | Không cạnh tranh trực tiếp ở phân khúc SME. Tập trung B2G/Enterprise — phân khúc VinaCDE chưa mạnh. |
 | **BuildTab** | Mở rộng module FM, giảm phụ thuộc Autodesk APS. | 🟡 Thấp | BuildTab bị vendor lock-in APS sâu — chi phí chuyển đổi rất cao. Lợi thế cloud nội địa của CDE CIC là rào cản tự nhiên. |
-| **Autodesk ACC** | Mở đại lý tại VN, hạ giá cho thị trường Đông Nam Á. | 🟠 TB | Autodesk không thể đặt server tại VN → không bao giờ đạt Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA). Với Autodesk, lợi thế compliance là rào cản pháp lý **dài hạn** (chừng nào quy định lưu trữ dữ liệu trong nước còn hiệu lực). |
+| **Autodesk ACC** | Mở đại lý tại VN, hạ giá cho thị trường Đông Nam Á. | 🟠 TB | Autodesk không thể đặt server tại VN → không bao giờ đạt Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA). Với Autodesk, lợi thế về sự tuân thủ quy chuẩn là rào cản pháp lý **dài hạn** (chừng nào quy định lưu trữ dữ liệu trong nước còn hiệu lực). |
 
-**Chiến lược tổng quan**: CDE CIC không cần "thắng" ở mọi phân khúc. Chỉ cần chiếm vững **phân khúc B2G (PMU, Sở Xây dựng)** — nơi Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) và VNeID SSO là yêu cầu bắt buộc mà không đối thủ nào hiện đáp ứng — là đủ để xây dựng doanh thu nền tảng ổn định. Mở rộng sang nhóm Doanh nghiệp lớn là bước tiếp theo khi product-market fit đã được xác nhận.
+**Chiến lược tổng quan**: CDE CIC không cần "thắng" ở mọi phân khúc. Chỉ cần chiếm vững **phân khúc B2G (PMU, Sở Xây dựng)** — nơi các yêu cầu kỹ thuật theo QCVN 12:2026/BCA (lưu trữ nội địa, WORM log, cấm call-home) và VNeID SSO tạo rào cản tự nhiên mà không đối thủ nào hiện đáp ứng — là đủ để xây dựng doanh thu nền tảng ổn định. Hệ thống cấp 3+ phải đáp ứng QCVN 12 trước 01/7/2027. Mở rộng sang nhóm Doanh nghiệp lớn là bước tiếp theo khi product-market fit đã được xác nhận.
 
 ---
 
@@ -449,9 +495,9 @@ Tối ưu hóa quy trình phối hợp thiết kế giữa các bộ môn Kiến
 *   **Báo cáo va chạm trực quan**: Tổng hợp và phân loại các điểm xung đột thiết kế, theo dõi tiến độ xử lý va chạm thông qua biểu đồ trực quan (Dashboard).
 
 #### 4. Phân hệ Hỗ trợ Thẩm định trực tuyến QLNN & Liên thông CSDL Quốc gia (Building Permit, Review & National DB Sync) - [GIAI ĐOẠN 1]
-Tính năng chiến lược giúp CDE-CIC độc quyền chiếm lĩnh phân khúc dịch vụ công (B2G) và đảm bảo tuân thủ tuyệt đối quy định của Chính phủ:
+Tính năng chiến lược giúp CDE-CIC xây dựng vị thế dẫn đầu tại phân khúc dịch vụ công (B2G) và đảm bảo tuân thủ tuyệt đối quy định của Chính phủ:
 *   **Cổng tiếp nhận hồ sơ BIM trực tuyến**: Cung cấp giao diện làm việc riêng biệt cho cán bộ Sở Xây dựng / Bộ Xây dựng tiếp nhận hồ sơ thiết kế và mô hình BIM từ chủ đầu tư.
-*   **Kiểm tra quy chuẩn tự động bằng AI (AI-powered Compliance Checker)**: Tích hợp thư viện luật và quy chuẩn xây dựng Việt Nam, ứng dụng AI kết hợp bộ quy tắc (Rule-based) để tự động quét mô hình IFC, phát hiện và cảnh báo các sai phạm về mật độ xây dựng, khoảng lùi, chiều cao tối đa và chỉ giới đường đỏ trực tiếp trên mô hình 3D (theo NĐ 212/2026/NĐ-CP & NĐ 217/2026/NĐ-CP).
+*   **Kiểm tra sự tuân thủ quy chuẩn tự động bằng AI (AI-powered Compliance Checker)**: Tích hợp thư viện luật và quy chuẩn xây dựng Việt Nam, ứng dụng AI kết hợp bộ quy tắc (Rule-based) để tự động quét mô hình IFC, phát hiện và cảnh báo các sai phạm về mật độ xây dựng, khoảng lùi, chiều cao tối đa và chỉ giới đường đỏ trực tiếp trên mô hình 3D (theo NĐ 212/2026/NĐ-CP & NĐ 217/2026/NĐ-CP).
 *   **Tự động bóc tách khối lượng thẩm định dự toán (Automated QTO)**: Tự động trích xuất khối lượng cấu kiện từ mô hình IFC theo định dạng bảng khối lượng tiêu chuẩn của Việt Nam, liên thông với hệ thống đơn giá định mức của Bộ Xây dựng trên CSDLQG nhằm phục vụ công tác thẩm duyệt dự toán (theo NĐ 206/2026/NĐ-CP).
 *   **Đồng bộ CSDL Quốc gia về hoạt động xây dựng (National DB Sync)**: Tích hợp cơ chế tự động đóng gói mô hình BIM (.ifc, .rvt) kèm chữ ký số và kết nối thông qua API liên thông trực tiếp với hệ thống `csdlhdxd.gov.vn` của Bộ Xây dựng (theo NĐ 212/2026/NĐ-CP và NĐ 217/2026/NĐ-CP).
 *   **Nhật ký thẩm định & Phê duyệt điện tử**: Cho phép cán bộ ghi chú lỗi trực tiếp lên mô hình, ký số phê duyệt và kết xuất báo cáo kết quả thẩm định thiết kế tự động gửi về hệ thống Một cửa điện tử của tỉnh.
@@ -476,11 +522,11 @@ CDE CIC áp dụng mô hình **AI-Conductor siêu tinh gọn**: Rút gọn tối
 1. **Lead CTO / Full-stack Developer (01 người)**:
    - *Vai trò*: Trực tiếp làm kiến trúc sư hệ thống, kiểm soát nghiệp vụ xây dựng (ISO 19650), chỉ đạo và viết các module cốt lõi (Go/Python Backend, Three.js Frontend).
    - *Vận hành AI*: Đóng vai trò "Conductor" (nhạc trưởng), giao việc cho AI Claude sinh code, sau đó trực tiếp kiểm tra (review), tối ưu hóa cấu trúc và duyệt mã nguồn.
-   - *Quỹ lương cứng*: 50 triệu VNĐ/tháng.
 2. **Trợ lý Dev / QA / BA / Vận hành (01 người)**:
    - *Vai trò*: Phối hợp viết code bổ trợ, viết kịch bản kiểm thử tự động, chuẩn bị dữ liệu nghiệp vụ, viết tài liệu kỹ thuật/API và hỗ trợ khách hàng giai đoạn đầu.
    - *Vận hành AI*: Sử dụng AI để tự động hóa việc viết unit test, sinh dữ liệu mock, và hỗ trợ QA/QC nhanh chóng.
-   - *Quỹ lương cứng*: 30 triệu VNĐ/tháng.
+
+> *Lưu ý về nhân sự*: Các nhân sự cốt lõi thuộc biên chế của Trung tâm phần mềm và ứng dụng AI của CIC và đã được chi trả lương cố định từ nguồn ngân sách hoạt động chung của Trung tâm (dự án CDE CIC không phát sinh chi phí lương cứng trực tiếp). Trung tâm sẽ được hưởng tỷ lệ phân bổ từ doanh thu sản phẩm CDE CIC (trích từ tổng chi phí vận hành 65% tại §6.2) làm nguồn kinh phí hoạt động, chi trả thu nhập tăng thêm và tái đầu tư nâng cấp sản phẩm.
 
 ```mermaid
 graph TB
@@ -499,7 +545,20 @@ graph TB
     style AI fill:#7c3aed,color:#fff
 ```
 
-### 5.3. Ma trận Phân bổ Rủi ro Nhân sự & Kỹ thuật trong Mô hình AI-Augmented
+#### Kế hoạch Mở rộng Nhân sự theo Số lượng Hợp đồng
+
+Đội ngũ ban đầu 2 người là nền tảng khởi động. Kế hoạch mở rộng nhân sự được xây dựng dựa trên số lượng hợp đồng triển khai và vận hành thực tế nhằm đảm bảo chất lượng bàn giao On-Premise và hỗ trợ kỹ thuật kịp thời:
+
+| Lũy kế số lượng hợp đồng | Nhân sự bổ sung | Vai trò | Chi phí thêm/tháng |
+|:---|:---|:---|:---:|
+| 1 hợp đồng | Giữ 2 người core | — | 0 |
+| 2–5 hợp đồng | +1 người | Dev/Triển khai On-Premise (hỗ trợ cài đặt, bàn giao) | ~15 tr |
+| 6–15 hợp đồng | +1 người | Hỗ trợ khách hàng (tận dụng Sales từ các trung tâm khác) | ~15 tr |
+| > 15 hợp đồng | +2 người | Dev + PM triển khai | ~40 tr |
+
+> Kế hoạch mở rộng đảm bảo năng lực triển khai tương xứng với số lượng hợp đồng. Chi phí nhân sự bổ sung đã được tính trong tổng chi phí vận hành (65% DT) tại §6.2.1.
+
+### 5.3. Ma trận Phân bổ Rủi ro Tổng thể — Nhân sự, Kỹ thuật & Chiến lược
 
 Do đội ngũ cực kỳ tinh gọn, rủi ro phụ thuộc vào nhân sự và công cụ là có thật. Dưới đây là ma trận kiểm soát rủi ro:
 
@@ -509,6 +568,12 @@ Do đội ngũ cực kỳ tinh gọn, rủi ro phụ thuộc vào nhân sự và
 | **Nợ kỹ thuật tích tụ do code sinh tự động** | 🟠 Trung bình | Dành riêng 1 ngày cuối của mỗi Sprint (chu kỳ 2 tuần) để refactor, dọn dẹp mã nguồn thừa, chuẩn hóa cấu trúc thư mục và chú thích tài liệu kỹ thuật. |
 | **Rủi ro phụ thuộc vào Lead CTO (Single Point of Failure)** | 🔴 Cao | Tài liệu hóa chi tiết kiến trúc, API và sơ đồ CSDL tại `Docs/`. Toàn bộ mã nguồn và lịch sử phát triển được lưu trên GitHub Cloud riêng tư của CIC. Trợ lý Dev phải nắm bắt được toàn bộ quy trình CI/CD và deployment để sẵn sàng khôi phục hệ thống khi cần. |
 | **Rò rỉ tài khoản quản trị cloud hoặc API keys** | 🟠 Trung bình | Kích hoạt bắt buộc xác thực đa nhân tố (MFA) trên GitHub, Viettel Cloud Console. Quản lý API keys bằng GitHub Secrets và HashiCorp Vault tối giản, không bao giờ commit key lên repo. |
+| **PMU dùng giải pháp lưu trữ chung (shared drive) tự phát** — NĐ 217 chưa yêu cầu mua phần mềm cụ thể | 🟠 Trung bình | Phối hợp Bộ Xây dựng xây dựng hướng dẫn kỹ thuật chuẩn CDE; chứng minh shared drive không đáp ứng tiêu chuẩn ISO 19650 và đặc biệt không thể đáp ứng tiêu chuẩn an ninh mạng QCVN 12 (thiếu hash toàn vẹn, WORM log, sao lưu air-gap). |
+| **Tập đoàn công nghệ lớn (Big Tech) VN tự xây CDE** — FPT, Viettel, VNPT có năng lực kỹ thuật và quan hệ B2G sâu rộng | 🟠 Trung bình | Lợi thế tiên phong (first-mover) + chuyên môn BIM chuyên sâu là rào cản. Cân nhắc hợp tác chiến lược với Viettel Cloud thay vì cạnh tranh. |
+| **NovaCDE bắt kịp sự tuân thủ QCVN 12** — có thể đạt trong 12–18 tháng | 🟠 Trung bình | Tận dụng 1–2 năm first-mover; ký hợp đồng dài hạn (3–5 năm) với PMU để giữ chân khách hàng. |
+| **Tốc độ áp dụng BIM tại PMU/Sở thấp** — năng lực số hóa của cán bộ QLNN hiện còn hạn chế | 🟠 Trung bình | Đưa đào tạo BIM miễn phí vào gói triển khai; xây dựng template quy trình sẵn dùng cho từng loại công trình. |
+| **Thay đổi hoặc hoãn chính sách** — NĐ 217 có thể bị sửa đổi hoặc gia hạn lộ trình | 🟡 Thấp | Đa dạng hóa phân khúc (không chỉ B2G); phát triển thêm kênh Enterprise tư nhân. |
+| **Phụ thuộc Anthropic (Claude AI)** — thay đổi giá, điều khoản sử dụng hoặc ngừng dịch vụ | 🟡 Thấp | Thiết kế hệ thống hỗ trợ multi-LLM (OpenAI, Google, local LLM); không khóa vào một nhà cung cấp AI duy nhất. |
 
 ## Chương 6: Mô hình Kinh doanh, Kế hoạch Tài chính & Lộ trình Triển khai (Business Model, Financial Plan & Deployment Roadmap)
 
@@ -527,19 +592,27 @@ Kiến trúc tài chính và mô hình kinh doanh của dự án được xây d
 
 * **On-Premise Doanh nghiệp**: Giá license ở mức **1.5 tỷ VNĐ/HĐ**.
 
-#### Bảng So sánh Chi phí Sở hữu (TCO) trong 3 năm
-Để chứng minh mức giá **0.75 tỷ VNĐ/HĐ (On-Premise PMU)** là hoàn toàn tối ưu và có tính cạnh tranh "hủy diệt" trên thị trường, dưới đây là bảng Benchmark so sánh với giải pháp CDE nền tảng của hãng Autodesk (**Autodesk Docs**). 
-Giả định quy mô áp dụng cho 1 PMU cấp tỉnh là **50 users** (Người dùng):
+#### Bảng Benchmark Giá Các Giải pháp CDE Trên Thị trường (Tham khảo 7/2026)
 
-| Tiêu chí | CDE-CIC (On-Premise) | Autodesk Docs (Cloud) |
-| :--- | :--- | :--- |
-| **Mô hình cấp phép** | Trọn gói vĩnh viễn (Không giới hạn Users) | Đăng ký theo năm (Subscription per user) |
-| **Giá bản quyền 1 năm** | 0.75 tỷ VNĐ (Mua đứt lần 1) | ~$500/user  →  ~$25,000 (~625 tr VNĐ) |
-| **Chi phí năm thứ 2 & 3** | Chỉ đóng phí bảo trì 20% (~150 tr VNĐ/năm) | Phải mua lại bản quyền mới (~625 tr VNĐ/năm) |
-| **Tổng Chi phí 3 năm (TCO)** | **~1.05 tỷ VNĐ** | **~1.87 tỷ VNĐ** |
-| **Tuân thủ QCVN 12** | **Đáp ứng 100% (Lưu trữ nội địa)** | Vi phạm (Lưu trữ tại máy chủ US/Singapore) |
+Để định vị giá cạnh tranh, dưới đây là bảng tham khảo giá các giải pháp CDE quốc tế và nội địa:
 
-**=> Insight:** CDE-CIC không chỉ **rẻ hơn ~44%** so với phiên bản rẻ nhất của Autodesk mà còn không bị giới hạn số lượng tài khoản, giúp ngân sách Nhà nước tiết kiệm hàng tỷ đồng. Đây là đòn bẩy thép để đàm phán chốt sale tại các PMU.
+| Giải pháp | Quốc gia | Mô hình | Giá tham khảo | QCVN 12 |
+|:---|:---:|:---|:---|:---:|
+| **Autodesk Forma Data Management** (trước đây Autodesk Docs) | Mỹ | Subscription/user/năm | ~$500/user/năm | ❌ |
+| **Autodesk Forma Design Collaboration** (BIM Collaborate Pro) | Mỹ | Subscription/user/năm | ~$705/user/năm | ❌ |
+| **Trimble Connect Pro** | Mỹ | Subscription/user/năm | ~$149/user/năm | ❌ |
+| **Trimble Connect Innovate** | Mỹ | Subscription/user/năm | ~$349/user/năm | ❌ |
+| **Bentley ProjectWise** | Mỹ | Subscription/user/năm | ~$960/user/năm | ❌ |
+| **BIMcollab** (Basic – Enterprise) | Hà Lan | Subscription/user/tháng | €12,5–25/user/tháng | ❌ |
+| **VinaCDE** | VN | Linh hoạt theo dự án | Không công khai | ❌ |
+| **NovaCDE** | VN | Linh hoạt theo dự án | Không công khai | ❌ |
+| **BuildTab CDE+** | VN | Linh hoạt theo dự án | Không công khai | ❌ |
+| **CDE CIC** | **VN** | **On-Premise trọn gói** | **0,75–1,5 tỷ VNĐ/HĐ** (không giới hạn user) | **🎯** |
+
+> *Nguồn: website chính thức các nhà cung cấp, Autodesk eStore, Trimble Connect, BIMcollab Webshop (truy cập 7/2026). Lưu ý: Autodesk đã rebrand ACC thành Forma for Construction (3/2026). Giá đối thủ nội địa VN không công khai — cần liên hệ trực tiếp.*
+
+**Lợi thế cạnh tranh cốt lõi — Rào cản kỹ thuật QCVN 12:**
+Lợi thế cạnh tranh cốt lõi của CDE CIC tại phân khúc B2G không phải giá rẻ mà là **khả năng đáp ứng rào cản kỹ thuật an ninh mạng** theo QCVN 12:2026/BCA. *Lưu ý: QCVN 12 không bắt buộc mua phần mềm CDE cụ thể, nhưng đặt ra 22 nhóm yêu cầu (hạ tầng nội địa, WORM log, hash toàn vẹn, sao lưu air-gap, cấm call-home, đánh giá ANM định kỳ...) khiến cloud nước ngoài và shared drive đơn giản không thể đáp ứng.* Toàn bộ đối thủ quốc tế bị loại do server đặt nước ngoài; đối thủ nội địa chưa ai đạt QCVN 12 (tạo lợi thế first-mover 1–2 năm). Hệ thống cấp 3+ phải tuân thủ trước **01/7/2027** (12 tháng sau hiệu lực), cấp 1,2 trước **01/1/2028** (18 tháng). Mức giá 0,75 tỷ/HĐ (On-Premise, không giới hạn user) có tính cạnh tranh khi quy đổi TCO 3 năm so với giải pháp quốc tế.
 
 
 ---
@@ -564,7 +637,7 @@ Mục này minh bạch hóa **toàn bộ cơ sở, giả định và công thứ
 |:---|:---|:---|:---:|
 | **Biên LN gộp** | **35%** (chi phí ~65% DT) | On-Premise đặt biên gộp 35% theo mô hình chi phí % doanh thu (§6.2.1) | Thận trọng¹ |
 | **Phí bảo trì AMC** | 20%/năm giá trị HĐ On-Prem lũy kế | On-Prem chuẩn 15-25% (Oracle/SAP 22%; vendor nhỏ 12-18% — Forrester) | Hợp lý |
-| **Số user/HĐ mục tiêu** | Bottom-up theo năm | Neo vào tệp 89 khách hàng độc bản + 13 khách quay lại (CIC-ERP 6/2026) | Cần khảo sát³ |
+| **Số user/HĐ mục tiêu** | Bottom-up theo năm | Neo vào tệp 48 khách hàng độc bản + 10 khách quay lại (CIC-ERP 6/2026) | Cần khảo sát³ |
 
 > ¹ *Biên gộp 35% đặt thận trọng do mô hình nặng triển khai, đào tạo và customization On-Prem cho B2G; phù hợp đặc thù phần mềm On-Premise B2G (nặng triển khai, đào tạo, customization).*
 > ³ *Số lượng user/HĐ mục tiêu là biến rủi ro lớn nhất — cần khảo sát thị trường củng cố. Đây là giả định "mỏng" nhất của mô hình.*
@@ -576,9 +649,9 @@ Mục này minh bạch hóa **toàn bộ cơ sở, giả định và công thứ
 | **DT On-Prem (năm t)** | `HĐ_mới(t) × Giá_HĐ(t) + AMC(t)` | Theo từng phân khúc PMU/Sở XD/DN |
 | **AMC (năm t)** | `Σ giá_trị_HĐ_lũy_kế_trước(t) × 20%` | Doanh thu tái diễn từ năm sau |
 | **Tổng doanh thu** | `DT_PMU + DT_SởXD + DT_DN` | |
-| **Chi phí vận hành (năm t)** | Doanh_thu(t) × 65% | Team 35% + Marketing & Sale 30% |
+| **Chi phí vận hành (năm t)** | Doanh_thu(t) × 65% | Nghiên cứu, phát triển, vận hành + Marketing & Sales + Chuyên gia |
 | **Lợi nhuận gộp** | Doanh_thu(t) × 35% | Mô hình On-Premise |
-| **Dòng tiền ròng (năm t)** | = Lợi nhuận gộp(t) | CAPEX = 0, không thuế |
+| **Dòng tiền ròng (năm t)** | = Lợi nhuận gộp(t) × (1 − 20%) | CAPEX = 0; thuế TNDN 20% (ước tính thận trọng) |
 
 #### 6.1bis.3. Đối chiếu Benchmark ngành (Industry Benchmarking)
 
@@ -598,38 +671,72 @@ Mục này minh bạch hóa **toàn bộ cơ sở, giả định và công thứ
 
 ### 6.2. Mô hình Chi phí Vận hành theo % Doanh thu
 
-Sản phẩm CDE CIC **đã hoàn thiện các phân hệ lõi**, do đó **không phát sinh chi phí đầu tư phát triển ban đầu (CAPEX = 0)**. Toàn bộ chi phí là **chi phí vận hành biến đổi theo doanh thu** ("lấy thu bù chi") của mô hình **On-Premise**.
+Sản phẩm CDE CIC **đã hoàn thiện khoảng 70% các phân hệ lõi** (Giai đoạn 1); phần còn lại (~30%) là công việc tối ưu hóa hiệu năng, hoàn thiện quy trình ISO 19650 đầy đủ và đóng gói thương mại, được thực hiện song song với giai đoạn thương mại hóa ban đầu (xem lộ trình §6.7). Chi phí phát triển đến thời điểm hiện tại (lương CTO, license AI, cloud dev) là **chi phí đã đầu tư (sunk cost)** do CIC tự chịu, không tính vào dự toán đầu tư mới. Do đó, **CAPEX cho giai đoạn thương mại hóa = 0 VNĐ**; phần hoàn thiện 30% còn lại được thực hiện bởi chính đội ngũ core trong ngân sách vận hành (65% doanh thu) chứ không phát sinh CAPEX riêng. Chi phí vận hành bao gồm cả **chi phí cố định** (lương đội ngũ core) và **chi phí biến đổi** (marketing, sales, thưởng) theo mô hình **On-Premise**.
 
 #### 6.2.1. Cơ cấu chi phí (tỷ trọng trên doanh thu)
 
 | Khoản mục | Tỷ trọng | Diễn giải |
 |:---|:---:|:---|
-| Team phát triển – vận hành – bảo trì (gồm lương, thưởng) | **35%** | Đội kỹ thuật duy trì, nâng cấp, hỗ trợ & bảo trì cho khách hàng |
-| Marketing & Sales | **30%** | Phát triển thị trường, đấu thầu, chăm sóc khách hàng B2G |
+| Chi phí vận hành (Nghiên cứu, phát triển, vận hành + Marketing & Sales + Chuyên gia) | **65%** | Chi phí hỗn hợp trích lập theo tỷ lệ doanh thu thực tế, bao gồm: hoạt động của Trung tâm phần mềm và ứng dụng AI, chi phí Marketing & Sales (tận dụng nguồn lực chung từ các trung tâm khác) và chi phí thuê chuyên gia tư vấn B2G/BIM. |
 | **Lợi nhuận gộp** | **35%** | |
 | **Tổng** | **100%** | |
 
-> Mô hình tự cân đối: chi phí chỉ phát sinh khi có doanh thu → **lợi nhuận gộp ổn định 35%**, dòng tiền luôn dương, không cần vốn lưu động. **Hạ tầng do đơn vị khách hàng tự trang bị & mua sắm (On-Premise) — không tính vào chi phí của CIC.**
+> Mô hình chi phí biến đổi 100% đối với dự án CDE: Chi phí vận hành được phân bổ theo tỷ lệ 65% doanh thu thực tế thu về (bao gồm chi phí cho Trung tâm phần mềm và ứng dụng AI tự cân đối quỹ lương cốt lõi và phát triển, và chi phí cho Marketing & Sales & Chuyên gia). Lợi nhuận gộp sau phân bổ đạt 35%. **Hạ tầng do đơn vị khách hàng tự trang bị & mua sắm (On-Premise) — không tính vào chi phí của CIC.**
 
 #### 6.2.2. Chi phí vận hành quy đổi theo kế hoạch doanh thu (tỷ VNĐ)
 
 | Khoản mục | 2026 | 2027 | 2028 | 2029 | 2030 | Tổng 5 năm |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Team (35% DT) | — | 0,79 | 3,05 | 5,46 | 9,03 | **18,33** |
-| Marketing & Sales (30% DT) | — | 0,68 | 2,61 | 4,68 | 7,74 | **15,71** |
-| **Tổng chi phí (65% DT)** | **—** | **1,47** | **5,66** | **10,14** | **16,77** | **34,04** |
+| Chi phí vận hành (65% DT) | — | 1,47 | 5,66 | 10,14 | 16,77 | **34,04** |
 | *Lợi nhuận gộp (35% DT)* | *—* | *0,78* | *3,04* | *5,46* | *9,03* | ***18,31*** |
 
 *(Doanh thu On-Premise 5 năm = 52,35 tỷ — chi tiết tại Bảng 6.4b. Chênh lệch nhỏ do làm tròn 2 chữ số.)*
 
+#### 6.2.3. Đối chiếu Cost base thực tế của đội ngũ core với ngân sách 65% (Kiểm chứng tính khả thi)
+
+Để tránh mô hình "65% doanh thu" bị hiểu là một tỷ lệ phân bổ kế toán thuần túy, mục này đối chiếu trực tiếp với **chi phí thực tế** của đội ngũ 2 nhân sự core (theo mô hình AI-Conductor tại Chương 5):
+
+| Khoản mục | Ước tính chi phí thực/năm | Ghi chú |
+|:---|:---:|:---|
+| Lương 2 nhân sự core (CTO + Trợ lý Dev/QA/BA) | ~0,8–1,0 tỷ | Theo biên chế Trung tâm phần mềm & ứng dụng AI, §5.2 |
+| License AI (Claude Code/Max) + công cụ dev + hạ tầng dev/test | ~0,1 tỷ | |
+| **Cost base cố định năm 1–2** | **~1,0–1,1 tỷ/năm** | Chưa gồm chi phí một lần (đánh giá QCVN 12 ~0,1–0,2 tỷ) |
+
+| Năm | Ngân sách 65% DT | Cost base thực (2 người + AI) | Dư địa |
+|:---|:---:|:---:|:---:|
+| 2027 | 1,47 tỷ | ~1,0–1,1 tỷ (+ ~0,1–0,2 tỷ chứng nhận QCVN 12 một lần) | Đủ, sát ngưỡng |
+| 2028 | 5,66 tỷ | ~1,5–2 tỷ (bổ sung 1 người theo §5.2) | Dư lớn |
+| 2029–2030 | 10,14–16,77 tỷ | scale theo headcount mở rộng (§5.2) | Dư rất lớn |
+
+> **Kết luận**: Với cost base thực tế của mô hình 2 người + AI (~1 tỷ/năm), ngân sách 65% doanh thu **đủ trang trải** ngay từ năm đầu có doanh thu (2027) mà không cần bù chéo từ nguồn khác; biên lợi nhuận gộp 35% là dư địa có thật, không phải một tỷ lệ kế toán đặt sẵn. Đây cũng là cơ sở kiểm chứng tiêu chuẩn tại tiêu chí Go/No-Go (§6.8): nếu chi phí thực tế phát sinh (kể cả khi mở rộng nhân sự) vượt 65% doanh thu ở một năm bất kỳ, đây là tín hiệu No-Go cần đánh giá lại, bất kể biên kế toán 35% vẫn hiển thị dương.
+
 ### 6.3. Kế hoạch Chuyển giao Công nghệ và Đào tạo Vận hành
-Vì nền tảng công nghệ CDE CIC đã hoàn thành việc xây dựng các phân hệ cốt lõi (Viewer 3D, Quản lý tài liệu theo ISO 19650), dự án không cần giai đoạn R&D phát triển sản phẩm ban đầu mà chuyển trọng tâm ngay sang giai đoạn thương mại hóa, chuyển giao công nghệ và đào tạo vận hành cho các đối tác PMU, Sở Xây dựng và Doanh nghiệp lớn.
+Vì nền tảng công nghệ CDE CIC đã hoàn thành khoảng 70% việc xây dựng các phân hệ cốt lõi (Viewer 3D, Quản lý tài liệu theo ISO 19650), dự án không cần giai đoạn R&D phát triển sản phẩm ban đầu từ đầu mà chuyển trọng tâm sớm sang giai đoạn thương mại hóa; 30% còn lại (tối ưu hiệu năng, hoàn thiện quy trình, đóng gói) được hoàn thiện song song với chuyển giao công nghệ và đào tạo vận hành cho các đối tác PMU, Sở Xây dựng và Doanh nghiệp lớn.
 
 Kế hoạch chuyển giao được thực hiện theo quy trình 3 giai đoạn:
 1.  **Giai đoạn 1: Triển khai thử nghiệm (Pilot)**: Áp dụng thử nghiệm tại 2-3 PMU lớn và Sở Xây dựng để tinh chỉnh các trường metadata và luồng phê duyệt theo đặc thù địa phương.
 2.  **Giai đoạn 2: Đào tạo & Chuyển giao (Training)**: Tổ chức các khóa học hướng dẫn áp dụng CDE và BIM cho cán bộ quản lý dự án, tư vấn giám sát và nhà thầu.
 3.  **Giai đoạn 3: Vận hành & Hỗ trợ kỹ thuật thường trực (Support)**: Cung cấp dịch vụ hỗ trợ kỹ thuật 24/7, vá lỗi và cập nhật định kỳ các quy chuẩn pháp lý mới nhất.
 
+### 6.3bis. Kế hoạch Tiếp cận Thị trường B2G (Go-to-Market)
+
+Phễu bán hàng B2G của CDE CIC được thiết kế phù hợp với đặc thù mua sắm công tại Việt Nam:
+
+| Giai đoạn | Hoạt động | Thời gian ước tính | Trách nhiệm |
+|:---|:---|:---:|:---|
+| **1. Tiếp cận** | Tận dụng mạng lưới tư vấn BIM sẵn có, tham gia hội thảo Sở XD, giới thiệu từ khách hàng hiện tại | Liên tục | Marketing & CTO |
+| **2. Demo/Pilot** | Triển khai thử nghiệm miễn phí 1-3 tháng tại PMU/Sở XD mục tiêu, thu thập phản hồi | 1–3 tháng | CTO + Trợ lý |
+| **3. Đấu thầu** | Lập hồ sơ dự thầu, bảo lãnh dự thầu, thuyết trình năng lực | 2–4 tháng | CTO + Đối tác tư vấn đấu thầu |
+| **4. Ký hợp đồng** | Đàm phán điều khoản, ký hợp đồng bản quyền On-Premise | 1–2 tháng | Ban GĐ |
+| **5. Triển khai** | Cài đặt, cấu hình, đào tạo, nghiệm thu | 1–3 tháng | CTO + Trợ lý |
+
+**Chu kỳ bán hàng B2G ước tính:** 6–12 tháng từ tiếp cận đến ký hợp đồng. Chi phí đấu thầu (lập HSDT, bảo lãnh) được tính trong tổng chi phí vận hành (65% DT).
+
+**Kênh tiếp cận ưu tiên:**
+1. Cross-selling từ tệp 48 khách hàng BIM hiện tại (CIC-ERP 6/2026)
+2. Hội thảo chuyên ngành tại Sở Xây dựng các tỉnh/TP trọng điểm
+3. Hợp tác với Viettel Cloud để giới thiệu gói bundle Cloud + CDE CIC
+4. Tham gia các chương trình chuyển đổi số ngành xây dựng của Bộ Xây dựng
 
 
 ### 6.4. Kế hoạch Doanh thu dự kiến 5 năm (tỷ VNĐ)
@@ -658,7 +765,7 @@ Doanh thu tập trung hoàn toàn vào **mô hình On-Premise** (bán bản quy�
 
 ### 6.5. Hiệu quả tài chính và dòng tiền dự án
 
-Vì **CAPEX = 0**, **không tính thuế TNDN** (giả định ưu đãi R&D) và chi phí biến đổi theo doanh thu, dòng tiền ròng của dự án chính là **lợi nhuận gộp (~35% doanh thu)** và **luôn dương** kể từ năm có doanh thu đầu tiên.
+Vì **CAPEX cho giai đoạn thương mại hóa = 0** và chi phí chủ yếu biến đổi theo doanh thu, dòng tiền ròng của dự án dương kể từ năm có doanh thu đầu tiên. Thuế TNDN được tính với thuế suất phổ thông 20% (ước tính thận trọng; có thể được ưu đãi thuế R&D nếu đăng ký theo Luật Công nghệ cao).
 
 #### 6.5.1. Bảng dòng tiền dự án (tỷ VNĐ)
 
@@ -666,10 +773,12 @@ Vì **CAPEX = 0**, **không tính thuế TNDN** (giả định ưu đãi R&D) v�
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Doanh thu (On-Premise)** | — | 2,25 | 8,70 | 15,60 | 25,80 | **52,35** |
 | Chi phí vận hành (~65% DT) | — | (1,47) | (5,66) | (10,14) | (16,77) | **(34,04)** |
-| **Lợi nhuận gộp / Dòng tiền ròng (~35%)** | **—** | **0,78** | **3,04** | **5,46** | **9,03** | **18,31** |
-| **Dòng tiền ròng lũy kế** | **—** | **0,78** | **3,82** | **9,28** | **18,31** | |
+| **Lợi nhuận gộp (~35%)** | **—** | **0,78** | **3,04** | **5,46** | **9,03** | **18,31** |
+| Thuế TNDN (20% LN gộp) | — | (0,16) | (0,61) | (1,09) | (1,81) | **(3,66)** |
+| **Lợi nhuận ròng sau thuế** | **—** | **0,63** | **2,44** | **4,37** | **7,23** | **14,66** |
+| **Dòng tiền ròng lũy kế** | **—** | **0,63** | **3,06** | **7,43** | **14,66** | |
 
-> Dự án **100% vốn CIC**, không vay nợ. Dòng tiền dương ngay từ 2027 → không có giai đoạn dòng tiền âm.
+> Dự án **100% vốn CIC**, không vay nợ. Dòng tiền dương ngay từ 2027. *Lưu ý: Thuế TNDN tính thuế suất phổ thông 20%; nếu được ưu đãi thuế R&D công nghệ cao, lợi nhuận ròng sẽ cao hơn.*
 
 #### 6.5.2. Các chỉ số hiệu quả cốt lõi
 
@@ -677,43 +786,107 @@ Vì **CAPEX = 0**, **không tính thuế TNDN** (giả định ưu đãi R&D) v�
 |:---|:---:|:---|
 | Tổng doanh thu 5 năm | 52,35 tỷ | On-Premise: PMU 22,65 + Sở 10,20 + DN 19,50 |
 | Tổng lợi nhuận gộp 5 năm | 18,31 tỷ | Biên ~35% |
-| Dòng tiền ròng lũy kế 2030 | +18,31 tỷ | CAPEX 0, không thuế |
-| Nhu cầu vốn lưu động | 0 | Chi phí biến đổi theo doanh thu — dòng tiền luôn dương |
+| Thuế TNDN (20%) | (3,66) tỷ | Thuế suất phổ thông; có thể được ưu đãi |
+| **Lợi nhuận ròng sau thuế 5 năm** | **14,66 tỷ** | **Biên ~28% sau thuế** |
+| Dự phòng vốn lưu động | 1–2 tỷ | Chu kỳ thanh toán B2G 3–6 tháng |
 
-> Báo cáo **không dùng IRR/NPV** làm chỉ số quyết định; ưu tiên **doanh thu, lợi nhuận gộp và lợi thế tuân thủ pháp lý**.
+> Báo cáo **không dùng IRR/NPV** làm chỉ số quyết định; ưu tiên **doanh thu, lợi nhuận ròng sau thuế và lợi thế tuân thủ pháp lý**.
 
-### 6.6. Cơ cấu tự cấp vốn & nhu cầu vốn lưu động thấp
-Điểm sáng chói lọi nhất trong mô hình tài chính của CDE-CIC là khả năng **tự cấp vốn (Self-funding)**. 
+### 6.6. Cơ cấu tự cấp vốn & nhu cầu vốn lưu động
+Đặc điểm nổi bật của mô hình tài chính CDE-CIC là khả năng **tự cấp vốn (Self-funding)**. 
 - **CAPEX = 0**: Sản phẩm đã hoàn thiện công nghệ lõi.
 - **Không gánh chi phí hạ tầng**: Mô hình On-Premise — đơn vị khách hàng tự lựa chọn và mua sắm hạ tầng (Cloud nội địa Viettel/VNPT hoặc máy chủ riêng); CIC không chịu chi phí vận hành hạ tầng.
-- **OPEX trích lập theo doanh thu**: Các chi phí phát triển thị trường và lương R&D chủ yếu được tính dựa trên % doanh thu thực tế thu về (Lấy mỡ nó rán nó).
+- **OPEX trích lập theo doanh thu**: Chi phí vận hành được trích lập 65% theo doanh thu thực tế thu về để tự cân đối, phục vụ chi trả cho hoạt động của Trung tâm phần mềm và ứng dụng AI (nguồn thu nhập và hoạt động của đội ngũ core), công tác Marketing & Sales (tận dụng chung) và thuê chuyên gia tư vấn. Dự án không chịu rủi ro gánh nặng lương cứng trực tiếp.
 
-Nhờ cơ cấu chi phí biến đổi 100% theo doanh thu, **dự án không cần vốn lưu động** (dòng tiền dương ngay từ năm đầu có doanh thu). Rủi ro tài chính thấp; biến số quyết định là **tốc độ hiện thực hóa doanh thu** (thâm nhập B2G, chu kỳ mua sắm công).
+Nhờ cơ cấu chi phí chủ yếu biến đổi theo doanh thu, rủi ro tài chính ở mức kiểm soát được; biến số quyết định là **tốc độ hiện thực hóa doanh thu** (thâm nhập B2G, chu kỳ mua sắm công). **Lưu ý:** Cần dự phòng vốn lưu động tối thiểu 1–2 tỷ VNĐ cho giai đoạn chờ thanh toán hợp đồng B2G (chu kỳ thanh toán đầu tư công thường 3–6 tháng sau nghiệm thu).
 
 ### 6.7. Lộ trình triển khai tổng thể
 
 Để tối ưu hóa dòng tiền và kiểm soát rủi ro, lộ trình triển khai được điều chỉnh để khớp hoàn toàn với tiến độ phát triển của mô hình AI-Conductor:
 
-1. **Giai đoạn 1 (Tháng 1 - 6 / Q3/2026 - Q1/2027) - Phát triển Phân hệ cốt lõi 1, 2, 3**:
-   * *Mục tiêu kỹ thuật*: Xây dựng hoàn chỉnh các phân hệ cốt lõi gồm: Quản lý hồ sơ, tài liệu thiết kế (Phân hệ 1); Thiết lập luồng phê duyệt và kiểm soát phiên bản theo tiêu chuẩn ISO 19650 (Phân hệ 2); Bộ hiển thị đồ họa 3D BIM Viewer cơ bản (Phân hệ 3).
+1. **Giai đoạn 1 (Tháng 1 - 6 / Q3/2026 - Q1/2027) - Hoàn thiện 30% còn lại của Phân hệ cốt lõi 1, 2, 3**:
+   * *Mục tiêu kỹ thuật*: Hoàn thiện phần còn lại (~30%) của các phân hệ cốt lõi đã có sẵn ~70%: Quản lý hồ sơ, tài liệu thiết kế (Phân hệ 1); Thiết lập luồng phê duyệt và kiểm soát phiên bản theo tiêu chuẩn ISO 19650 (Phân hệ 2); Bộ hiển thị đồ họa 3D BIM Viewer cơ bản (Phân hệ 3).
    * *Mục tiêu thương mại*: Tiến hành chạy thử nghiệm (Pilot) và triển khai thương mại hóa bước đầu (02 hợp đồng On-Premise thử nghiệm) từ đầu năm 2027.
-2. **Giai đoạn 2 (Tháng 7 - 18 / Q2/2027 - Q1/2028) - Phát triển Phân hệ nâng cao 4, 5, 6, 7**:
-   * *Mục tiêu kỹ thuật*: Phát triển các phân hệ nâng cao gồm: Bản đồ số GeoBIM/GIS (Phân hệ 4a); Quản lý vận hành/FM (Phân hệ 4b); Phân hệ bảo mật an ninh đạt chuẩn Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) & SSO (Phân hệ 5); Đóng gói thương mại hóa (Phân hệ 6).
-   * *Mục tiêu thương mại*: Bắt đầu thương mại hóa đầy đủ toàn bộ nền tảng từ đầu năm 2028.
-   * *Chi tiết lộ trình R&D Phân hệ GeoBIM/GIS (3 giai đoạn phụ)*:
-     * **Phase 2a — Định vị Địa lý & Bản đồ Nền (Tháng 7 - 10, ngân sách ~0,5 tỷ VNĐ)**: Thiết lập module định vị công trình trên nền bản đồ 2D; tích hợp và chuyển đổi tự động hệ tọa độ quốc gia VN-2000 sang WGS-84; ký kết hợp tác và kết nối API bản đồ nền Vmap chính thức cho phân khúc B2G, MapBox GL cho nhu cầu bản đồ nền thương mại.
-     * **Phase 2b — Tích hợp Mô hình 3D Tiles Streaming (Tháng 11 - 14, ngân sách ~0,7 tỷ VNĐ)**: Hoàn thiện pipeline server-side tự động parse file IFC, nén hình học Draco và xuất bản cấu trúc 3D Tiles; xây dựng viewer client-side trên nền Cesium.js; hoàn thành dashboard giám sát đa dự án theo vị trí.
-     * **Phase 2c — GIS Nâng cao & Liên thông CSDL Đô thị (Tháng 15 - 16, ngân sách ~0,3 tỷ VNĐ)**: Phát triển tính năng truy vấn không gian (spatial query) trực tiếp trên trình duyệt; xuất bản bản đồ quy hoạch dạng PDF và hình ảnh trực quan; mở cổng API GIS tiêu chuẩn phục vụ kết nối Smart City dài hạn.
+2. **Giai đoạn 2 (Tháng 7 - 18 / Q2/2027 - Q1/2028) - Định hướng phát triển nâng cao**:
+   * *Định hướng kỹ thuật*: Phát triển các phân hệ nâng cao gồm: Bản đồ số GeoBIM/GIS; Quản lý vận hành/FM; Phân hệ bảo mật an ninh đạt chuẩn QCVN 12:2026/BCA & SSO; Đóng gói thương mại hóa.
+   * *Mục tiêu thương mại*: Thương mại hóa đầy đủ toàn bộ nền tảng từ đầu năm 2028.
+   * *Lưu ý*: Chi tiết ngân sách và lộ trình R&D Giai đoạn 2 sẽ được lập riêng khi đạt tiêu chí Go/No-Go của Giai đoạn 1 (xem §6.8).
 
 3. **Giai đoạn 3 (Tháng 19 - 60 / Q2/2028 - 2030) - Vận hành Thương mại rộng rãi**:
-   * *Mục tiêu*: Phát triển kinh doanh rộng rãi trên toàn quốc, chuyển đổi dần sang mô hình nhân sự ổn định (Option B) tự vận hành độc lập.
+   * *Mục tiêu*: Phát triển kinh doanh rộng rãi trên toàn quốc, mở rộng nhân sự theo kế hoạch (§5.2) để vận hành độc lập.
 
+### 6.8. Tiêu chí Đánh giá Chuyển giai đoạn (Go/No-Go Criteria)
+
+Để kiểm soát rủi ro và tối ưu phân bổ nguồn lực, việc chuyển từ Giai đoạn 1 sang Giai đoạn 2 phải đạt các tiêu chí tối thiểu sau:
+
+| Tiêu chí | Mục tiêu tối thiểu (Go) | Ngưỡng dừng (No-Go) |
+|:---|:---|:---|
+| **Pilot thành công** | ≥ 2 PMU/Sở hoàn thành pilot, phản hồi tích cực | 0 pilot thành công sau 6 tháng |
+| **Hợp đồng thương mại** | ≥ 1 HĐ On-Premise ký và thu tiền | 0 HĐ sau 9 tháng thương mại hóa |
+| **Chứng nhận QCVN 12** | Hoàn thành đánh giá và nộp hồ sơ chứng nhận | Không thể đáp ứng yêu cầu kỹ thuật QCVN 12 |
+| **Ổn định sản phẩm** | Bug rate < 5 lỗi nghiêm trọng/tháng | Sản phẩm không ổn định sau 3 sprint liên tiếp |
+| **Chi phí thực tế của Trung tâm ≤ 65% doanh thu** (xem §6.2.3) | Chi phí thực tế (lương, công cụ, mở rộng nhân sự) nằm trong ngân sách 65% DT | Chi phí thực tế vượt 65% DT trong 2 quý liên tiếp |
+
+> Tiêu chí được đánh giá mỗi quý bởi Ban Giám đốc CIC. Nếu đạt ngưỡng "No-Go" ở bất kỳ tiêu chí nào, dự án sẽ được đánh giá lại trước khi quyết định tiếp tục hoặc dừng.
 
 ---
 
-## Chương 7: Kết luận (Conclusion)
-Dự án CDE CIC là cơ hội chiến lược để Công ty Cổ phần Công nghệ và Tư vấn CIC khẳng định năng lực tự chủ công nghệ số trong nước trong việc dẫn dắt lộ trình áp dụng BIM quốc gia. Bằng việc áp dụng các công nghệ hiện đại nhất (Go + Python + TypeScript) trên hạ tầng đám mây nội địa (Viettel Cloud + VNPT Cloud), dự án hoàn toàn có thể tự tin đáp ứng các tiêu chuẩn khắt khe về an ninh mạng (Thông tư 47/2026/TT-BCA (QCVN 12:2026/BCA) mà các đối thủ nước ngoài như Autodesk ACC không thể đạt được.
+## Chương 7: Kết luận & Khuyến nghị (Conclusion & Recommendations)
 
-Đặc biệt, hành lang pháp lý mới với **Luật Xây dựng 135/2025/QH15**, **Nghị định 217/2026/NĐ-CP** (BIM bắt buộc cho công trình cấp II trở lên, CDE bắt buộc cho cấp I trở lên thuộc đầu tư công), và **Nghị định 212/2026/NĐ-CP** (CSDL quốc gia về hoạt động xây dựng) đã tạo ra **thị trường bắt buộc** cho nền tảng CDE tại Việt Nam. Cùng với đó, **Nghị định 206/2026/NĐ-CP** (Điều 26 Khoản 2) thiết lập cơ sở pháp lý rõ ràng để chi phí CDE/BIM được đưa vào dự toán tư vấn xây dựng — mở ra mô hình doanh thu bền vững cho CDE CIC tại phân khúc B2G.
+### 7.1. Tổng kết đánh giá
 
-Đặc biệt, việc áp dụng mô hình vận hành **AI-Conductor** kết hợp tự chủ công nghệ mã nguồn mở giúp tối ưu hóa mạnh chi phí nhân sự R&D và vận hành (đội ngũ siêu tinh gọn 2–4 người + AI, CAPEX = 0) và đảm bảo hoàn thiện các tính năng cốt lõi (Phân hệ 1, 2, 3) để đưa vào thương mại hóa chỉ trong vòng 6 tháng đầu. Kính trình Ban giám đốc phê duyệt báo cáo đánh giá kỹ thuật và kế hoạch hành động nêu trên để dự án có thể chính thức khởi động.
+Dự án CDE CIC là bước đi chiến lược nhằm xây dựng năng lực tự chủ công nghệ số của CIC trong lĩnh vực quản lý dữ liệu BIM quốc gia. Đánh giá tổng hợp cho thấy:
+
+**Về pháp lý:** Hành lang pháp lý mới gồm **Luật Xây dựng 135/2025/QH15**, **NĐ 217/2026/NĐ-CP** (BIM bắt buộc cấp II+, CDE bắt buộc cấp I+ đầu tư công), **NĐ 212/2026/NĐ-CP** (CSDL quốc gia) và **NĐ 206/2026/NĐ-CP** (chi phí CDE vào dự toán tư vấn) đã tạo ra thị trường bắt buộc tại phân khúc B2G cho nền tảng CDE tại Việt Nam.
+
+**Về công nghệ:** Kiến trúc Polyglot Microservices (Go + Python + TypeScript) triển khai On-Premise trên hạ tầng đám mây nội địa do khách hàng lựa chọn (Viettel Cloud/VNPT Cloud/FPT Cloud), với CIC tư vấn & setup, cho phép đáp ứng quy chuẩn an ninh mạng QCVN 12:2026/BCA — lợi thế mà các đối thủ quốc tế (Autodesk, Trimble, Bentley) không thể đạt được do server đặt nước ngoài.
+
+**Về thương mại:** Tệp khách hàng BIM hiện tại (48 đơn vị, 78 hợp đồng) và mạng lưới tư vấn BIM sẵn có tạo nền tảng cho chiến lược cross-selling CDE CIC. Mô hình On-Premise với giá 0,75–1,5 tỷ/HĐ (không giới hạn user) có tính cạnh tranh so với giải pháp quốc tế.
+
+**Về tài chính:** Doanh thu dự kiến 5 năm đạt 52,35 tỷ VNĐ, lợi nhuận ròng sau thuế ước tính ~14,66 tỷ (biên ~28% sau thuế TNDN 20%). Dòng tiền dương kể từ năm có doanh thu đầu tiên (2027). Tuy nhiên, các giả định về số lượng hợp đồng/năm cần được kiểm chứng thông qua khảo sát thị trường thực tế.
+
+### 7.2. Các rủi ro trọng yếu cần lưu ý
+
+Bên cạnh các cơ hội, Ban lãnh đạo cần cân nhắc các rủi ro chính: **(i)** Rủi ro phụ thuộc nhân sự (Bus Factor) cao (đội ngũ cốt lõi 2 người); **(ii)** Khả năng PMU diễn giải CDE theo nghĩa rộng (shared drive + quy trình thủ công) thay vì phần mềm thương mại; **(iii)** Đối thủ nội địa (NovaCDE, VinaCDE) có thể hoàn thiện sự tuân thủ QCVN 12 trong 12–18 tháng; **(iv)** Các tập đoàn công nghệ lớn (Big Tech) Việt Nam (FPT, Viettel, VNPT) có thể tự xây dựng giải pháp CDE tương tự. Các phương án giảm thiểu chi tiết được trình bày tại §5.3.
+
+### 7.3. Khuyến nghị
+
+Trên cơ sở phân tích, báo cáo khuyến nghị Ban giám đốc **phê duyệt** triển khai Giai đoạn 1 với các điều kiện:
+1. Áp dụng tiêu chí Go/No-Go (§6.8) để đánh giá hiệu quả trước khi chuyển sang Giai đoạn 2.
+2. Dự phòng vốn lưu động tối thiểu 1–2 tỷ VNĐ cho giai đoạn chờ thanh toán B2G.
+3. Tư vấn thuế để xác nhận khả năng hưởng ưu đãi thuế TNDN cho sản phẩm R&D công nghệ cao.
+4. Tư vấn luật sư SHTT về phạm vi bảo hộ mã nguồn do AI hỗ trợ sinh tạo.
+5. Tiến hành khảo sát thị trường 5–10 PMU/Sở XD để kiểm chứng giả định doanh thu.
+
+---
+
+## Phụ lục A: Thuật ngữ (Glossary)
+
+| Thuật ngữ | Viết tắt | Giải thích |
+|:---|:---:|:---|
+| Môi trường dữ liệu chung | **CDE** | Common Data Environment — hệ thống tập trung quản lý, chia sẻ dữ liệu dự án xây dựng |
+| Mô hình thông tin công trình | **BIM** | Building Information Modeling — mô hình 3D số chứa thông tin kỹ thuật xuyên suốt vòng đời công trình |
+| Industry Foundation Classes | **IFC** | Định dạng tệp mở cho dữ liệu BIM, do buildingSMART ban hành |
+| BIM Collaboration Format | **BCF** | Định dạng trao đổi ghi chú lỗi thiết kế giữa các phần mềm BIM |
+| ISO 19650 | — | Bộ tiêu chuẩn quốc tế về quản lý thông tin trong vòng đời công trình sử dụng BIM |
+| Quy chuẩn kỹ thuật quốc gia về an ninh mạng | **QCVN 12** | QCVN 12:2026/BCA — quy chuẩn an ninh mạng cho hệ thống thông tin lưu trữ tài liệu điện tử trong cơ quan Đảng, Nhà nước (ban hành kèm TT 47/2026). Lưu ý: đặt tiêu chuẩn kỹ thuật, không bắt buộc mua phần mềm cụ thể |
+| Nguồn dữ liệu sự thật duy nhất | **SSOT** | Single Source of Truth — nguyên tắc tất cả dữ liệu chính thức chỉ lưu tại một nơi duy nhất |
+| Nhật ký bất biến | **WORM** | Write Once, Read Many — cơ chế ghi log không thể sửa/xóa, phục vụ kiểm toán |
+| Triển khai tại chỗ | **On-Premise** | Mô hình cài đặt phần mềm trên hạ tầng riêng của khách hàng (không dùng cloud chung) |
+| Phí bảo trì hàng năm | **AMC** | Annual Maintenance Contract — phí duy trì, cập nhật và hỗ trợ kỹ thuật sau bàn giao |
+| Doanh nghiệp bán cho Chính phủ | **B2G** | Business-to-Government — phân khúc khách hàng là cơ quan nhà nước |
+| Ban Quản lý dự án | **PMU** | Project Management Unit — đơn vị quản lý dự án đầu tư công |
+| Nền tảng tích hợp, chia sẻ dữ liệu quốc gia | **NDXP** | Trục liên thông dữ liệu quốc gia |
+| Nền tảng tích hợp, chia sẻ dữ liệu cấp tỉnh | **LGSP** | Local Government Service Platform |
+| Định danh điện tử quốc gia | **VNeID** | Ứng dụng định danh điện tử do Bộ Công an quản lý |
+| Bản sao số | **Digital Twin** | Bản sao kỹ thuật số phản ánh thực thể vật lý theo thời gian thực |
+| Hệ thông tin địa lý | **GIS** | Geographic Information System — hệ thống quản lý dữ liệu không gian địa lý |
+| Quản lý vận hành tài sản | **FM** | Facility Management — quản lý bảo trì, vận hành công trình sau hoàn công |
+| Internet vạn vật | **IoT** | Internet of Things — mạng lưới cảm biến thu thập dữ liệu thời gian thực |
+| Hệ tọa độ quốc gia Việt Nam | **VN-2000** | Hệ quy chiếu tọa độ chính thức dùng trong bản đồ và quy hoạch tại Việt Nam |
+| Chi phí đầu tư ban đầu | **CAPEX** | Capital Expenditure — vốn đầu tư ban đầu cho tài sản/phát triển sản phẩm |
+| Chi phí vận hành | **OPEX** | Operational Expenditure — chi phí hoạt động thường xuyên |
+| Tổng chi phí sở hữu | **TCO** | Total Cost of Ownership — tổng chi phí mua + vận hành trong một khoảng thời gian |
+| Thuế thu nhập doanh nghiệp | **TNDN** | Thuế suất phổ thông 20% tại Việt Nam |
+| Construction Operations Building Information Exchange | **COBie** | Chuẩn trao đổi thông tin vận hành công trình từ mô hình BIM |
+

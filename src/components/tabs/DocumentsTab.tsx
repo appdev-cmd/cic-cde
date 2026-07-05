@@ -3,8 +3,9 @@ import {
   FolderOpen, Folder, FileText, ChevronRight, ChevronDown, Filter, 
   Columns, Upload, Download, ExternalLink, X, Box, MoreVertical, Search, Check, AlertCircle,
   RefreshCw, ZoomIn, ZoomOut, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Info, Settings, History, Clock,
-  ShieldCheck, Fingerprint, ScrollText, Loader2
+  ShieldCheck, Fingerprint, ScrollText, Loader2, GitCompareArrows
 } from 'lucide-react';
+import { PdfCompareModal } from '../documents/PdfCompareModal';
 import { DocumentItem, ApprovalItem, ActivityItem } from '../../types';
 import { uploadFile, compressIfcToZip, sha256OfUrl } from '../../lib/api/storage';
 import { createDocument, updateDocument, deleteDocument, fetchDocumentVersions, type DocumentVersion } from '../../lib/api/documents';
@@ -238,11 +239,27 @@ export function DocumentsTab({
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionsDocCode, setVersionsDocCode] = useState('');
 
+  // So sánh PDF giữa 2 phiên bản (chọn tối đa 2 trong modal lịch sử)
+  const [compareSel, setCompareSel] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const isPdfVersion = (v: DocumentVersion) => !!v.fileUrl && /\.pdf($|\?)/i.test(v.fileUrl);
+  const toggleCompareSel = (id: string) => {
+    setCompareSel(prev => prev.includes(id)
+      ? prev.filter(x => x !== id)
+      : prev.length >= 2 ? [prev[1], id] : [...prev, id]); // chọn cái thứ 3 → thay cái cũ nhất
+  };
+  const compareVersions = compareSel
+    .map(id => versions.find(v => v.id === id))
+    .filter((v): v is DocumentVersion => !!v)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // A luôn cũ hơn
+  const compareSameFile = compareVersions.length === 2 && compareVersions[0].fileUrl === compareVersions[1].fileUrl;
+
   const handleShowVersions = async (doc: DocumentItem) => {
     if (!projectId) { alert('Lịch sử phiên bản cần dự án trên Supabase.'); return; }
     setVersionsOpen(true);
     setVersionsLoading(true);
     setVersionsDocCode(doc.id);
+    setCompareSel([]);
     try {
       setVersions(await fetchDocumentVersions(projectId, doc.id));
     } catch {
@@ -1443,7 +1460,16 @@ export function DocumentsTab({
               ) : (
                 <div className="space-y-2">
                   {versions.map((v, i) => (
-                    <div key={v.id} className="flex items-center gap-3 p-3 bg-surface border border-outline-variant/40 rounded-lg">
+                    <div key={v.id} className={`flex items-center gap-3 p-3 bg-surface border rounded-lg ${compareSel.includes(v.id) ? 'border-primary' : 'border-outline-variant/40'}`}>
+                      {isPdfVersion(v) && (
+                        <input
+                          type="checkbox"
+                          checked={compareSel.includes(v.id)}
+                          onChange={() => toggleCompareSel(v.id)}
+                          className="shrink-0 w-4 h-4 accent-[var(--md-sys-color-primary,#2563eb)] cursor-pointer"
+                          title="Chọn để so sánh PDF"
+                        />
+                      )}
                       <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">
                         {versions.length - i}
                       </div>
@@ -1465,8 +1491,32 @@ export function DocumentsTab({
                 </div>
               )}
             </div>
+            {versions.some(isPdfVersion) && (
+              <div className="px-5 py-3 border-t border-outline-variant flex items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-on-surface-variant">
+                  Đã chọn <b className="text-on-surface">{compareSel.length}/2</b> phiên bản PDF để so sánh
+                </span>
+                <button
+                  onClick={() => setCompareOpen(true)}
+                  disabled={compareVersions.length !== 2 || compareSameFile}
+                  title={compareSameFile ? 'Hai phiên bản trỏ tới cùng một tệp' : undefined}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/95 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <GitCompareArrows size={14} /> So sánh PDF
+                </button>
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {compareOpen && compareVersions.length === 2 && (
+        <PdfCompareModal
+          docCode={versionsDocCode}
+          versionA={{ revision: compareVersions[0].revision, fileUrl: compareVersions[0].fileUrl!, createdAt: compareVersions[0].createdAt }}
+          versionB={{ revision: compareVersions[1].revision, fileUrl: compareVersions[1].fileUrl!, createdAt: compareVersions[1].createdAt }}
+          onClose={() => setCompareOpen(false)}
+        />
       )}
 
       {isPreviewOpen && selectedDoc && (

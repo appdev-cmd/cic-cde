@@ -27,13 +27,15 @@ function mapDocument(row: any): DocumentRecord {
     fileUrl: row.file_url ?? undefined,
     suitabilityCode: row.suitability_code ?? undefined,
     fragUrl: row.frag_url ?? undefined,
+    fragStatus: row.frag_status ?? undefined,
+    fragError: row.frag_error ?? undefined,
     hashSha256: row.hash_sha256 ?? undefined,
   };
 }
 
 // Cập nhật URL file .frag sau khi chuyển đổi (cache nạp nhanh)
 export async function setDocumentFrag(projectId: string, code: string, fragUrl: string): Promise<void> {
-  const { error } = await supabase.from('documents').update({ frag_url: fragUrl }).eq('project_id', projectId).eq('code', code);
+  const { error } = await supabase.from('documents').update({ frag_url: fragUrl, frag_status: 'ready' }).eq('project_id', projectId).eq('code', code);
   if (error) console.error('setDocumentFrag error:', error.message);
 }
 

@@ -196,6 +196,31 @@ export interface ClashResult {
   center: [number, number, number];
 }
 
+// Tham chiếu cấu kiện theo GUID (kết quả từ worker kiểm tra rules server-side)
+export interface ViolationRef {
+  modelId: string; // id mô hình đã nạp trong viewer (== mã tài liệu)
+  guid: string;    // IFC GlobalId
+}
+
+/** Dựng map GUID → localId của một model Fragments (dùng chung cho compare & rule check). */
+const buildGuidMap = async (model: any): Promise<Map<string, number>> => {
+  const guidToExpressId = new Map<string, number>();
+  const localIds = Array.from(await model.getLocalIds()) as number[];
+  const BATCH = 5000;
+  for (let i = 0; i < localIds.length; i += BATCH) {
+    const items = await model.getItemsData(localIds.slice(i, i + BATCH));
+    for (const item of items) {
+      if (!item) continue;
+      const id = item._localId ? item._localId.value : null;
+      const guid = item._guid ? item._guid.value : null;
+      if (id !== null && guid) {
+        guidToExpressId.set(guid, id);
+      }
+    }
+  }
+  return guidToExpressId;
+};
+
 export interface BimViewerProps {
   // isPropsRefresh=true khi đây chỉ là lần cập nhật thuộc tính chạy nền (không phải
   // mô hình mới) → UI không reset lựa chọn/đang lọc của người dùng.
@@ -244,6 +269,9 @@ export interface BimViewerRef {
   captureScreenshot: () => string | null;
   detectClashes: (tolerance?: number, maxResults?: number) => Promise<ClashResult[]>;
   focusClash: (clash: ClashResult) => Promise<void>;
+  // Rule check server-side: map GUID→localId & bay tới vi phạm theo GUID
+  getGuidMap: (modelId: string) => Promise<Map<string, number> | null>;
+  focusViolation: (v: { position?: number[]; refs: ViolationRef[] }) => Promise<void>;
   compareModels: (modelIdV1: string, modelIdV2: string) => Promise<{ added: number; deleted: number; modified: number; unchanged: number } | null>;
   clearCompare: () => Promise<void>;
   toggleMinimap: (active: boolean) => void;
@@ -253,6 +281,8 @@ export interface BimViewerRef {
   applyHiddenElements: (state: Record<string, number[]>, skipModelIds?: string[]) => Promise<void>;
   getClippingPlanes: () => { normal: number[]; origin: number[] }[];
   applyClippingPlanes: (planes: { normal: number[]; origin: number[] }[]) => void;
+  // Hộp cắt 3D (Section Box) — kéo/thu 6 mặt bằng gizmo để cắt mô hình
+  setSectionBox: (active: boolean) => void;
 }
 
 export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoaded, onElementSelected, projectId, isActive = true }, ref) => {
@@ -268,6 +298,13 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
   const [minimapActive, setMinimapActive] = useState(false);
   const [viewCubeActive, setViewCubeActive] = useState(true);
   
+  // Cache map GUID→localId theo model (key gồm uuid — tự vô hiệu khi nạp lại)
+  const guidMapCacheRef = useRef<Map<string, Map<string, number>>>(new Map());
+
+  // Thời điểm chuột hoạt động gần nhất trên canvas — dùng để NHƯỜNG worker fragments
+  // cho hover/click picking (trích thuộc tính nền chỉ chạy khi chuột nghỉ).
+  const lastPointerActivityRef = useRef(0);
+
   // Keep references to components for cleanup and imperative actions
   const componentsRef = useRef<OBC.Components | null>(null);
   const worldRef = useRef<any>(null);
@@ -352,6 +389,11 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
     const domElement = world.renderer.three.domElement;
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     domElement.addEventListener('contextmenu', handleContextMenu);
+
+    // Ghi nhận hoạt động chuột trên canvas — vòng trích thuộc tính nền sẽ tạm dừng
+    // khi người dùng đang rê chuột để hover picking không bị xếp sau các batch nặng
+    const handlePointerActivity = () => { lastPointerActivityRef.current = Date.now(); };
+    domElement.addEventListener('pointermove', handlePointerActivity, { passive: true });
 
     components.init();
 
@@ -745,6 +787,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('keydown', handleFlyKey);
       domElement.removeEventListener('contextmenu', handleContextMenu);
+      domElement.removeEventListener('pointermove', handlePointerActivity);
       if (containerRef.current) {
         containerRef.current.removeEventListener('dblclick', handleDoubleClick);
       }
@@ -1120,6 +1163,14 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       const BATCH = 500;
       for (let i = 0; i < localIds.length; i += BATCH) {
         if (!loadedModelsRef.current.some(m => m.id === modelId)) return;
+        // NHƯỜNG worker cho hover/click: mỗi lệnh pick của Hoverer phải đi qua cùng
+        // WebWorker với getItemsData — nếu cứ bơm batch nặng liên tục, pick bị xếp
+        // hàng sau và hover "chết" trong nhiều phút với model lớn. Chỉ trích tiếp
+        // khi chuột đã nghỉ >1,5s trên canvas.
+        while (Date.now() - lastPointerActivityRef.current < 1500) {
+          await new Promise(r => setTimeout(r, 500));
+          if (!loadedModelsRef.current.some(m => m.id === modelId)) return;
+        }
         const itemsData = await model.getItemsData(localIds.slice(i, i + BATCH), {
           attributesDefault: true,
           // BỎ LẤY RELATIONS chạy nền cho toàn bộ mô hình. Việc lấy quan hệ của hàng ngàn cấu kiện
@@ -1562,7 +1613,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       }
       if (transformControlsRef.current) {
         transformControlsRef.current.detach();
-        world.scene.three.remove(transformControlsRef.current);
+        world.scene.three.remove(transformControlsRef.current.getHelper());
         transformControlsRef.current.dispose();
         transformControlsRef.current = null;
       }
@@ -1646,7 +1697,7 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
         });
 
         transformControlsRef.current = transformControls;
-        world.scene.three.add(transformControls);
+        world.scene.three.add(transformControls.getHelper());
       } else {
         world.renderer.three.clippingPlanes = [];
         fragmentsRef.current?.core?.update?.(true);
@@ -1797,6 +1848,75 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       } catch (e) { console.warn('focusClash highlight failed', e); }
     },
 
+    getGuidMap: async (modelId: string) => {
+      const info = loadedModelsRef.current.find(m => m.id === modelId);
+      if (!info) return null;
+      // Cache theo model.uuid — tự vô hiệu khi model được nạp lại
+      const cacheKey = `${modelId}:${info.model.uuid ?? ''}`;
+      const cached = guidMapCacheRef.current.get(cacheKey);
+      if (cached) return cached;
+      const map = await buildGuidMap(info.model);
+      guidMapCacheRef.current.set(cacheKey, map);
+      return map;
+    },
+
+    // Bay camera tới vi phạm rule check (worker trả tọa độ world thật + GUID cấu kiện)
+    focusViolation: async (v: { position?: number[]; refs: ViolationRef[] }) => {
+      if (!worldRef.current || !highlighterRef.current) return;
+
+      // Resolve GUID → localId trên từng model liên quan
+      const highlightMap: Record<string, Set<number>> = {};
+      const boxes: THREE.Box3[] = [];
+      let firstOffset: THREE.Vector3 | undefined;
+      for (const ref of v.refs) {
+        const info = loadedModelsRef.current.find(m => m.id === ref.modelId);
+        if (!info) continue;
+        const cacheKey = `${ref.modelId}:${info.model.uuid ?? ''}`;
+        let gm = guidMapCacheRef.current.get(cacheKey);
+        if (!gm) {
+          gm = await buildGuidMap(info.model);
+          guidMapCacheRef.current.set(cacheKey, gm);
+        }
+        const localId = gm.get(ref.guid);
+        if (localId === undefined) continue;
+        const key = (info.model as any).modelId || info.model.uuid;
+        (highlightMap[key] ||= new Set()).add(localId);
+        // Offset "Căn tâm" của model đầu tiên tìm được — worker trả world coords gốc
+        if (!firstOffset) firstOffset = info.model.object?.position as THREE.Vector3 | undefined;
+        try {
+          const [box] = await info.model.getBoxes([localId]);
+          if (box && !box.isEmpty()) {
+            const off = info.model.object?.position as THREE.Vector3 | undefined;
+            if (off && (off.x || off.y || off.z)) box.translate(off);
+            boxes.push(box);
+          }
+        } catch { /* bỏ qua — dùng position của worker */ }
+      }
+
+      // Vị trí camera: ưu tiên position từ worker (+ offset căn tâm), fallback tâm bbox
+      let target: THREE.Vector3 | null = null;
+      if (v.position && v.position.length === 3 && v.position.every(Number.isFinite)) {
+        target = new THREE.Vector3(v.position[0], v.position[1], v.position[2]);
+        if (firstOffset && (firstOffset.x || firstOffset.y || firstOffset.z)) target.add(firstOffset);
+      } else if (boxes.length) {
+        const union = boxes[0].clone();
+        for (let i = 1; i < boxes.length; i++) union.union(boxes[i]);
+        target = union.getCenter(new THREE.Vector3());
+      }
+      if (target) {
+        worldRef.current.camera.controls.setLookAt(
+          target.x + 8, target.y + 8, target.z + 8, target.x, target.y, target.z, true,
+        );
+      }
+
+      if (Object.keys(highlightMap).length) {
+        try {
+          await highlighterRef.current.clear('select');
+          await highlighterRef.current.highlightByID('select', highlightMap, true, true);
+        } catch (e) { console.warn('focusViolation highlight failed', e); }
+      }
+    },
+
     setModelVisibility: async (modelId: string, visible: boolean) => {
       const info = loadedModelsRef.current.find(m => m.id === modelId);
       if (!info) return;
@@ -1932,27 +2052,9 @@ export const BimViewer = forwardRef<BimViewerRef, BimViewerProps>(({ onModelLoad
       const modelV1 = m1Info.model;
       const modelV2 = m2Info.model;
       
-      const getModelGuidMap = async (model: any) => {
-        const guidToExpressId = new Map<string, number>();
-        const localIds = Array.from(await model.getLocalIds()) as number[];
-        const BATCH = 5000;
-        for (let i = 0; i < localIds.length; i += BATCH) {
-          const items = await model.getItemsData(localIds.slice(i, i + BATCH));
-          for (const item of items) {
-            if (!item) continue;
-            const id = item._localId ? item._localId.value : null;
-            const guid = item._guid ? item._guid.value : null;
-            if (id !== null && guid) {
-              guidToExpressId.set(guid, id);
-            }
-          }
-        }
-        return guidToExpressId;
-      };
-
       try {
-        const guidMapV1 = await getModelGuidMap(modelV1);
-        const guidMapV2 = await getModelGuidMap(modelV2);
+        const guidMapV1 = await buildGuidMap(modelV1);
+        const guidMapV2 = await buildGuidMap(modelV2);
         const addedIdsV2: number[] = [];
         const deletedIdsV1: number[] = [];
         const commonGuids: string[] = [];

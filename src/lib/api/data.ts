@@ -412,8 +412,9 @@ export async function fetchElementProperties(documentId: string, expressId: numb
 }
 
 /**
- * Lưu thuộc tính một cấu kiện vào DB (cache lazy theo lượt chọn) để tra cứu khi
- * mô hình chưa được nạp. document_id = mã ISO 19650 (modelId của viewer).
+ * Lưu (upsert) thuộc tính một cấu kiện vào DB (cache lazy theo lượt chọn) để tra
+ * cứu khi mô hình chưa được nạp. document_id = mã ISO 19650 (modelId của viewer).
+ * Fire-and-forget: caller không cần await, lỗi chỉ log console.
  */
 export async function saveElementProps(
   projectId: string | undefined, documentId: string, expressId: number, props: Record<string, any>
@@ -427,7 +428,11 @@ export async function saveElementProps(
     name: props.Name ?? null,
     category: props.type ?? props.ObjectType ?? null,
     properties: props,
+    updated_at: new Date().toISOString(),
   }, { onConflict: 'document_id,express_id' });
   if (error) console.error('saveElementProps error:', error.message);
 }
+
+// Alias theo kế hoạch P2.4 (upsertElementProperties = saveElementProps)
+export const upsertElementProperties = saveElementProps;
 

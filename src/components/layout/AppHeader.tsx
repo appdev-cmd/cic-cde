@@ -5,7 +5,7 @@ import { ProjectItem } from '../project/ProjectList';
 import { ActivityItem } from '../../types';
 
 interface AppHeaderProps {
-  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents';
+  activeModule: 'overview' | 'projects' | 'gis' | 'settings' | 'legal-documents' | 'feasibility-study' | 'bim-library';
   selectedProject: ProjectItem | null;
   activeTab: TabContext;
   setActiveTab: (t: TabContext) => void;

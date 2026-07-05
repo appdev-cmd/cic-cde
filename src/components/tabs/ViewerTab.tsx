@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Filter, ChevronDown, ChevronRight, ChevronLeft, Folder, FolderOpen, Box, 
   Scissors, Ruler, Square, Triangle, MessageSquare, EyeOff, X, Copy, RefreshCw, Upload,
-  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download, Image as ImageIcon, Zap
+  Eye, Ghost, AlertCircle, Plus, ClipboardList, Download, Image as ImageIcon, Zap, Scan
 } from 'lucide-react';
 import { BimViewer, BimViewerRef, QtoResult, QtoDetailRow, LoadedModelInfo, ClashResult } from '../bim/BimViewer';
 import { IssuesPanel, IssuesPanelHandle, type BcfIssue } from '../bim/IssuesPanel';
+import { RuleCheckPanel } from '../bim/RuleCheckPanel';
+import type { CheckResult } from '../../lib/api/ruleCheck';
 import { DocumentItem } from '../../types';
 import { analyzeElement } from '../../lib/ai/gemini';
 import { ifcClassLabel } from '../../lib/ifcLabels';
@@ -54,7 +56,7 @@ export function ViewerTab({
 
   // Sidebar controls
   const [leftSidebarTab, setLeftSidebarTab] = useState<'models' | 'spatial' | 'classes'>('models');
-  const [rightPanelTab, setRightPanelTab] = useState<'properties' | 'bcf' | 'ids'>('properties');
+  const [rightPanelTab, setRightPanelTab] = useState<'properties' | 'bcf' | 'ids' | 'check'>('properties');
   
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(() => {
     return localStorage.getItem('cic_cde_left_sidebar_collapsed') === 'true';
@@ -324,6 +326,48 @@ export function ViewerTab({
     }
   };
 
+  // QTO — Bảng khối lượng (khôi phục panel sau đợt tái cấu trúc)
+  const [qtoOpen, setQtoOpen] = useState(false);
+  const [qtoLoading, setQtoLoading] = useState(false);
+  const [qtoResult, setQtoResult] = useState<QtoResult | null>(null);
+  const [qtoSelModels, setQtoSelModels] = useState<Set<string>>(new Set());
+  const [qtoSelDiscs, setQtoSelDiscs] = useState<Set<string>>(new Set());
+  const [qtoSelCats, setQtoSelCats] = useState<Set<string>>(new Set());
+
+  const runQto = async () => {
+    if (!viewerRef.current) return;
+    setQtoLoading(true);
+    try {
+      const res = await viewerRef.current.getQuantityTakeoff();
+      setQtoResult(res);
+      if (res) {
+        // Mặc định chọn tất cả phạm vi khi có kết quả mới
+        setQtoSelModels(new Set(res.detail.map(d => d.modelId)));
+        setQtoSelDiscs(new Set(res.detail.map(d => deriveDiscipline(d.modelName))));
+        setQtoSelCats(new Set(res.detail.map(d => d.category)));
+      }
+    } catch (err) {
+      console.error('QTO error:', err);
+      setQtoResult(null);
+    } finally {
+      setQtoLoading(false);
+    }
+  };
+
+  const handleOpenQto = async () => {
+    if (!viewerRef.current) return;
+    if (loadedModels.length === 0) { alert('Chưa có mô hình nào được tải để bóc tách khối lượng.'); return; }
+    setQtoOpen(true);
+    if (!qtoResult && !qtoLoading) await runQto();
+  };
+
+  // Helper toggle cho các Set bộ lọc QTO
+  const toggleInSet = (set: Set<string>, key: string): Set<string> => {
+    const n = new Set(set);
+    n.has(key) ? n.delete(key) : n.add(key);
+    return n;
+  };
+
   const handleClashToBcf = async (c: ClashResult) => {
     if (!viewerRef.current) return;
     await viewerRef.current.focusClash(c);
@@ -336,6 +380,45 @@ export function ViewerTab({
     setRightPanelTab('bcf');
     alert('Đã tạo vấn đề từ xung đột.');
   };
+
+  // --- Rule check server-side: bay tới vi phạm + tạo BCF ---
+  const violationRefs = (v: CheckResult) => {
+    const refs = [{ modelId: v.elementA.docCode, guid: v.elementA.guid }];
+    if (v.elementB?.guid) refs.push({ modelId: v.elementB.docCode, guid: v.elementB.guid });
+    return refs;
+  };
+
+  const handleFocusViolation = (v: CheckResult) => {
+    viewerRef.current?.focusViolation({ position: v.position, refs: violationRefs(v) });
+  };
+
+  const handleViolationToBcf = async (v: CheckResult, ruleName: string) => {
+    if (!viewerRef.current) return;
+    await viewerRef.current.focusViolation({ position: v.position, refs: violationRefs(v) });
+    const vp = captureViewpoint();
+    // Resolve localId của cấu kiện A để gán linkedElement (nếu model đang nạp)
+    let linkedExpressId: number | undefined;
+    try {
+      const gm = await viewerRef.current.getGuidMap(v.elementA.docCode);
+      linkedExpressId = gm?.get(v.elementA.guid);
+    } catch { /* bỏ qua */ }
+    const measure = v.details?.rule_type === 'clearance'
+      ? `Khoảng cách đo được ${v.measuredValue}m`
+      : `Độ xuyên ${v.measuredValue}m`;
+    const elemDesc = v.elementB
+      ? `${v.elementA.name || v.elementA.category} ↔ ${v.elementB.name || v.elementB.category}`
+      : (v.elementA.name || v.elementA.category);
+    await issuesPanelRef.current?.createFromClash({
+      title: `Vi phạm: ${ruleName}`,
+      description: `${elemDesc}. ${measure}.`,
+      camera: vp.camera, hiddenModels: vp.hiddenModels, screenshot: vp.screenshot,
+      linkedElementExpressId: linkedExpressId,
+    });
+    setRightPanelTab('bcf');
+    alert('Đã tạo vấn đề (BCF) từ vi phạm.');
+  };
+
+  const getModelCategoriesForForm = () => viewerRef.current?.getModelCategories() ?? [];
 
   // Suy bộ môn từ tên/mã mô hình (dùng cho cả model upload lẫn tài liệu Supabase)
   const deriveDiscipline = (label: string): string => {
@@ -565,6 +648,7 @@ export function ViewerTab({
   const [measurementActive, setMeasurementActive] = useState(false);
   const [areaActive, setAreaActive] = useState(false);
   const [angleActive, setAngleActive] = useState(false);
+  const [sectionBoxActive, setSectionBoxActive] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
   // AI analysis state for the selected element
@@ -619,7 +703,25 @@ export function ViewerTab({
     setSelectedElement(props);
   };
 
-  const resetTools = () => { setMeasurementActive(false); setAreaActive(false); setAngleActive(false); setClippingActive(false); };
+  const resetTools = () => {
+    setMeasurementActive(false); setAreaActive(false); setAngleActive(false); setClippingActive(false);
+    // Tắt hộp cắt 3D nếu đang bật (tránh xung đột clipping planes với công cụ cắt lát)
+    if (sectionBoxActive) {
+      setSectionBoxActive(false);
+      viewerRef.current?.setSectionBox(false);
+    }
+  };
+
+  const handleToggleSectionBox = () => {
+    const nextState = !sectionBoxActive;
+    resetTools();
+    setSectionBoxActive(nextState);
+    viewerRef.current?.setSectionBox(nextState);
+    viewerRef.current?.toggleClipping(false);
+    viewerRef.current?.toggleMeasurement(false);
+    viewerRef.current?.toggleAreaMeasurement(false);
+    viewerRef.current?.toggleAngleMeasurement(false);
+  };
 
   const handleToggleClipping = () => {
     const nextState = !clippingActive;
@@ -896,6 +998,8 @@ export function ViewerTab({
                       </div>
                       {unloadedDocs.map(doc => {
                         const isLoadingThis = loadingModelId === doc.id;
+                        // Trạng thái convert IFC->frag phía server (worker selfhost)
+                        const isConverting = !doc.fragUrl && (doc.fragStatus === 'pending' || doc.fragStatus === 'processing');
                         return (
                           <div key={doc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border bg-surface border-outline-variant/30 hover:border-primary/30">
                             <button
@@ -909,6 +1013,15 @@ export function ViewerTab({
                             <span className="text-[11px] font-semibold truncate flex-1 text-on-surface-variant" title={doc.name}>
                               {doc.name}
                             </span>
+                            {isConverting && (
+                              <span
+                                className="shrink-0 flex items-center gap-1 text-[9px] font-bold text-tertiary bg-tertiary-container/20 border border-tertiary-container/40 px-1.5 py-0.5 rounded-full"
+                                title="Máy chủ đang chuyển đổi mô hình sang định dạng nạp nhanh (.frag). Vẫn có thể tải trực tiếp từ IFC."
+                              >
+                                <RefreshCw size={9} className="animate-spin" />
+                                Đang xử lý trên máy chủ…
+                              </span>
+                            )}
                             <button
                               onClick={() => handleDeleteDoc(doc)}
                               className="shrink-0 text-on-surface-variant hover:text-error p-0.5"
@@ -1132,7 +1245,25 @@ export function ViewerTab({
               active={angleActive}
               onClick={handleToggleAngle}
             />
+            <ToolButton
+              icon={<Scan size={20} />}
+              label="Hộp cắt 3D (Section Box)"
+              active={sectionBoxActive}
+              onClick={handleToggleSectionBox}
+            />
             <div className="w-px h-5 bg-outline-variant/60 mx-2"></div>
+            <ToolButton
+              icon={<ClipboardList size={20} />}
+              label="Bảng khối lượng (QTO)"
+              active={qtoOpen}
+              onClick={handleOpenQto}
+            />
+            <ToolButton
+              icon={<AlertCircle size={20} />}
+              label="Kiểm tra xung đột (Clash)"
+              active={clashOpen}
+              onClick={handleDetectClashes}
+            />
             <ToolButton
               icon={<MessageSquare size={20} />}
               label="Vấn đề (Issue)"
@@ -1179,11 +1310,21 @@ export function ViewerTab({
               >
                 Kiểm tra (IDS)
               </button>
-              <button 
+              <button
+                onClick={() => setRightPanelTab('check')}
+                className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
+                  rightPanelTab === 'check'
+                    ? 'bg-surface-container-highest text-primary shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Quy tắc
+              </button>
+              <button
                 onClick={() => setRightPanelTab('bcf')}
                 className={`flex-1 text-center py-1.5 rounded-md font-bold text-[11.5px] transition-colors cursor-pointer ${
-                  rightPanelTab === 'bcf' 
-                    ? 'bg-surface-container-highest text-primary shadow-sm' 
+                  rightPanelTab === 'bcf'
+                    ? 'bg-surface-container-highest text-primary shadow-sm'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
@@ -1374,6 +1515,16 @@ export function ViewerTab({
                 )}
              </div>
            </>
+         ) : rightPanelTab === 'check' ? (
+           /* KIỂM TRA MÔ HÌNH THEO QUY TẮC (server-side) */
+           <RuleCheckPanel
+             projectId={projectId}
+             documents={documents}
+             currentUserName="BIM Manager (Bạn)"
+             getModelCategories={getModelCategoriesForForm}
+             onFocusViolation={handleFocusViolation}
+             onCreateBcf={handleViolationToBcf}
+           />
          ) : (
            /* ISSUES (VẤN ĐỀ) PANEL */
            <IssuesPanel
@@ -1461,7 +1612,172 @@ export function ViewerTab({
         </div>
       )}
 
+      {/* QTO Modal — Bảng khối lượng (Quantity Take-Off) */}
+      {qtoOpen && (() => {
+        const detail: QtoDetailRow[] = qtoResult?.detail ?? [];
+        // Danh mục bộ lọc suy từ kết quả
+        const modelItems = Array.from(new Map<string, string>(detail.map(d => [d.modelId, d.modelName])).entries())
+          .map(([key, label]) => ({ key, label }));
+        const discItems = Array.from(new Set<string>(detail.map(d => deriveDiscipline(d.modelName))))
+          .sort().map(k => ({ key: k, label: k }));
+        const catItems = Array.from(new Set<string>(detail.map(d => d.category))).sort()
+          .map(k => ({ key: k, label: ifcClassLabel(k) ? `${k} (${ifcClassLabel(k)})` : k }));
+        // Lọc theo Bộ môn / Hạng mục (mô hình) / Cấu kiện (lớp IFC)
+        const filtered = detail.filter(d =>
+          qtoSelModels.has(d.modelId) &&
+          qtoSelDiscs.has(deriveDiscipline(d.modelName)) &&
+          qtoSelCats.has(d.category)
+        );
+        // Gộp theo lớp cấu kiện
+        const aggMap: Record<string, { category: string; count: number; area: number; volume: number; length: number }> = {};
+        for (const d of filtered) {
+          const a = (aggMap[d.category] ||= { category: d.category, count: 0, area: 0, volume: 0, length: 0 });
+          a.count += d.count; a.area += d.area; a.volume += d.volume; a.length += d.length;
+        }
+        const aggRows = Object.values(aggMap).sort((a, b) => b.volume - a.volume || b.count - a.count);
+        const totals = aggRows.reduce(
+          (t, r) => ({ count: t.count + r.count, area: t.area + r.area, volume: t.volume + r.volume, length: t.length + r.length }),
+          { count: 0, area: 0, volume: 0, length: 0 }
+        );
+        const fmt = (n: number) => n ? n.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : '—';
+        const handleExportCsv = () => {
+          const lines = [
+            'Lớp cấu kiện;Số lượng;Chiều dài (m);Diện tích (m2);Thể tích (m3)',
+            ...aggRows.map(r => `${r.category};${r.count};${r.length.toFixed(2)};${r.area.toFixed(2)};${r.volume.toFixed(2)}`),
+            `TỔNG;${totals.count};${totals.length.toFixed(2)};${totals.area.toFixed(2)};${totals.volume.toFixed(2)}`,
+          ];
+          const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `QTO_${projectId ?? 'project'}_${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+        return (
+          <div
+            className="absolute inset-0 bg-inverse-on-surface/40 backdrop-blur-[2px] flex items-center justify-center z-[100] animate-in fade-in duration-200 p-6"
+            onClick={() => setQtoOpen(false)}
+          >
+            <div
+              className="bg-surface-container-lowest w-full max-w-3xl max-h-[85vh] rounded-2xl shadow-2xl border border-outline-variant flex flex-col animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2">
+                  <ClipboardList size={18} className="text-primary" />
+                  <h3 className="font-bold text-[15px] text-on-surface">Bảng khối lượng (Quantity Take-Off)</h3>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={runQto}
+                    disabled={qtoLoading}
+                    className="flex items-center gap-1 text-[11px] font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded-lg disabled:opacity-50 cursor-pointer"
+                    title="Bóc tách lại khối lượng từ các mô hình đang tải"
+                  >
+                    <RefreshCw size={12} className={qtoLoading ? 'animate-spin' : ''} /> Tính lại
+                  </button>
+                  <button
+                    onClick={handleExportCsv}
+                    disabled={qtoLoading || aggRows.length === 0}
+                    className="flex items-center gap-1 text-[11px] font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded-lg disabled:opacity-50 cursor-pointer"
+                    title="Xuất bảng khối lượng đang lọc ra file CSV"
+                  >
+                    <Download size={12} /> Xuất CSV
+                  </button>
+                  <button onClick={() => setQtoOpen(false)} className="p-1 text-on-surface-variant hover:bg-surface-container rounded-full cursor-pointer"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+                {qtoLoading ? (
+                  <div className="h-48 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
+                    <RefreshCw size={28} className="animate-spin text-primary" />
+                    <span className="text-sm font-medium">Đang bóc tách khối lượng từ dữ liệu Qto/Pset của mô hình...</span>
+                    <span className="text-[11px] text-outline">Mô hình lớn có thể mất vài chục giây.</span>
+                  </div>
+                ) : !qtoResult || detail.length === 0 ? (
+                  <div className="h-48 flex flex-col items-center justify-center gap-2 text-center text-on-surface-variant px-6">
+                    <ClipboardList size={28} className="text-outline/50" />
+                    <p className="text-sm font-medium">Chưa có dữ liệu khối lượng.</p>
+                    <p className="text-[11px] text-outline">Mô hình cần chứa bộ Qto_*BaseQuantities (xuất từ Revit/ArchiCAD với tùy chọn Base Quantities).</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Bộ lọc phạm vi: Bộ môn / Hạng mục / Cấu kiện */}
+                    <div className="space-y-2.5 mb-4 p-3 bg-surface-container-low/50 border border-outline-variant/40 rounded-xl">
+                      <QtoFilterGroup
+                        label="Bộ môn" items={discItems} selected={qtoSelDiscs}
+                        onToggle={k => setQtoSelDiscs(toggleInSet(qtoSelDiscs, k))}
+                        onAll={() => setQtoSelDiscs(new Set(discItems.map(i => i.key)))}
+                        onNone={() => setQtoSelDiscs(new Set())}
+                      />
+                      <QtoFilterGroup
+                        label="Hạng mục" items={modelItems} selected={qtoSelModels}
+                        onToggle={k => setQtoSelModels(toggleInSet(qtoSelModels, k))}
+                        onAll={() => setQtoSelModels(new Set(modelItems.map(i => i.key)))}
+                        onNone={() => setQtoSelModels(new Set())}
+                      />
+                      <QtoFilterGroup
+                        label="Cấu kiện" items={catItems} selected={qtoSelCats}
+                        onToggle={k => setQtoSelCats(toggleInSet(qtoSelCats, k))}
+                        onAll={() => setQtoSelCats(new Set(catItems.map(i => i.key)))}
+                        onNone={() => setQtoSelCats(new Set())}
+                        scroll
+                      />
+                    </div>
 
+                    {/* Bảng khối lượng gộp theo lớp cấu kiện */}
+                    <div className="border border-outline-variant/50 rounded-xl overflow-hidden">
+                      <table className="w-full text-[11.5px]">
+                        <thead>
+                          <tr className="bg-surface-container text-on-surface-variant">
+                            <th className="text-left font-bold px-3 py-2">Lớp cấu kiện</th>
+                            <th className="text-right font-bold px-3 py-2 w-16">SL</th>
+                            <th className="text-right font-bold px-3 py-2 w-24">Dài (m)</th>
+                            <th className="text-right font-bold px-3 py-2 w-24">DT (m²)</th>
+                            <th className="text-right font-bold px-3 py-2 w-24">TT (m³)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {aggRows.length === 0 ? (
+                            <tr><td colSpan={5} className="px-3 py-6 text-center text-outline text-[11px]">Không có dòng nào khớp bộ lọc.</td></tr>
+                          ) : aggRows.map(r => (
+                            <tr key={r.category} className="border-t border-outline-variant/30 hover:bg-surface-container-low/50">
+                              <td className="px-3 py-1.5 font-semibold text-on-surface">
+                                {r.category}
+                                {ifcClassLabel(r.category) && <span className="text-on-surface-variant font-medium"> ({ifcClassLabel(r.category)})</span>}
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-mono text-on-surface">{r.count}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-on-surface">{fmt(r.length)}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-on-surface">{fmt(r.area)}</td>
+                              <td className="px-3 py-1.5 text-right font-mono text-on-surface">{fmt(r.volume)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        {aggRows.length > 0 && (
+                          <tfoot>
+                            <tr className="border-t-2 border-outline-variant/60 bg-primary/5 font-bold text-primary">
+                              <td className="px-3 py-2">TỔNG</td>
+                              <td className="px-3 py-2 text-right font-mono">{totals.count}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(totals.length)}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(totals.area)}</td>
+                              <td className="px-3 py-2 text-right font-mono">{fmt(totals.volume)}</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                    <p className="text-[10.5px] text-outline mt-3 leading-relaxed">
+                      * Khối lượng đọc từ bộ Qto_*BaseQuantities trong IFC ({qtoResult.elementsWithQuantities.toLocaleString('vi-VN')}/{qtoResult.totalElements.toLocaleString('vi-VN')} cấu kiện có số liệu).
+                      Dùng để tham khảo điều phối — bóc tách dự toán chính thức cần kiểm tra lại theo hồ sơ thiết kế.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Copy Toast Alert */}
       {copySuccess && (
