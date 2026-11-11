@@ -826,6 +826,18 @@ textarea::placeholder {
 .cad-folder-managed > details > summary {
   padding-right: 28px;
 }
+.cad-folder-check {
+  position: absolute;
+  top: 6px;
+  left: 3px;
+  z-index: 1;
+  margin: 0;
+  accent-color: #35699c;
+  cursor: pointer;
+}
+.cad-folder-check + details > summary {
+  padding-left: 22px;
+}
 .cad-directory-folders .cad-folder-manage {
   position: absolute;
   right: 0;

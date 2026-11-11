@@ -23,6 +23,7 @@ type FolderNode = {
   folder?: CadFolder;
   folders: Map<string, FolderNode>;
   files: CadDrawing[];
+  selectableKeys: string[];
   count: number;
 };
 
@@ -34,7 +35,9 @@ type DrawingActions = {
   checked: ReadonlySet<string>;
   dragged: ReadonlySet<string>;
   target?: string;
-  toggle: (key: string) => void;
+  toggle: (key: string, extend: boolean) => void;
+  toggleFolder: (keys: string[], checked: boolean) => void;
+  remember: (key: string) => void;
   start: (event: DragEvent<HTMLElement>, drawing: CadDrawing) => void;
   end: () => void;
   over: (event: DragEvent<HTMLElement>, folderId: string | null) => void;
@@ -44,7 +47,7 @@ type DrawingActions = {
 };
 
 function makeFolder(name: string, folder?: CadFolder): FolderNode {
-  return { name, folder, folders: new Map(), files: [], count: 0 };
+  return { name, folder, folders: new Map(), files: [], selectableKeys: [], count: 0 };
 }
 
 function buildTree({ drawings, folders }: CadFiles, search: string) {
@@ -56,10 +59,11 @@ function buildTree({ drawings, folders }: CadFiles, search: string) {
   }
   const hasUploadedFolders = folders.length > 0 || drawings.some((drawing) => drawing.folders.length > 0);
   for (const drawing of drawings) {
-    if (![...drawing.folders, drawing.name].join("/").toLocaleLowerCase().includes(search)) continue;
+    const matches = [...drawing.folders, drawing.name].join("/").toLocaleLowerCase().includes(search);
     const node = drawing.folderId ? catalog.get(drawing.folderId) : undefined;
     if (node) {
-      node.files.push(drawing);
+      if (matches) node.files.push(drawing);
+      if (drawing.location) node.selectableKeys.push(drawing.key);
       continue;
     }
     let path = drawing.folders;
@@ -79,7 +83,8 @@ function buildTree({ drawings, folders }: CadFiles, search: string) {
       }
       parent = folder;
     }
-    parent.files.push(drawing);
+    if (matches) parent.files.push(drawing);
+    if (drawing.location) parent.selectableKeys.push(drawing.key);
   }
   function prune(node: FolderNode, path: string): boolean {
     node.count = node.files.length;
@@ -98,8 +103,17 @@ function FolderBranch({ folder, selected, onOpen, onManage, drawingActions }: {
   drawingActions?: DrawingActions;
 }) {
   const entry = folder.folder;
+  const keys = folder.selectableKeys;
+  const checkedCount = drawingActions ? keys.filter((key) => drawingActions.checked.has(key)).length : 0;
+  const allChecked = checkedCount === keys.length;
+  const folderCheckLabel = `Chọn tất cả bản vẽ trong ${folder.name}`;
   return (
     <li className={entry && onManage ? "cad-folder-branch cad-folder-managed" : "cad-folder-branch"}>
+      {drawingActions && keys.length > 0 && (
+        <input type="checkbox" className="cad-folder-check" aria-label={folderCheckLabel} title={folderCheckLabel}
+          ref={(input) => { if (input) input.indeterminate = checkedCount > 0 && !allChecked; }}
+          checked={allChecked} onChange={(event) => drawingActions.toggleFolder(keys, event.target.checked)} />
+      )}
       <details open>
         <summary data-cad-drop-active={entry && drawingActions?.target === entry.id ? true : undefined}
           onDragOver={entry && drawingActions ? (event) => drawingActions.over(event, entry.id) : undefined}
@@ -114,17 +128,35 @@ function FolderBranch({ folder, selected, onOpen, onManage, drawingActions }: {
           ))}
           {folder.files.slice().sort((a, b) => cadNames.compare(a.name, b.name)).map((drawing) => (
             <li key={drawing.key} className="cad-drawing-row"
+              data-cad-selection-key={drawingActions && drawing.location ? drawing.key : undefined}
               data-cad-dragging={drawingActions?.dragged.has(drawing.key) || undefined}
               data-cad-checked={drawingActions?.checked.has(drawing.key) || undefined}>
               {drawingActions && drawing.location && (
                 <input className="cad-drawing-check" type="checkbox" aria-label={`Chọn ${drawing.name}`}
-                  checked={drawingActions.checked.has(drawing.key)} onChange={() => drawingActions.toggle(drawing.key)} />
+                  checked={drawingActions.checked.has(drawing.key)}
+                  onChange={(event) => drawingActions.toggle(drawing.key,
+                    event.nativeEvent instanceof MouseEvent && event.nativeEvent.shiftKey)}
+                  onKeyDown={(event) => {
+                    if (event.key === " " && event.shiftKey) {
+                      event.preventDefault();
+                      drawingActions.toggle(drawing.key, true);
+                    }
+                  }} />
               )}
               <button type="button" aria-pressed={selected === drawing.key}
                 draggable={Boolean(drawingActions && drawing.location)}
                 onDragStart={drawingActions && drawing.location ? (event) => drawingActions.start(event, drawing) : undefined}
                 onDragEnd={drawingActions?.end}
-                title={[...drawing.folders, drawing.name].join("/")} onClick={() => onOpen(drawing)}>
+                title={[...drawing.folders, drawing.name].join("/")} onClick={(event) => {
+                  if (drawingActions && drawing.location) {
+                    if (event.shiftKey) {
+                      drawingActions.toggle(drawing.key, true);
+                      return;
+                    }
+                    drawingActions.remember(drawing.key);
+                  }
+                  onOpen(drawing);
+                }}>
                 <File size={13} /><span>{drawing.name}</span>
               </button>
               {drawingActions && drawing.location && (
@@ -151,6 +183,8 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<CadFolder | null>();
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
+  const selectionAnchor = useRef<string>(undefined);
+  const treeRows = useRef<HTMLDivElement>(null);
   const [dragged, setDragged] = useState<CadDrawing[]>([]);
   const dragSource = useRef<{ key: string; drawings: CadDrawing[] }>(undefined);
   const [target, setTarget] = useState<string>();
@@ -193,6 +227,7 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
       const { moveCadDrawings } = await import("./cadStorage");
       await moveCadDrawings(locations, folderId);
       const movedSelection = new Set(drawings.map((drawing) => drawing.key));
+      selectionAnchor.current = undefined;
       setChecked((current) => new Set([...current].filter((key) => !movedSelection.has(key))));
       setSearch("");
       setFeedback({ text: drawings.length === 1 ? `Đã di chuyển ${drawings[0].name}.` : `Đã di chuyển ${drawings.length} bản vẽ.` });
@@ -207,13 +242,38 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
   const canMove = canManage && files.status === "ready" && !moving && files.folders.length > 0;
   const drawingActions: DrawingActions | undefined = canMove ? {
     checked, dragged: new Set(dragged.map((drawing) => drawing.key)), target,
-    toggle(key) {
+    toggle(key, extend) {
+      if (extend && selectionAnchor.current) {
+        const visibleKeys = Array.from(treeRows.current?.querySelectorAll<HTMLElement>("[data-cad-selection-key]") ?? [])
+          .filter((row) => !row.closest("details:not([open])"))
+          .map((row) => row.dataset.cadSelectionKey!);
+        const start = visibleKeys.indexOf(selectionAnchor.current);
+        const end = visibleKeys.indexOf(key);
+        if (start >= 0 && end >= 0) {
+          const range = visibleKeys.slice(Math.min(start, end), Math.max(start, end) + 1);
+          setChecked((current) => new Set([...current, ...range]));
+          return;
+        }
+      }
+      selectionAnchor.current = key;
       setChecked((current) => {
         const next = new Set(current);
         if (next.has(key)) next.delete(key);
         else next.add(key);
         return next;
       });
+    },
+    toggleFolder(keys, select) {
+      selectionAnchor.current = undefined;
+      setChecked((current) => {
+        if (select) return new Set([...current, ...keys]);
+        const next = new Set(current);
+        for (const key of keys) next.delete(key);
+        return next;
+      });
+    },
+    remember(key) {
+      selectionAnchor.current = key;
     },
     start(event, drawing) {
       event.dataTransfer.effectAllowed = "move";
@@ -274,7 +334,10 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
         <div className="cad-selection">
           <span role="status">{checkedDrawings.length} bản vẽ đã chọn</span>
           <button type="button" disabled={!canMove} onClick={() => choose(checkedDrawings)}>Di chuyển</button>
-          <button type="button" aria-label="Bỏ chọn tất cả" onClick={() => setChecked(new Set())}>Bỏ chọn</button>
+          <button type="button" aria-label="Bỏ chọn tất cả" onClick={() => {
+            selectionAnchor.current = undefined;
+            setChecked(new Set());
+          }}>Bỏ chọn</button>
         </div>
       )}
       {files.status === "loading" && <p role="status">Đang tải cây bản vẽ…</p>}
@@ -285,7 +348,7 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
         <p>Tải DWG/DXF lên tại <a href="?cde=1">Hồ sơ CDE</a>.</p>}
       {files.status === "ready" && term && tree.folders.size === 0 &&
         <p>Không có bản vẽ hoặc thư mục phù hợp.</p>}
-      <div className="cad-directory-folders">
+      <div className="cad-directory-folders" ref={treeRows}>
         <ul key={term}>
           {[...tree.folders].sort(([, a], [, b]) => cadNames.compare(a.name, b.name)).map(([key, folder]) => (
             <FolderBranch key={key} folder={folder} selected={selected} onOpen={onOpen}
