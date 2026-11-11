@@ -175,7 +175,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const host = container.current;
     if (!host) return;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#eef1f5");
+    const background = getComputedStyle(host).getPropertyValue("--viewer-background").trim();
+    scene.background = new THREE.Color(background || "#dceefa");
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({
       antialias: true,

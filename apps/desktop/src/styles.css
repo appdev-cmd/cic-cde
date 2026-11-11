@@ -737,11 +737,12 @@ textarea::placeholder {
   margin: 0 4px;
 }
 .viewport {
+  --viewer-background: #dceefa;
   flex: 1;
   position: relative;
   overflow: hidden;
   min-height: 0;
-  background: #eef1f5;
+  background: var(--viewer-background);
 }
 .three-view {
   position: absolute;
@@ -949,7 +950,7 @@ textarea::placeholder {
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: #eef1f5ed;
+  background: var(--viewer-background, #dceefa);
   display: flex;
   align-items: center;
   justify-content: center;
