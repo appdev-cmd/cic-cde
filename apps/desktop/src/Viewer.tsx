@@ -155,7 +155,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         const r = runtime.current;
         if (!r) return;
         const c = r.controls.target;
-        r.camera.position.set(c.x + 0.01, 75, c.z);
+        const distance = Math.max(1, r.camera.position.distanceTo(c));
+        r.camera.position.set(c.x + 0.01, c.y + distance, c.z);
         r.controls.update();
       },
       capture() {
