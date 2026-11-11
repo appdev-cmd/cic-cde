@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { MAX_IFC_BYTES, selectedProject } from "./bridge";
 import type { DocumentDraft, DocumentMetadataInput } from "./documentMetadata";
+import type { CadAlignmentValues, ProjectCadAlignment } from "./cadAlignment";
 
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -97,6 +98,28 @@ export async function cloudRpc<T>(operation: string, payload: Record<string, unk
     throw new Error(error.message);
   }
   return data as T;
+}
+
+async function cadAlignmentRpc<T>(
+  operation: "list" | "save",
+  payload: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<T> {
+  const request = supabase.rpc("cde_cad_alignments", { project_id: selectedProject, operation, payload });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  if (error) {
+    if (error.code === "28000") window.dispatchEvent(new Event("ciccde-expired"));
+    throw error;
+  }
+  return data as T;
+}
+
+export function listProjectCadAlignments(signal?: AbortSignal) {
+  return cadAlignmentRpc<ProjectCadAlignment[]>("list", {}, signal);
+}
+
+export function saveProjectCadAlignment(floor: string, expectedRevision: number, alignment: CadAlignmentValues | null) {
+  return cadAlignmentRpc<ProjectCadAlignment>("save", { floor, expectedRevision, alignment });
 }
 
 export async function cloudAuth(path: string, input: Record<string, unknown> = {}) {

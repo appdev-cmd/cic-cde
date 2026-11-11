@@ -2,6 +2,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObj
 import type { CadWindow } from "@qabim/cad-viewer/overlay";
 import { cadUnits, detectedCadScale, toCadWindow, type CadAlignment, type CadUnit } from "./cadAlignment";
 import { downloadCadDrawing, listCadDrawings, type CadDrawing } from "./cadStorage";
+import type { CadProjectControls } from "./useProjectCadAlignment";
 
 export type CadOverlayApi = { sync(view: CadWindow): void };
 
@@ -118,11 +119,12 @@ function OffsetInput({ label, value, onChange, limit }: {
   );
 }
 
-export default function CadOverlay({ ref, alignment, floor, view, onChange, onClose }: {
+export default function CadOverlay({ ref, alignment, floor, view, project, onChange, onClose }: {
   ref: Ref<CadOverlayApi>;
   alignment: CadAlignment;
   floor: string;
   view: RefObject<CadWindow | null>;
+  project: CadProjectControls;
   onChange: (update: Partial<CadAlignment>) => void;
   onClose: () => void;
 }) {
@@ -159,12 +161,14 @@ export default function CadOverlay({ ref, alignment, floor, view, onChange, onCl
             setRetry((attempt) => attempt + 1);
           }}>Thử lại</button>
         </p>}
+        <fieldset disabled={project.saving}>
         {status === "ready" && (
           <label>
             Bản vẽ của tầng
-            <select value={drawing?.key ?? ""} onChange={(event) => onChange({ drawing: event.target.value })}
-              disabled={!drawings.length}>
-              <option value="">Chọn DWG hoặc DXF</option>
+            <select value={alignment.drawing} onChange={(event) => onChange({ drawing: event.target.value })}
+              disabled={!drawings.length && !alignment.drawing}>
+              <option value="">{project.stored ? "Bỏ gán bản vẽ" : "Chọn DWG hoặc DXF"}</option>
+              {alignment.drawing && !drawing && <option value={alignment.drawing} disabled>Bản vẽ không còn trong hồ sơ</option>}
               {drawings.map((item) => <option value={item.key} key={item.key}>{item.name}</option>)}
             </select>
           </label>
@@ -197,6 +201,27 @@ export default function CadOverlay({ ref, alignment, floor, view, onChange, onCl
             </label>
           </>
         )}
+        </fieldset>
+        <footer className="cad-overlay-project">
+          {project.loadError && <p role="alert">
+            Không tải được cấu hình dự án. <button type="button" onClick={() => void project.reload()}>Thử lại</button>
+          </p>}
+          {project.conflict ? (
+            <p role="alert">Cấu hình tầng đã thay đổi. <button type="button" disabled={project.loading}
+              onClick={() => void project.useSaved()}>Dùng cấu hình dự án</button></p>
+          ) : project.error && <p role="alert">{project.error}</p>}
+          {project.loading ? <p role="status">Đang tải cấu hình dự án…</p> : !project.loadError && !project.conflict && (
+            <p role="status">
+              {project.saving ? "Đang lưu cấu hình…" :
+                project.dirty ? (project.canEdit ? "Có thay đổi chưa lưu vào dự án." : "Căn chỉnh tạm trong phiên này.") :
+                  project.stored ? "Đã lưu vào dự án." : project.cleared ? "Đã bỏ gán bản vẽ của tầng." : "Tầng chưa có cấu hình chung."}
+            </p>
+          )}
+          {project.canEdit && (
+            <button type="button" className="button primary" disabled={!project.canSave}
+              onClick={() => void project.save()}>Lưu vào dự án</button>
+          )}
+        </footer>
       </section>
     </>
   );

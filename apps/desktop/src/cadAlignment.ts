@@ -2,19 +2,25 @@ import type { CadWindow } from "@qabim/cad-viewer/overlay";
 
 export const cadUnits = { mm: 0.001, cm: 0.01, m: 1, in: 0.0254, ft: 0.3048 } as const;
 export type CadUnit = "auto" | keyof typeof cadUnits;
-export type CadAlignment = {
+export type CadAlignmentValues = {
   drawing: string;
   unit: CadUnit;
   x: number;
   y: number;
   rotation: number;
   opacity: number;
-  visible: boolean;
 };
+export type CadAlignment = CadAlignmentValues & { visible: boolean };
+export type ProjectCadAlignment = { floor: string; revision: number; alignment: CadAlignmentValues | null };
 
 export const defaultCadAlignment: CadAlignment = {
   drawing: "", unit: "auto", x: 0, y: 0, rotation: 0, opacity: 0.8, visible: true,
 };
+
+export function sameCadAlignment(a: CadAlignmentValues, b: CadAlignmentValues) {
+  return a.drawing === b.drawing && a.unit === b.unit && a.x === b.x && a.y === b.y
+    && a.rotation === b.rotation && a.opacity === b.opacity;
+}
 
 const insertionUnitScale: Record<number, number> = {
   1: 0.0254, 2: 0.3048, 3: 1609.344, 4: 0.001, 5: 0.01, 6: 1, 7: 1000,

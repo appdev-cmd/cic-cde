@@ -811,6 +811,20 @@ textarea::placeholder {
   color: #344c67;
   text-decoration: underline;
 }
+.cad-overlay-panel fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cad-overlay-project {
+  margin-top: 9px;
+  border-top: 1px solid #d5dee8;
+}
+.cad-overlay-project .button.primary {
+  color: white;
+  text-decoration: none;
+}
 .cad-overlay-panel label:not(.cad-overlay-visible) {
   display: grid;
   gap: 4px;
