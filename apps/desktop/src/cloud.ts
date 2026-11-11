@@ -17,6 +17,75 @@ function email(username: string) {
   return normalized.includes("@") ? normalized : `${normalized}@pilot.cde.cic.com.vn`;
 }
 
+export async function requestPasswordReset(address: string, redirectTo: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email(address), { redirectTo });
+  // Keep the response the same for unknown and existing addresses.
+  if (error && !["user_not_found", "email_address_not_authorized", "over_email_send_rate_limit"].includes(error.code ?? "")) {
+    throw new Error("Chưa thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại sau.");
+  }
+}
+
+export async function updatePassword(
+  password: string,
+  currentPassword?: string,
+  auth = supabase.auth,
+) {
+  const { error } = await auth.updateUser({
+    password,
+    ...(currentPassword ? { current_password: currentPassword } : {}),
+  });
+  if (!error) return;
+  if (error.code === "current_password_mismatch") throw new Error("Mật khẩu hiện tại không đúng.");
+  if (error.code === "same_password") throw new Error("Hãy chọn mật khẩu khác mật khẩu hiện tại.");
+  if (error.code === "weak_password") throw new Error("Mật khẩu mới chưa đủ mạnh. Hãy chọn mật khẩu khác.");
+  if (error.status === 401 || error.code === "session_not_found") {
+    throw new Error("Phiên đã hết hạn. Hãy đăng nhập hoặc yêu cầu liên kết mới.");
+  }
+  if (error.code === "reauthentication_needed") {
+    throw new Error("Hãy đăng xuất, đăng nhập lại rồi đổi mật khẩu.");
+  }
+  throw new Error("Chưa thể cập nhật mật khẩu. Vui lòng thử lại.");
+}
+
+export async function changePassword(password: string, currentPassword: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) throw new Error("Phiên đã hết hạn. Hãy đăng nhập lại.");
+
+  // Reauthenticate even if this project does not enforce current_password.
+  const { error } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+  if (error?.code === "invalid_credentials") throw new Error("Mật khẩu hiện tại không đúng.");
+  if (error) throw new Error("Chưa thể xác minh mật khẩu hiện tại. Vui lòng thử lại.");
+  await updatePassword(password, currentPassword);
+}
+
+export async function openPasswordRecovery(accessToken: string, refreshToken: string) {
+  // The email session must never replace a workspace session in this browser.
+  const { auth } = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    { auth: {
+      storageKey: "ciccde-password-recovery",
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    } },
+  );
+  const { error: verificationError } = await auth.getUser(accessToken);
+  if (verificationError) throw new Error("Liên kết đã hết hạn hoặc không hợp lệ.");
+  const { data, error } = await auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error || !data.session) throw new Error("Liên kết đã hết hạn hoặc không hợp lệ.");
+  return async (password: string) => {
+    await updatePassword(password, undefined, auth);
+    await auth.signOut({ scope: "local" });
+  };
+}
+
 export async function cloudRpc<T>(operation: string, payload: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc("cde_api", {
     operation,

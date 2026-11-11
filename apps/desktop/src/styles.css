@@ -14,9 +14,12 @@
   font-weight: 400;
   --muted: #929cab;
   --border: #e8ecf1;
-  --orange: #c56a3f;
   --ink: #273344;
-  --accent: #bd643d;
+  --accent: #326b9a;
+  --accent-strong: #245779;
+  --accent-soft: #eaf3fa;
+  --accent-muted: #4d728e;
+  --accent-border: #c7dceb;
 }
 * {
   box-sizing: border-box;
@@ -53,10 +56,10 @@ select {
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid #c8835f;
+  outline: 2px solid var(--accent);
 }
 button:hover {
-  color: #b9623c;
+  color: var(--accent);
 }
 a {
   text-decoration: none;
@@ -182,7 +185,7 @@ textarea::placeholder {
   position: absolute;
   right: 7px;
   top: 4px;
-  background: #c17c57;
+  background: var(--accent);
   height: 4px;
   width: 4px;
   border-radius: 50%;
@@ -213,8 +216,8 @@ textarea::placeholder {
   position: relative;
 }
 .rail-item.selected {
-  color: #b96740;
-  background: #f7eee8;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .rail-item.selected:before {
   content: "";
@@ -224,7 +227,7 @@ textarea::placeholder {
   height: 22px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: #bd6b45;
+  background: var(--accent);
 }
 .rail-item.selected svg {
   stroke-width: 1.9;
@@ -233,13 +236,13 @@ textarea::placeholder {
   background: #f7f8fa;
 }
 .rail-item.selected:hover {
-  background: #f7eee8;
+  background: var(--accent-soft);
 }
 .rail-item b {
   position: absolute;
   top: 7px;
   right: 9px;
-  background: #c16b43;
+  background: var(--accent);
   color: white;
   font-size: 8px;
   border-radius: 10px;
@@ -309,12 +312,12 @@ textarea::placeholder {
   transition: background 0.15s;
 }
 .button.primary {
-  background: #bd6b45;
+  background: var(--accent);
   color: #fff;
   box-shadow: 0 1px 2px #8a49271a;
 }
 .button.primary:hover {
-  background: #a95c38;
+  background: var(--accent-strong);
 }
 .button.secondary {
   background: white;
@@ -368,7 +371,7 @@ textarea::placeholder {
   left: 0;
   right: 0;
   height: 2px;
-  background: #bd6b45;
+  background: var(--accent);
 }
 .workspace-meta {
   font-size: 9px;
@@ -564,8 +567,8 @@ textarea::placeholder {
   margin-left: auto;
 }
 .import-zone:hover {
-  border-color: #b88467;
-  color: #ab7050;
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 .storey-header {
   padding-top: 17px;
@@ -644,11 +647,11 @@ textarea::placeholder {
   border-left: 1px solid var(--border);
 }
 .storey-row.active {
-  color: #a46544;
-  background: #f6eee8;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .storey-row.active small {
-  color: #b48971;
+  color: var(--accent-muted);
 }
 .storey-row:hover {
   background: #f5f7f9;
@@ -904,8 +907,8 @@ textarea::placeholder {
   background: #f2f4f7;
 }
 .tool-button.active {
-  background: #f5e9df;
-  color: #ad6942;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .viewer-hint {
   position: absolute;
@@ -987,7 +990,7 @@ textarea::placeholder {
   align-items: center;
   gap: 7px;
   background: #fffaf3ec;
-  border: 1px solid #e5cdb7;
+  border: 1px solid var(--accent-border);
   color: #9e795b;
   border-radius: 5px;
   padding: 9px 10px;
@@ -1005,7 +1008,7 @@ textarea::placeholder {
 .conflict-dot {
   width: 6px;
   height: 6px;
-  background: #c57d4a;
+  background: var(--accent);
   border-radius: 50%;
 }
 .inspector {
@@ -1157,7 +1160,7 @@ textarea::placeholder {
   border-radius: 5px;
   padding: 10px 9px;
   font-size: 9px;
-  color: #a58a6b;
+  color: var(--accent-muted);
   justify-content: flex-start;
 }
 .assistant-entry svg:last-child {
@@ -1213,8 +1216,8 @@ textarea::placeholder {
   background: #edf1f7;
 }
 .discipline-tag.arc {
-  color: #a58e72;
-  background: #f5efe7;
+  color: var(--accent-muted);
+  background: var(--accent-soft);
 }
 .property-section {
   padding: 12px 16px;
@@ -1288,8 +1291,8 @@ textarea::placeholder {
   place-items: center;
   width: 43px;
   height: 43px;
-  background: #f6eee6;
-  color: #b48a60;
+  background: var(--accent-soft);
+  color: var(--accent-muted);
   border-radius: 10px;
   margin-bottom: 17px;
 }
@@ -1328,11 +1331,11 @@ textarea::placeholder {
   background: #f5f7f9;
 }
 .chat-message.user {
-  background: #f7eee6;
+  background: var(--accent-soft);
 }
 .chat-message strong {
   font-size: 8px;
-  color: #b28b69;
+  color: var(--accent-muted);
   font-weight: 500;
 }
 .chat-message p {
@@ -1371,7 +1374,7 @@ textarea::placeholder {
 .chat-composer button {
   height: 25px;
   width: 25px;
-  background: #bc7750;
+  background: var(--accent);
   border-radius: 4px;
   color: white;
 }
@@ -1422,13 +1425,13 @@ textarea::placeholder {
   bottom: -1px;
   left: 0;
   right: 0;
-  background: #bd7c50;
+  background: var(--accent);
 }
 .results-tabs > button > span {
   font-size: 8px;
   font-weight: 400;
-  color: #a68e7c;
-  background: #f4eee7;
+  color: var(--accent-muted);
+  background: var(--accent-soft);
   padding: 2px 5px;
   border-radius: 3px;
 }
@@ -1443,9 +1446,9 @@ textarea::placeholder {
 }
 .sample-label {
   font-size: 8px;
-  color: #ad9a82;
+  color: var(--accent-muted);
   background: #faf6ef;
-  border: 1px solid #f0e9df;
+  border: 1px solid var(--accent-border);
   border-radius: 3px;
   padding: 3px 6px;
 }
@@ -1476,8 +1479,8 @@ textarea::placeholder {
 }
 .filter-tabs > button span {
   font-size: 7px;
-  color: #ac9482;
-  background: #f5ede4;
+  color: var(--accent-muted);
+  background: var(--accent-soft);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -1705,7 +1708,7 @@ table {
   background: #faf7f2;
 }
 .data-view tr.selected {
-  background: #f8eee5;
+  background: var(--accent-soft);
 }
 .data-view th:first-child {
   width: 35%;
@@ -1733,7 +1736,7 @@ table {
   color: #a9b2bf;
 }
 .issue-icon {
-  color: #b78b68;
+  color: var(--accent-muted);
 }
 .issues-empty {
   display: flex;
@@ -1799,8 +1802,8 @@ table {
   width: 50px;
   display: grid;
   place-items: center;
-  background: #f6eee6;
-  color: #b68155;
+  background: var(--accent-soft);
+  color: var(--accent);
   border-radius: 11px;
   margin-bottom: 21px;
 }
@@ -1855,13 +1858,13 @@ table {
   display: flex;
   gap: 11px;
   padding: 12px;
-  color: #ba9b77;
+  color: var(--accent-muted);
   border-radius: 5px;
 }
 .development-note p {
   font-size: 9px;
   line-height: 1.9;
-  color: #a89275;
+  color: var(--accent-muted);
 }
 .settings-list {
   margin: 20px 0;
@@ -2051,7 +2054,7 @@ table {
   white-space: nowrap;
 }
 .check-model-groups input {
-  accent-color: #bd6b45;
+  accent-color: var(--accent);
 }
 .alignment-fields {
   display: grid;
@@ -2067,7 +2070,7 @@ table {
   border-radius: 5px;
 }
 
-.loading-overlay progress { width: 220px; height: 6px; accent-color: var(--accent, #b96e45); }
+.loading-overlay progress { width: 220px; height: 6px; accent-color: var(--accent); }
 .loading-overlay button { padding: 8px 14px; border: 1px solid #d8dce0; border-radius: 6px; background: white; cursor: pointer; }
 
 .issue-thread { padding: 12px 20px; font-size: 12px; }
@@ -2076,10 +2079,10 @@ table {
 .issue-thread input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; }
 .cde-page { flex: 1; overflow: auto; background: #f4f6f8; color: #263546; }
 .cde-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 18px clamp(20px, 5vw, 72px); background: white; border-bottom: 1px solid #e3e8ed; }
-.cde-header strong span, .cde-intro > div > p { color: #a25b39; font-size: 11px; letter-spacing: .1em; }
+.cde-header strong span, .cde-intro > div > p { color: var(--accent); font-size: 11px; letter-spacing: .1em; }
 .cde-header nav, .cde-filters, .cde-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .cde-header a, .cde-doc-link { color: #344c67; }
-.cde-header a[aria-current] { color: #a25b39; font-weight: 600; }
+.cde-header a[aria-current] { color: var(--accent); font-weight: 600; }
 .cde-page main { max-width: 1440px; margin: 0 auto; padding: 30px clamp(16px, 5vw, 72px); }
 .cde-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .cde-intro h1, .cde-card h2 { margin: 5px 0 10px; }

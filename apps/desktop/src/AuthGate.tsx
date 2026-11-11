@@ -17,6 +17,8 @@ import {
 } from "./AuthContext";
 import AccessDialog from "./AccessDialog";
 import LoginScreen from "./LoginScreen";
+import PasswordForm from "./PasswordForm";
+import { passwordRecoveryUrl } from "./PasswordRecovery";
 import ProjectGate from "./ProjectGate";
 export { useCdeUser } from "./AuthContext";
 export default function AuthGate({
@@ -34,6 +36,8 @@ export default function AuthGate({
   const [busy, setBusy] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [showUsers, setShowUsers] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const cloudAccount = cloudEnabled && !localDesktop;
   useEffect(() => {
     let active = true;
     if (localDesktop) {
@@ -61,6 +65,7 @@ export default function AuthGate({
     const expired = () => {
       setSessionToken("");
       setUser(null);
+      setShowPasswordForm(false);
       setRequired(true);
       setError("Phiên đã hết hạn. Vui lòng đăng nhập lại.");
     };
@@ -146,6 +151,10 @@ export default function AuthGate({
         error={error}
         connection={connection}
         onSubmit={(form) => { void signIn(form); }}
+        onRequestReset={cloudAccount ? async (email) => {
+          const { requestPasswordReset } = await import("./cloud");
+          await requestPasswordReset(email, passwordRecoveryUrl());
+        } : undefined}
         onToggleJoin={() => {
           setError("");
           setJoining((value) => !value);
@@ -178,6 +187,20 @@ export default function AuthGate({
         <strong>{user?.username || "Desktop local"}</strong>
         {user && <span>{user.organization}</span>}
         {connection}
+        {user && cloudAccount && (
+          <button
+            className="button secondary"
+            aria-haspopup="dialog"
+            onClick={(event) => {
+              const menu = event.currentTarget.closest("details");
+              menu?.querySelector("summary")?.focus();
+              if (menu) menu.open = false;
+              setShowPasswordForm(true);
+            }}
+          >
+            Đổi mật khẩu
+          </button>
+        )}
         {user?.role === "admin" && (
           <button
             className="button secondary"
@@ -211,6 +234,18 @@ export default function AuthGate({
   );
   return (
     <div className="workspace-frame">
+      {user && showPasswordForm && (
+        <AccessDialog
+          title="Đổi mật khẩu"
+          className="password-dialog"
+          onClose={() => setShowPasswordForm(false)}
+        >
+          <PasswordForm change onSave={async (password, currentPassword) => {
+            const { changePassword } = await import("./cloud");
+            await changePassword(password, currentPassword);
+          }} />
+        </AccessDialog>
+      )}
       {error && !showUsers && (
         <p role="alert" className="cde-message">
           {error}

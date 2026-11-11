@@ -10,13 +10,14 @@ type LoginScreenProps = {
   connection?: ReactNode;
   onSubmit(form: HTMLFormElement): void;
   onToggleJoin(): void;
+  onRequestReset?(email: string): Promise<void>;
 };
 
-export default function LoginScreen({
-  busy, joining, hasInvite, error, connection, onSubmit, onToggleJoin,
-}: LoginScreenProps) {
-  const [showPassword, setShowPassword] = useState(false);
-
+export function LoginLayout({ title, description, children }: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
   return (
     <main className="login-page">
       <section className="login-showcase" aria-label="Không gian phối hợp BIM">
@@ -41,9 +42,78 @@ export default function LoginScreen({
         <div className="login-card">
           <div className="login-card-heading">
             <span className="login-brand-icon"><Cuboid size={23} aria-hidden="true" /></span>
-            <h2 id="login-title">{joining ? "Tham gia dự án" : "Đăng nhập"}</h2>
-            <p>{joining ? "Tạo tài khoản từ lời mời bạn đã nhận." : "Truy cập không gian dự án CIC CDE của bạn."}</p>
+            <h2 id="login-title">{title}</h2>
+            <p>{description}</p>
           </div>
+          {children}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export default function LoginScreen({
+  busy, joining, hasInvite, error, connection, onSubmit, onToggleJoin, onRequestReset,
+}: LoginScreenProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
+  const [forgot, setForgot] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [resetError, setResetError] = useState("");
+
+  if (forgot && onRequestReset) {
+    return (
+      <LoginLayout title="Quên mật khẩu" description="Nhập email đã đăng ký để nhận liên kết đặt lại mật khẩu.">
+        {sent ? (
+          <p className="login-notice" role="status">
+            Nếu email đã đăng ký và có thể nhận thư, bạn sẽ nhận được liên kết đặt lại mật khẩu.
+            Hãy kiểm tra cả thư rác.
+          </p>
+        ) : (
+          <form onSubmit={async (event) => {
+            event.preventDefault();
+            const email = String(new FormData(event.currentTarget).get("email")).trim();
+            setSending(true);
+            setResetError("");
+            try {
+              await onRequestReset(email);
+              setSent(true);
+            } catch (cause) {
+              setResetError(cause instanceof Error ? cause.message : "Chưa thể gửi yêu cầu. Vui lòng thử lại.");
+            } finally {
+              setSending(false);
+            }
+          }}>
+            <fieldset disabled={sending}>
+              <label htmlFor="reset-email">Email tài khoản</label>
+              <div className="login-field">
+                <UserRound size={18} aria-hidden="true" />
+                <input id="reset-email" name="email" type="email" autoComplete="email"
+                  defaultValue={username.includes("@") ? username.trim() : ""} required maxLength={80} />
+              </div>
+              {resetError && <p className="login-error" role="alert">{resetError}</p>}
+              <button type="submit" className="login-submit">
+                {sending ? "Đang gửi yêu cầu…" : "Gửi liên kết đặt lại"}
+              </button>
+            </fieldset>
+          </form>
+        )}
+        <p className="login-help">Nếu tài khoản chưa có email nhận thư, hãy liên hệ quản trị viên CIC CDE.</p>
+        <button type="button" className="login-invite" disabled={sending} onClick={() => {
+          setSent(false);
+          setForgot(false);
+          setResetError("");
+        }}>Quay lại đăng nhập</button>
+      </LoginLayout>
+    );
+  }
+
+  return (
+    <LoginLayout
+      title={joining ? "Tham gia dự án" : "Đăng nhập"}
+      description={joining ? "Tạo tài khoản từ lời mời bạn đã nhận." : "Truy cập không gian dự án CIC CDE của bạn."}
+    >
           <form onSubmit={(event) => { event.preventDefault(); onSubmit(event.currentTarget); }}>
             <fieldset disabled={busy}>
               <label htmlFor="login-username">{joining ? "Tên đăng nhập" : "Email hoặc tên đăng nhập"}</label>
@@ -56,6 +126,8 @@ export default function LoginScreen({
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
                   required
                   maxLength={80}
                 />
@@ -90,14 +162,18 @@ export default function LoginScreen({
               </button>
             </fieldset>
           </form>
+          {!joining && onRequestReset && (
+            <button type="button" className="login-invite" disabled={busy} onClick={() => {
+              setShowPassword(false);
+              setForgot(true);
+            }}>Quên mật khẩu?</button>
+          )}
           {hasInvite && (
             <button type="button" className="login-invite" disabled={busy} onClick={onToggleJoin}>
               {joining ? "Đăng nhập bằng tài khoản có sẵn" : "Tạo tài khoản theo lời mời"}
             </button>
           )}
           {connection && <div className="login-connection">{connection}</div>}
-        </div>
-      </section>
-    </main>
+    </LoginLayout>
   );
 }
