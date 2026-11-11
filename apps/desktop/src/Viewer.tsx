@@ -209,7 +209,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
   const runtime = useRef<Runtime | null>(null);
   const cancelLoad = useRef<() => void>(() => {});
   const activeLoad = useRef<{
-    selectionToFit?: Pick<Props, "floor" | "room">;
+    selectionToFit?: Pick<Props, "floor" | "room" | "fitRequest">;
   } | null>(null);
   const callbacks = useRef(props);
   callbacks.current = props;
@@ -336,7 +336,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         }
         if (startOpacity.size) {
           r.selectionFade = {
-            includesFullModel: previous.floor === "all" || next.floor === "all",
+            includesFullModel:
+              previous.floor === "all" || next.floor === "all" ||
+              r.selectionFade?.includesFullModel === true,
             startOpacity,
             meshes: new Set(),
             startedAt: null,
@@ -363,18 +365,18 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     };
     const fit = (mode?: "selection") => {
       if (mode !== "selection") cancelFit();
-      const startedAt = performance.now();
-      const startingFade = r.selectionFade?.startedAt === null;
-      if (r.selectionFade && startingFade) r.selectionFade.startedAt = startedAt;
+      const fade = r.selectionFade;
       const bounds = new THREE.Box3();
       for (const mesh of meshes.values()) {
         if (mesh.userData.inScope) bounds.union(new THREE.Box3().setFromObject(mesh));
       }
       if (bounds.isEmpty()) {
+        if (fade?.startedAt === null) fade.startedAt = performance.now();
         flight = null;
         return;
       }
       if (planRotation !== null) {
+        cancelFit();
         plan.fit(bounds);
         invalidate();
         return;
@@ -398,7 +400,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
 
       if (mode === "selection" && hasFramed && !reducedMotion.matches) {
         if (
-          !startingFade && flight && flight.toTarget.equals(center) &&
+          fade?.startedAt !== null && flight && flight.toTarget.equals(center) &&
           flight.toPosition.distanceToSquared(position) < 1e-8
         ) return;
 
@@ -412,6 +414,18 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         controls.enableDamping = damping;
         controls.target.copy(fromTarget);
         camera.position.copy(fromPosition);
+
+        const startedAt = performance.now();
+        if (fade) {
+          if (fade.startedAt !== null) {
+            // Reframe from the displayed opacity if geometry arrives during a transition.
+            for (const mesh of fade.meshes) {
+              fade.startOpacity.set(mesh, mesh.userData.scopeOpacity);
+            }
+            fade.progress = 0;
+          }
+          fade.startedAt = startedAt;
+        }
 
         flight = {
           startedAt,
@@ -427,7 +441,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         camera.near = Math.min(camera.near, near);
         camera.far = Math.max(camera.far, far);
       } else {
-        flight = null;
+        cancelFit();
         controls.maxDistance = maxDistance;
         controls.target.copy(center);
         camera.position.copy(position);
@@ -814,6 +828,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         if (
           selection?.floor === current.floor &&
           selection.room === current.room &&
+          selection.fitRequest === current.fitRequest &&
           !current.focusIds.length
         ) {
           r.fit("selection");
@@ -870,8 +885,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
 
   useEffect(() => {
     if (!props.fitRequest) return;
-    const { floor, room } = callbacks.current;
-    if (activeLoad.current) activeLoad.current.selectionToFit = { floor, room };
+    const { floor, room, fitRequest } = callbacks.current;
+    if (activeLoad.current) activeLoad.current.selectionToFit = { floor, room, fitRequest };
     runtime.current?.fit("selection");
   }, [props.fitRequest]);
 
