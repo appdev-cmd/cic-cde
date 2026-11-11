@@ -1,0 +1,9 @@
+The CIC CDE CAD viewer uses the following GNU GPL v3 components to read DWG files.
+
+License: libredwg-LICENSE.txt in this directory
+
+MLightCAD LibreDWG Converter 3.15.21 (source and build scripts):
+https://github.com/mlightcad/realdwg-web/tree/e03b9f2ca005506880855b0a55f236fef7c7530a
+
+MLightCAD LibreDWG Web 0.8.3 (source and build scripts, including references to GNU LibreDWG):
+https://github.com/mlightcad/libredwg-web/tree/b5177613f2c735858a6d1cb1d1c7e238c397b88f

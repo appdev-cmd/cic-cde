@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useCdeUser } from "./AuthGate";
-import { call, cloudEnabled } from "./bridge";
+import { call, cloudEnabled, desktop } from "./bridge";
 import DocumentRegistration from "./DocumentRegistration";
 import type { BimModel } from "./types";
+
+const CadDrawings = lazy(() => import("./CadDrawings"));
 
 type Stage =
   "WIP" | "Shared" | "Review" | "Approved" | "Published" | "Archived";
@@ -120,7 +122,7 @@ export default function Cde() {
           <div>
             <p>{(user?.projectName || "Riverside Tower").toUpperCase()}</p>
             <h1>Sổ hồ sơ phối hợp</h1>
-            <span>Quản lý phiên bản IFC và theo dõi quá trình duyệt.</span>
+            <span>{cloudEnabled && !desktop ? "Quản lý bản vẽ CAD, phiên bản IFC và theo dõi quá trình duyệt." : "Quản lý phiên bản IFC và theo dõi quá trình duyệt."}</span>
           </div>
           <button
             className="button secondary"
@@ -154,6 +156,11 @@ export default function Cde() {
             </strong>
           </div>
         </div>
+        {cloudEnabled && !desktop && user && (
+          <Suspense fallback={<p role="status">Đang mở bản vẽ CAD…</p>}>
+            <CadDrawings canUpload={["admin", "reviewer", "member"].includes(user.role)} />
+          </Suspense>
+        )}
         {user?.role !== "viewer" && (
           <DocumentRegistration
             documents={documents}

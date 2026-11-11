@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Trình xem bản vẽ CAD</title>
+  </head>
+  <body>
+    <div id="cad-toolbar" hidden>
+      <select id="cad-layout" aria-label="Chọn layout" hidden></select>
+      <button id="cad-fit" type="button">Vừa khung</button>
+      <span>Cuộn để thu phóng · kéo bằng nút giữa để di chuyển</span>
+      <a href="./cad-assets/libredwg-sources.txt" target="_blank" rel="noopener">Giấy phép</a>
+    </div>
+    <div id="cad-canvas" aria-label="Bản vẽ CAD"></div>
+    <script type="module" src="/src/cadViewerEntry.ts"></script>
+  </body>
+</html>

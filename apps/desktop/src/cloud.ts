@@ -86,6 +86,17 @@ export async function uploadCloudIfc(
     throw new Error("Chọn file IFC tối đa 500 MB.");
   }
   const path = `${selectedProject}/uploads/${crypto.randomUUID()}.ifc`;
+  await uploadCloudFile("cde-files", path, file, signal, onProgress);
+  return cloudRpc<{ jobId: string }>("jobs.create", { kind: "import", path, name: file.name });
+}
+
+export async function uploadCloudFile(
+  bucket: string,
+  path: string,
+  file: File,
+  signal: AbortSignal,
+  onProgress: (uploaded: number, total: number) => void,
+) {
   const { Upload } = await import("tus-js-client");
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Vui lòng đăng nhập lại.");
@@ -111,7 +122,7 @@ export async function uploadCloudIfc(
       retryDelays: [0, 1000, 3000, 5000, 10000],
       chunkSize: 6 * 1024 * 1024,
       storeFingerprintForResuming: false,
-      metadata: { bucketName: "cde-files", objectName: path, contentType: "application/octet-stream" },
+      metadata: { bucketName: bucket, objectName: path, contentType: "application/octet-stream" },
       onError: finish,
       onSuccess: () => finish(),
       onProgress,
@@ -119,7 +130,6 @@ export async function uploadCloudIfc(
     signal.addEventListener("abort", abort, { once: true });
     upload.start();
   });
-  return cloudRpc<{ jobId: string }>("jobs.create", { kind: "import", path, name: file.name });
 }
 
 export async function suggestCloudDocuments(

@@ -6,6 +6,10 @@ Web CIC CDE sử dụng Supabase Auth, PostgreSQL và Storage riêng tư. Vercel
 
 [Hướng dẫn triển khai Supabase và Vercel](docs/vercel-supabase.md) · [Giới hạn và tiến độ G0/G1](docs/g0-g1-progress.md)
 
+Trên web, vào **Hồ sơ → Bản vẽ CAD** để tải lên và xem DWG/DXF tối đa 25 MB mỗi file. File được chia sẻ ngay với thành viên có quyền xem dự án. Bản vẽ được xử lý trong trình duyệt. Cần áp dụng migration `cde_cad_drawings` vào Supabase trước khi phát hành bản build web.
+
+Trình xem dùng [MLightCAD](https://github.com/mlightcad/cad-viewer/tree/v1.7.8). Mã nguồn của thành phần đọc DWG và mã WebAssembly đi kèm có tại [LibreDWG Converter 3.15.21](https://github.com/mlightcad/realdwg-web/tree/e03b9f2ca005506880855b0a55f236fef7c7530a) và [LibreDWG Web 0.8.3](https://github.com/mlightcad/libredwg-web/tree/b5177613f2c735858a6d1cb1d1c7e238c397b88f). Bản build phục vụ giấy phép GPL trong `cad-assets/libredwg-LICENSE.txt`.
+
 ## Chạy local
 
 Yêu cầu phát triển: Node, pnpm, Rust MSVC toolchain, WebView2, Python 3.12 với IfcOpenShell 0.8.5. Rust/pnpm dependencies có lockfile. Người dùng cuối chưa có bộ cài độc lập Python.

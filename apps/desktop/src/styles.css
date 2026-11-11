@@ -2100,6 +2100,16 @@ table {
 .cde-message { padding: 12px; background: #fff8ec; }
 .cde-detail li { margin: 6px 0; overflow-wrap: anywhere; }
 .cde-registration, .cde-versions { margin-bottom: 14px; }
+.cde-cad { margin-bottom: 14px; }
+.cde-cad-upload { max-width: 420px; }
+.cde-cad .cde-doc-link { text-align: left; overflow-wrap: anywhere; }
+.cde-cad-dialog { width: min(1200px, 96vw); height: min(860px, 92dvh); max-width: none; max-height: none; border: 0; border-radius: 12px; padding: 0; color: #263546; }
+.cde-cad-dialog[open] { display: flex; flex-direction: column; }
+.cde-cad-dialog::backdrop { background: #101820aa; }
+.cde-cad-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; }
+.cde-cad-dialog h2 { margin: 0; overflow-wrap: anywhere; font-size: 16px; }
+.cde-cad-dialog iframe { width: 100%; flex: 1; border: 0; }
+.cde-cad-loading { margin: 0; padding: 8px 16px; }
 .cde-registration-sources { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .cde-registration-sources label { flex: 1 1 240px; min-width: 0; }
 .cde-registration-table { margin-top: 0; }

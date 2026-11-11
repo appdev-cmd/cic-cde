@@ -1,0 +1,12 @@
+{
+  "name": "@qabim/cad-viewer",
+  "private": true,
+  "type": "module",
+  "exports": "./viewer.ts",
+  "dependencies": {
+    "@mlightcad/cad-simple-viewer": "1.7.8",
+    "@mlightcad/data-model": "1.15.21",
+    "@mlightcad/libredwg-converter": "3.15.21",
+    "three": "0.186.1"
+  }
+}

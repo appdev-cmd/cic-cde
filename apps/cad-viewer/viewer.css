@@ -1,0 +1,38 @@
+body {
+  background: #101820;
+  color: #e3e8ed;
+  font: 13px system-ui, sans-serif;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+#cad-toolbar {
+  background: #263546;
+  padding: 6px 12px;
+}
+
+#cad-toolbar a {
+  color: inherit;
+  margin-left: 12px;
+}
+
+#cad-toolbar button,
+#cad-toolbar select {
+  background: #f4f6f8;
+  color: #263546;
+  border: 0;
+  border-radius: 4px;
+  padding: 5px 10px;
+  margin-right: 10px;
+  cursor: pointer;
+  max-width: 45vw;
+}
+
+#cad-canvas {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
