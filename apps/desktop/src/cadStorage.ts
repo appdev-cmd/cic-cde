@@ -71,3 +71,12 @@ export async function downloadCadDrawing(drawing: CadDrawing, signal: AbortSigna
   if (!data.size || data.size > maxBytes) throw new Error("Bản vẽ phải có dữ liệu và tối đa 25 MB.");
   return data;
 }
+
+export async function deleteCadDrawing(drawing: CadDrawing) {
+  const path = `${selectedProject}/${drawing.key}`;
+  const { data, error } = await storage.remove([path]);
+  if (error) throw error;
+  if (!data?.length) {
+    throw new Error("Không thể xóa bản vẽ. Hãy tải lại danh sách và kiểm tra quyền quản trị dự án.");
+  }
+}

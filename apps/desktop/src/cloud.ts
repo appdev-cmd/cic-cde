@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { MAX_IFC_BYTES, selectedProject } from "./bridge";
 import type { DocumentDraft, DocumentMetadataInput } from "./documentMetadata";
+import type { DocumentVersion } from "./Cde";
 import type { CadAlignmentValues, ProjectCadAlignment } from "./cadAlignment";
 
 export const supabase = createClient(
@@ -98,6 +99,15 @@ export async function cloudRpc<T>(operation: string, payload: Record<string, unk
     throw new Error(error.message);
   }
   return data as T;
+}
+
+export async function deleteDocumentDraft(id: number): Promise<DocumentVersion[]> {
+  const { data, error } = await supabase.rpc("cde_delete_document_draft", {
+    project_id: selectedProject,
+    document_id: id,
+  });
+  if (error) throw new Error(error.code === "42501" ? "Bạn cần quyền quản trị dự án để xóa hồ sơ." : error.message);
+  return data;
 }
 
 async function cadAlignmentRpc<T>(

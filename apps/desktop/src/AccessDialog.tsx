@@ -5,11 +5,13 @@ export default function AccessDialog({
   title,
   className,
   onClose,
+  closeDisabled = false,
   children,
 }: {
   title: string;
   className: string;
   onClose: () => void;
+  closeDisabled?: boolean;
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -36,12 +38,12 @@ export default function AccessDialog({
       }}
       onCancel={(event) => {
         event.preventDefault();
-        close();
+        if (!closeDisabled) close();
       }}
     >
       <div className="access-dialog-heading">
         <h2 id={titleId}>{title}</h2>
-        <button className="icon-button" aria-label="Đóng" onClick={close}>
+        <button className="icon-button" aria-label="Đóng" disabled={closeDisabled} onClick={close}>
           <X size={18} />
         </button>
       </div>
