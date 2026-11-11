@@ -1,4 +1,4 @@
-import { suggestDocument } from "./vertex.ts";
+import { suggestDocuments } from "./vertex.ts";
 
 const headers = {
   "Content-Type": "application/json",
@@ -25,16 +25,21 @@ Deno.serve(async (request: Request) => {
 
   let input;
   try {
-    if (Number(request.headers.get("content-length")) > 4096) return json({ error: "Metadata quá dài." }, 413);
+    if (Number(request.headers.get("content-length")) > 16384) return json({ error: "Metadata quá dài." }, 413);
     const body = await request.text();
-    if (body.length > 4096) return json({ error: "Metadata quá dài." }, 413);
+    if (body.length > 16384) return json({ error: "Metadata quá dài." }, 413);
     input = JSON.parse(body);
   } catch {
     return json({ error: "Metadata không hợp lệ." }, 400);
   }
   const projectId = text(input?.projectId, 40);
-  const fileName = text(input?.fileName, 240);
-  if (!projectId || !fileName) return json({ error: "Cần tên file và dự án." }, 400);
+  const batch = Array.isArray(input?.files);
+  const files = batch ? input.files : [input];
+  if (!projectId || !files.length || files.length > 6 || files.some((file: unknown) =>
+    !file || typeof file !== "object" || !text((file as Record<string, unknown>).fileName, 240)
+  )) {
+    return json({ error: "Cần dự án và từ 1 đến 6 tên file." }, 400);
+  }
 
   try {
     // The CDE RPC checks both the live session and membership of the requested project.
@@ -64,13 +69,20 @@ Deno.serve(async (request: Request) => {
     if (times.length >= 10) return json({ error: "Hãy thử gợi ý lại sau ít phút." }, 429);
     recentRequests.set(member.id, [...times, Date.now()]);
 
-    const discipline = text(input.discipline, 5);
-    return json(await suggestDocument({
-      fileName,
-      project: text(input.project, 160),
-      description: text(input.description, 160),
-      discipline: ["ARC", "STR", "MEP", "OTHER"].includes(discipline) ? discipline : "",
+    const suggestions = await suggestDocuments(files.map((file: Record<string, unknown>) => {
+      const discipline = text(file.discipline, 5);
+      const code = text(file.code, 64).toUpperCase();
+      return {
+        fileName: text(file.fileName, 240),
+        project: text(file.project, 160),
+        description: text(file.description, 160),
+        code: /^[A-Z0-9_-]{1,64}$/.test(code) ? code : "",
+        discipline: ["ARC", "STR", "MEP", "OTHER"].includes(discipline) ? discipline : "",
+      };
     }));
+    if (batch) return json({ suggestions });
+    if (!suggestions[0]) throw new Error("Invalid Vertex suggestion");
+    return json(suggestions[0]);
   } catch (error) {
     // Never log the input metadata, upstream response body or access token.
     const message = error instanceof Error ? error.message : "";

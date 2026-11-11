@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useCdeUser } from "./AuthGate";
-import { call, cloudEnabled, importIfc, localDesktop } from "./bridge";
-import { emptyDocumentDraft, readIfcDescription, suggestFromName } from "./documentMetadata";
-import type { DocumentDraft, DisciplineCode } from "./documentMetadata";
+import { call, cloudEnabled } from "./bridge";
+import DocumentRegistration from "./DocumentRegistration";
 import type { BimModel } from "./types";
 
 type Stage =
   "WIP" | "Shared" | "Review" | "Approved" | "Published" | "Archived";
-type DocumentVersion = {
+export type DocumentVersion = {
   id: number;
   code: string;
   title: string;
@@ -50,16 +49,6 @@ export default function Cde() {
   const [stage, setStage] = useState("");
   const [selectedId, setSelectedId] = useState<number>();
   const [note, setNote] = useState("");
-  const [draft, setDraft] = useState(emptyDocumentDraft);
-  const { code, title, discipline } = draft;
-  const edited = useRef(new Set<keyof DocumentDraft>());
-  const suggestionRequest = useRef<AbortController | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [suggestionStatus, setSuggestionStatus] = useState("");
-  const [modelId, setModelId] = useState("");
-  const [file, setFile] = useState<File>();
-  const [uploadProgress, setUploadProgress] = useState("");
-  const [uploadController, setUploadController] = useState<AbortController>();
   const selected = documents.find((document) => document.id === selectedId);
   const visible = documents.filter(
     (document) =>
@@ -90,106 +79,7 @@ export default function Cde() {
 
   useEffect(() => {
     void reload();
-    return () => suggestionRequest.current?.abort();
   }, []);
-
-  function editField<K extends keyof DocumentDraft>(field: K, value: DocumentDraft[K]) {
-    edited.current.add(field);
-    setDraft((previous) => ({ ...previous, [field]: value }));
-  }
-
-  async function suggest(name: string, source?: File) {
-    suggestionRequest.current?.abort();
-    const request = new AbortController();
-    suggestionRequest.current = request;
-
-    function fill(values: Partial<DocumentDraft>) {
-      if (request.signal.aborted) return;
-      const fields = (Object.keys(values) as (keyof DocumentDraft)[])
-        .filter((field) => !edited.current.has(field));
-      setDraft((previous) => ({ ...previous, ...Object.fromEntries(fields.map((field) => [field, values[field]])) }));
-    }
-
-    setSuggestionStatus("");
-    const initial = suggestFromName(name);
-    const existing = documents.find((document) => document.code === initial.code);
-    fill(existing
-      ? { code: existing.code, title: existing.title, discipline: existing.discipline as DisciplineCode }
-      : initial);
-    if (existing) {
-      setSuggestionStatus("Đã dùng thông tin của mã hồ sơ hiện có.");
-      return;
-    }
-    if (!name || !cloudEnabled || localDesktop) return;
-
-    setSuggestionStatus("Vertex AI đang gợi ý thông tin hồ sơ…");
-    try {
-      const metadata = source ? await readIfcDescription(source) : { project: "", description: "" };
-      if (request.signal.aborted) return;
-      const { suggestCloudDocument } = await import("./cloud");
-      if (request.signal.aborted) return;
-      const result = await suggestCloudDocument({
-        ...metadata, fileName: name.slice(0, 240), discipline: initial.discipline,
-      }, request.signal);
-      if (request.signal.aborted) return;
-      fill({ title: result.title || initial.title, discipline: initial.discipline || result.discipline });
-      setSuggestionStatus("Đã phân tích bằng Vertex AI. Bạn có thể sửa trước khi lưu.");
-    } catch {
-      if (!request.signal.aborted) {
-        setSuggestionStatus("Vertex AI chưa phản hồi. Bạn có thể dùng gợi ý từ tên file và bổ sung trường còn thiếu.");
-      }
-    }
-  }
-
-  async function register() {
-    suggestionRequest.current?.abort();
-    setSuggestionStatus("");
-    setBusy(true);
-    setMessage("");
-    try {
-      let target = modelId;
-      if (file) {
-        const controller = new AbortController();
-        setUploadController(controller);
-        const { model } = await importIfc(file, controller.signal, (progress) =>
-          setUploadProgress(progress.label),
-        );
-        setUploadController(undefined);
-        target = model.id;
-        setModels((previous) =>
-          previous.some((item) => item.id === model.id)
-            ? previous
-            : [...previous, model],
-        );
-      }
-      const next = await call<DocumentVersion[]>("documents.register", {
-        code,
-        title,
-        discipline,
-        modelId: target,
-      });
-      setDocuments(next);
-      setSelectedId(
-        next.find(
-          (document) =>
-            document.code === code.trim().toUpperCase() &&
-            document.modelId === target,
-        )?.id,
-      );
-      setMessage("Đã ghi phiên bản vào sổ hồ sơ.");
-      edited.current.clear();
-      setDraft(emptyDocumentDraft);
-      setFile(undefined);
-      setModelId("");
-      if (fileInput.current) fileInput.current.value = "";
-    } catch (error) {
-      setMessage(String(error));
-    } finally {
-      setUploadController(undefined);
-      setUploadProgress("");
-      setBusy(false);
-    }
-  }
 
   async function transition(document: DocumentVersion, state: Stage) {
     setBusy(true);
@@ -264,178 +154,94 @@ export default function Cde() {
             </strong>
           </div>
         </div>
-        <div className="cde-columns">
-          <section className="cde-card">
-            <h2>Danh sách phiên bản</h2>
-            <div className="cde-filters">
-              <input
-                aria-label="Tìm hồ sơ"
-                placeholder="Tìm theo mã, tên hoặc bộ môn"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-              />
-              <select
-                aria-label="Lọc trạng thái"
-                value={stage}
-                onChange={(event) => setStage(event.target.value)}
-              >
-                <option value="">Mọi trạng thái</option>
-                {Object.entries(stageLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {visible.length ? (
-              <div className="cde-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Mã hồ sơ</th>
-                      <th>Tên hồ sơ</th>
-                      <th>Phiên bản</th>
-                      <th>Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((document) => (
-                      <tr key={document.id}>
-                        <td>
-                          <button
-                            className="cde-doc-link"
-                            aria-pressed={selectedId === document.id}
-                            onClick={() => {
-                              setSelectedId(document.id);
-                              setNote("");
-                            }}
-                          >
-                            {document.code}
-                          </button>
-                        </td>
-                        <td>
-                          {document.title} <small>{document.discipline}</small>
-                        </td>
-                        <td>R{String(document.revision).padStart(2, "0")}</td>
-                        <td>
-                          <span
-                            className="cde-state"
-                            data-stage={document.state}
-                          >
-                            {stageLabels[document.state]}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p>
-                {ready
-                  ? "Không có phiên bản phù hợp."
-                  : "Đang tải hồ sơ…"}
-              </p>
+        {user?.role !== "viewer" && (
+          <DocumentRegistration
+            documents={documents}
+            models={models}
+            disabled={busy || !ready}
+            onSavingChange={setBusy}
+            onModelImported={(model) => setModels((previous) =>
+              previous.some((item) => item.id === model.id) ? previous : [...previous, model],
             )}
-          </section>
-          <section className="cde-card">
-            <h2>Đăng ký phiên bản</h2>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void register();
-              }}
+            onDocumentSaved={(next, id) => {
+              setDocuments(next);
+              setSelectedId(id);
+            }}
+          />
+        )}
+        <section className="cde-card cde-versions">
+          <h2>Danh sách phiên bản</h2>
+          <div className="cde-filters">
+            <input
+              aria-label="Tìm hồ sơ"
+              placeholder="Tìm theo mã, tên hoặc bộ môn"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+            <select
+              aria-label="Lọc trạng thái"
+              value={stage}
+              onChange={(event) => setStage(event.target.value)}
             >
-              <fieldset disabled={busy || !ready || user?.role === "viewer"}>
-                <label>
-                  Tải IFC mới
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    accept=".ifc"
-                    onChange={(event) => {
-                      const next = event.target.files?.[0];
-                      setFile(next);
-                      setModelId("");
-                      void suggest(next?.name ?? "", next);
-                    }}
-                  />
-                </label>
-                <label>
-                  Hoặc chọn IFC đã nhập
-                  <select
-                    disabled={!!file}
-                    required={!file}
-                    value={modelId}
-                    onChange={(event) => {
-                      const model = models.find((item) => item.id === event.target.value);
-                      setModelId(event.target.value);
-                      void suggest(model?.name ?? "");
-                    }}
-                  >
-                    <option value="">Chọn mô hình</option>
-                    {models.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name} · {model.id.slice(0, 8)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {suggestionStatus && <small role="status">{suggestionStatus}</small>}
-                <label>
-                  Mã hồ sơ
-                  <input
-                    required
-                    pattern="[A-Za-z0-9_\-]+"
-                    maxLength={64}
-                    placeholder="VD: RIV-MEP-MODEL"
-                    value={code}
-                    onChange={(event) => editField("code", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Tên hồ sơ
-                  <input
-                    required
-                    maxLength={200}
-                    value={title}
-                    onChange={(event) => editField("title", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Bộ môn
-                  <select
-                    required
-                    value={discipline}
-                    onChange={(event) => editField("discipline", event.target.value as DisciplineCode)}
-                  >
-                    <option value="">Chọn bộ môn</option>
-                    <option>MEP</option>
-                    <option>STR</option>
-                    <option>ARC</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
-                </label>
-                <button className="button primary" disabled={!file && !modelId}>
-                  Lưu phiên bản WIP
-                </button>
-              </fieldset>
-            </form>
-            {uploadController && (
-              <button
-                className="button secondary"
-                disabled={uploadController.signal.aborted}
-                onClick={() => {
-                  uploadController.abort();
-                  setUploadProgress("Đang yêu cầu hủy…");
-                }}
-              >
-                Hủy tải IFC
-              </button>
-            )}
-            {uploadProgress && <p role="status">{uploadProgress}</p>}
-          </section>
-        </div>
+              <option value="">Mọi trạng thái</option>
+              {Object.entries(stageLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {visible.length ? (
+            <div className="cde-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mã hồ sơ</th>
+                    <th>Tên hồ sơ</th>
+                    <th>Phiên bản</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((document) => (
+                    <tr key={document.id}>
+                      <td>
+                        <button
+                          className="cde-doc-link"
+                          aria-pressed={selectedId === document.id}
+                          onClick={() => {
+                            setSelectedId(document.id);
+                            setNote("");
+                          }}
+                        >
+                          {document.code}
+                        </button>
+                      </td>
+                      <td>
+                        {document.title} <small>{document.discipline}</small>
+                      </td>
+                      <td>R{String(document.revision).padStart(2, "0")}</td>
+                      <td>
+                        <span
+                          className="cde-state"
+                          data-stage={document.state}
+                        >
+                          {stageLabels[document.state]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>
+              {ready
+                ? "Không có phiên bản phù hợp."
+                : "Đang tải hồ sơ…"}
+            </p>
+          )}
+        </section>
         {message && (
           <p className="cde-message" role="status">
             {message}

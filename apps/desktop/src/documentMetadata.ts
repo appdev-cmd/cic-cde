@@ -1,7 +1,13 @@
 export type DisciplineCode = "" | "ARC" | "STR" | "MEP" | "OTHER";
 export type DocumentDraft = { code: string; title: string; discipline: DisciplineCode };
 
-export const emptyDocumentDraft: DocumentDraft = { code: "", title: "", discipline: "" };
+export type DocumentMetadataInput = Pick<DocumentDraft, "code" | "discipline"> & {
+  fileName: string;
+  project: string;
+  description: string;
+};
+
+export const documentSuggestionBatchSize = 6;
 
 const disciplineNames: Record<DisciplineCode, string> = {
   "": "",
@@ -17,7 +23,7 @@ const roleCodes: Record<string, DisciplineCode> = {
   HVAC: "MEP", ELV: "MEP", PLUM: "MEP", CTN: "MEP", FIRE: "MEP", PCCC: "MEP",
 };
 
-export function suggestFromName(fileName: string): DocumentDraft {
+export function suggestFromName(fileName: string): DocumentDraft & { structured: boolean } {
   const stem = fileName.replace(/\.ifc$/i, "").trim();
   const code = stem.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d")
     .toUpperCase().replace(/[^A-Z0-9_-]+/g, "-").replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/g, "").slice(0, 64);
@@ -29,7 +35,7 @@ export function suggestFromName(fileName: string): DocumentDraft {
   const discipline = explicit || (named.size === 1 ? [...named][0] : "");
   const name = disciplineNames[discipline];
   const title = structured && name ? `Mô hình ${name} – ${parts[0]}` : stem.replace(/[_-]+/g, " ");
-  return { code, title: title.slice(0, 200), discipline };
+  return { code, title: title.slice(0, 200), discipline, structured };
 }
 
 function decodeStepText(value: string) {
