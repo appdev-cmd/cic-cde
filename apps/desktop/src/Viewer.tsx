@@ -569,6 +569,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     marker.renderOrder = 100;
     scene.add(marker);
     let dirty = true;
+    let lastMotionAt = -Infinity;
     const invalidate = () => {
       dirty = true;
     };
@@ -595,7 +596,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       }
       invalidate();
     };
-    controls.addEventListener("change", invalidate);
+    controls.addEventListener("change", () => {
+      lastMotionAt = performance.now();
+      invalidate();
+    });
     controls.addEventListener("start", cancelFit);
     const r: Runtime = {
       scene,
@@ -632,7 +636,6 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let frame = 0;
     let disposed = false;
     let lastFrameAt = performance.now();
-    let lastMotionAt = -Infinity;
     const dragRay = new THREE.Raycaster();
     const dragNdc = new THREE.Vector2();
     const dragHit = new THREE.Vector3();
