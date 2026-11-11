@@ -311,7 +311,6 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       if (previous.floor === next.floor && previous.room === next.room) return;
       if (
         previous.floor !== "all" &&
-        next.floor !== "all" &&
         previous.request !== next.fitRequest &&
         hasFramed &&
         !reducedMotion.matches
@@ -459,8 +458,19 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     resize.observe(host);
     let frame = 0;
     let disposed = false;
+    let lastFrameAt = performance.now();
     const render = (now: number) => {
       if (disposed) return;
+      const fade = r.selectionFade;
+      if (fade?.startedAt != null && callbacks.current.floor === "all") {
+        // Keep intermediate frames when rendering the full model takes longer.
+        const frameDelay = now - Math.max(lastFrameAt, fade.startedAt) - fitDuration / 4;
+        if (frameDelay > 0) {
+          fade.startedAt += frameDelay;
+          if (flight) flight.startedAt += frameDelay;
+        }
+      }
+      lastFrameAt = now;
       if (flight) {
         const eased = easedProgress(now, flight.startedAt);
         controls.target.lerpVectors(flight.fromTarget, flight.toTarget, eased);
