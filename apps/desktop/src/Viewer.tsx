@@ -5,6 +5,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { geometryBuffer, geometryViews } from "./geometry";
 import { CadPlanCamera } from "./cadPlanCamera";
 import { spaceKey } from "./spatial";
+import { ViewerBatches, disposeViewerMesh } from "./viewerBatches";
 import type { BimModel, BimElement, SectionBounds, SectionCut, ViewerApi, ViewMode } from "./types";
 import type { CadWindow, PlanPick } from "@qabim/cad-viewer/overlay";
 
@@ -50,6 +51,7 @@ interface Runtime {
   group: THREE.Group;
   marker: THREE.Mesh;
   meshes: Map<string, THREE.Mesh>;
+  batches: ViewerBatches;
   sectionPlanes: THREE.Plane[];
   selectionFade: SelectionFade | null;
   prepareSelectionFade: (props: Props) => void;
@@ -92,6 +94,7 @@ function meshOpacity(r: Runtime, mesh: THREE.Mesh) {
 
 function applyMeshOpacity(mesh: THREE.Mesh, opacity: number, fading: boolean) {
   mesh.userData.scopeOpacity = opacity;
+  mesh.userData.scopeFading = fading;
   mesh.visible = opacity > 0;
   mesh.castShadow = !fading && mesh.userData.ifcClass !== "IfcSlab";
 }
@@ -122,6 +125,7 @@ function updateSelectionFade(r: Runtime, progress: number) {
     for (const material of materials as THREE.MeshStandardMaterial[]) {
       applyMaterialOpacity(material, opacity, fading);
     }
+    r.batches.sync(mesh);
   }
   r.invalidate();
 }
@@ -152,6 +156,7 @@ function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel |
   const a = props.focusIds[0] === id,
     b = props.focusIds[1] === id;
   const highlight = selected ? "#dc8950" : a ? "#d96957" : b ? "#e3af44" : undefined;
+  mesh.userData.batchFallback = props.mode !== "solid" || Boolean(highlight);
   const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
   for (const material of materials as THREE.MeshStandardMaterial[]) {
     const slab = mesh.userData.ifcClass === "IfcSlab";
@@ -168,6 +173,7 @@ function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel |
       material.userData.mode = props.mode;
     }
   }
+  r.batches.sync(mesh);
 }
 
 function surfaceMaterial(planes: THREE.Plane[], color: string, opacity?: number) {
@@ -244,6 +250,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         const r = runtime.current;
         if (!r) return;
         r.restoreResolution();
+        r.batches.flush();
         r.renderer.render(r.scene, r.activeCamera());
         const a = document.createElement("a");
         a.download = "CIC-CDE-view.png";
@@ -383,6 +390,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const group = new THREE.Group();
     group.rotation.x = -Math.PI / 2;
     scene.add(group);
+    const batches = new ViewerBatches(group);
     const meshes = new Map<string, THREE.Mesh>();
     const getScopeBounds = (clip: boolean) => {
       const bounds = new THREE.Box3();
@@ -609,6 +617,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       group,
       marker,
       meshes,
+      batches,
       sectionPlanes,
       selectionFade: null,
       prepareSelectionFade,
@@ -774,6 +783,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         sectionPreview.visible = planRotation === null && sectionDrag !== null && section !== null &&
           sectionBounds?.[section.axis] === sectionDrag.range;
         handleCoordinate.hidden = !sectionPreview.visible;
+        batches.flush();
         renderer.render(scene, activeCamera());
         updateHandle();
         if (planRotation !== null) callbacks.current.onPlanViewport(plan.viewport());
@@ -894,6 +904,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       handle.removeEventListener("pointercancel", finishSectionDrag);
       handle.removeEventListener("lostpointercapture", finishSectionDrag);
       handle.removeEventListener("keydown", stepSection);
+      batches.dispose();
       scene.traverse((o) => {
         if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
           o.geometry.dispose();
@@ -938,10 +949,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const keys = new Map(props.elements.map((e) => [e.id, geometryKey(e)]));
     for (const [id, mesh] of r.meshes) {
       if (mesh.userData.geometryKey !== keys.get(id)) {
-        r.group.remove(mesh);
-        mesh.geometry.dispose();
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((material) => material.dispose());
+        r.batches.remove(mesh);
+        mesh.removeFromParent();
+        disposeViewerMesh(mesh);
         r.meshes.delete(id);
       }
     }
@@ -1006,6 +1016,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
                 entry?.asset.storagePath,
               );
         if (cancelled) return;
+        const loaded: THREE.Mesh[] = [];
         let sliceStarted = performance.now();
         for (const e of elements) {
           if (cancelled) return;
@@ -1044,6 +1055,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           styleMesh(r, mesh, callbacks.current, models.get(e.modelId));
           r.group.add(mesh);
           r.meshes.set(e.id, mesh);
+          loaded.push(mesh);
           done++;
           if ((!published && done >= 64) || performance.now() - lastProgress >= 150) publish();
           if (performance.now() - sliceStarted >= sliceBudget) {
@@ -1052,6 +1064,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
             sliceStarted = performance.now();
           }
         }
+        if (props.elements.length >= 1_000) r.batches.add(loaded);
         if (!cancelled && !published && done) publish();
       }
     };
