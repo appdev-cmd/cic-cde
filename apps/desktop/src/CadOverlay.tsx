@@ -4,7 +4,7 @@ import {
   alignCadPoints, cadUnits, cadUnitScale, detectedCadScale, ifcPointFromPick, maxCadScale,
   minCadScale, projectIfcPoint, toCadWindow, type CadAlignment, type CadUnit,
 } from "./cadAlignment";
-import { downloadCadDrawing, type CadDrawing } from "./cadStorage";
+import { cadDrawingPath, downloadCadDrawing, type CadDrawing } from "./cadStorage";
 import type { CadFiles } from "./CadDirectory";
 import type { CadProjectControls } from "./useProjectCadAlignment";
 
@@ -289,7 +289,7 @@ export default function CadOverlay({ ref, alignment, floor, view, project, files
               disabled={!drawings.length && !alignment.drawing}>
               <option value="">{project.stored ? "Bỏ gán bản vẽ" : "Chọn DWG hoặc DXF"}</option>
               {alignment.drawing && !drawing && <option value={alignment.drawing} disabled>Bản vẽ không còn trong hồ sơ</option>}
-              {drawings.map((item) => <option value={item.key} key={item.key}>{item.name}</option>)}
+              {drawings.map((item) => <option value={item.key} key={item.key}>{cadDrawingPath(item)}</option>)}
             </select>
           </label>
         )}

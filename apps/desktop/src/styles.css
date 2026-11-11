@@ -828,6 +828,18 @@ textarea::placeholder {
   margin: 0;
   padding-left: 15px;
 }
+.cad-directory-folders > ul {
+  padding-left: 0;
+}
+.cad-directory-folders summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cad-directory-folders summary svg,
+.cad-directory-folders summary small {
+  flex: none;
+}
 .cad-directory-folders button[aria-pressed="true"],
 .cad-directory-folders button:hover {
   background: #eaf3fb;
@@ -2425,6 +2437,8 @@ table {
 .cde-registration, .cde-versions { margin-bottom: 14px; }
 .cde-cad { margin-bottom: 14px; }
 .cde-cad-upload { max-width: 420px; }
+.cde-cad-uploads { display: flex; flex-wrap: wrap; gap: 12px; }
+.cde-cad-folder-path { overflow-wrap: anywhere; }
 .cde-cad .cde-doc-link { text-align: left; overflow-wrap: anywhere; }
 .cde-cad-dialog { width: min(1200px, 96vw); height: min(860px, 92dvh); max-width: none; max-height: none; border: 0; border-radius: 12px; padding: 0; color: #263546; }
 .cde-cad-dialog[open] { display: flex; flex-direction: column; }

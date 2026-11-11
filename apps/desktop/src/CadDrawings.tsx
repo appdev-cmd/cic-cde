@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteCadDrawing, listCadDrawings, uploadCadDrawing, type CadDrawing } from "./cadStorage";
+import { cadDrawingPath, cadFormat, deleteCadDrawing, listCadDrawings, uploadCadDrawing, type CadDrawing } from "./cadStorage";
 import CadFilePreview from "./CadFilePreview";
 import DeleteFileDialog from "./DeleteFileDialog";
 
@@ -39,6 +39,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
   const [failed, setFailed] = useState<{ file: File; message: string }[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [folderNotice, setFolderNotice] = useState("");
   const request = useRef<AbortController>(null);
 
   async function reload() {
@@ -60,7 +61,14 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
     return () => request.current?.abort();
   }, []);
 
-  async function upload(files: File[]) {
+  async function upload(files: File[], skipped = 0) {
+    setFolderNotice(skipped ? `Đã bỏ qua ${skipped} file ngoài định dạng DWG/DXF.` : "");
+    if (!files.length) {
+      setFailed([]);
+      setMessage("");
+      setError("Thư mục không có bản vẽ DWG hoặc DXF.");
+      return;
+    }
     const current = new AbortController();
     request.current = current;
     setProgress({ done: 0, total: files.length, percent: 0 });
@@ -107,7 +115,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
   }
 
   const visible = drawings.filter((drawing) => (!format || drawing.format === format) &&
-    drawing.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+    cadDrawingPath(drawing).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
   return (
     <section className="cde-card cde-cad">
@@ -121,28 +129,42 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
         </button>
       </div>
       {canUpload && (
-        <label className="cde-cad-upload">
-          Tải bản vẽ lên dự án
-          <input type="file" accept=".dwg,.dxf" multiple disabled={loading || progress !== undefined} onChange={(event) => {
-            const files = Array.from(event.currentTarget.files ?? []);
-            event.currentTarget.value = "";
-            if (files.length) void upload(files);
-          }} />
-        </label>
+        <div className="cde-cad-uploads">
+          <label className="cde-cad-upload">
+            Tải bản vẽ lên dự án
+            <input type="file" accept=".dwg,.dxf" multiple disabled={loading || progress !== undefined} onChange={(event) => {
+              const files = Array.from(event.currentTarget.files ?? []);
+              event.currentTarget.value = "";
+              if (files.length) void upload(files);
+            }} />
+          </label>
+          <label className="cde-cad-upload">
+            Tải thư mục CAD
+            <input type="file" ref={(input) => { if (input) input.webkitdirectory = true; }}
+              disabled={loading || progress !== undefined} onChange={(event) => {
+                const files = Array.from(event.currentTarget.files ?? []);
+                event.currentTarget.value = "";
+                if (!files.length) return;
+                const cadFiles = files.filter((file) => cadFormat(file.name));
+                void upload(cadFiles, files.length - cadFiles.length);
+              }} />
+          </label>
+        </div>
       )}
       {progress && <p role="status">Đã xử lý {progress.done}/{progress.total} bản vẽ · {progress.percent}%</p>}
       {message && <p role="status">{message}</p>}
+      {folderNotice && <p role="status">{folderNotice}</p>}
       {error && <p className="cde-message" role="alert">{error}</p>}
       {failed.length > 0 && (
         <div className="cde-message" role="alert">
           <strong>{failed.length} bản vẽ tải lên thất bại</strong>
-          <ul>{failed.map(({ file, message }, index) => <li key={index}>{file.name} · {message}</li>)}</ul>
+          <ul>{failed.map(({ file, message }, index) => <li key={index}>{file.webkitRelativePath || file.name} · {message}</li>)}</ul>
           <button type="button" className="button secondary" disabled={loading}
             onClick={() => void upload(failed.map(({ file }) => file))}>Thử lại các file lỗi</button>
         </div>
       )}
       <div className="cde-filters">
-        <input type="search" aria-label="Tìm bản vẽ" placeholder="Tìm theo tên bản vẽ"
+        <input type="search" aria-label="Tìm bản vẽ" placeholder="Tìm theo tên hoặc thư mục"
           value={query} onChange={(event) => setQuery(event.target.value)} />
         <select aria-label="Lọc định dạng bản vẽ" value={format} onChange={(event) => setFormat(event.target.value)}>
           <option value="">Mọi định dạng</option>
@@ -153,18 +175,19 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
       {visible.length > 0 ? (
         <div className="cde-table">
           <table>
-            <thead><tr><th>Bản vẽ</th><th>Định dạng</th><th>Dung lượng</th><th>Ngày tải lên</th>{canDelete && <th>Thao tác</th>}</tr></thead>
+            <thead><tr><th>Bản vẽ</th><th>Thư mục</th><th>Định dạng</th><th>Dung lượng</th><th>Ngày tải lên</th>{canDelete && <th>Thao tác</th>}</tr></thead>
             <tbody>
               {visible.map((drawing) => (
                 <tr key={drawing.key}>
                   <td><button type="button" className="cde-doc-link" onClick={() => setSelected(drawing)}>{drawing.name}</button></td>
+                  <td className="cde-cad-folder-path">{drawing.folders.join(" / ") || "—"}</td>
                   <td>{drawing.format.toUpperCase()}</td>
                   <td>{drawing.bytes < 1_000_000 ? `${number.format(drawing.bytes / 1_000)} KB` : `${number.format(drawing.bytes / 1_000_000)} MB`}</td>
                   <td>{date.format(new Date(drawing.createdAt))}</td>
                   {canDelete && (
                     <td>
                       <button type="button" className="button cde-delete-link"
-                        aria-label={`Xóa bản vẽ ${drawing.name}`}
+                        aria-label={`Xóa bản vẽ ${cadDrawingPath(drawing)}`}
                         disabled={loading || progress !== undefined}
                         onClick={() => setToDelete(drawing)}>Xóa</button>
                     </td>
@@ -177,7 +200,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
       ) : !error && <p className="cde-file-empty">{loading ? "Đang tải danh sách bản vẽ…" : drawings.length ? "Không có bản vẽ phù hợp." : "Dự án chưa có bản vẽ CAD."}</p>}
       {selected && <CadPreview drawing={selected} close={() => setSelected(undefined)} />}
       {toDelete && (
-        <DeleteFileDialog title="Xóa bản vẽ CAD" name={toDelete.name}
+        <DeleteFileDialog title="Xóa bản vẽ CAD" name={cadDrawingPath(toDelete)}
           description="Tệp sẽ bị xóa khỏi dự án. Nếu đã dùng bản vẽ này để đối chiếu theo tầng, bạn cần chọn lại bản vẽ cho tầng đó."
           onClose={() => setToDelete(undefined)}
           onDelete={async () => {
