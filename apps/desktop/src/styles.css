@@ -902,6 +902,36 @@ textarea::placeholder {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.cad-drawing-row {
+  display: flex;
+  align-items: center;
+}
+.cad-directory-folders .cad-drawing-move {
+  flex: 0 0 25px;
+  justify-content: center;
+}
+.cad-directory-folders button[draggable="true"] {
+  cursor: grab;
+}
+.cad-directory-folders [data-cad-dragging] {
+  opacity: 0.55;
+}
+.cad-root-drop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 8px;
+  padding: 6px;
+  border: 1px dashed #819ab6;
+  border-radius: 4px;
+  color: #344c67;
+  font-size: 11px;
+}
+.cad-directory [data-cad-drop-active] {
+  background: #dceeff;
+  box-shadow: inset 0 0 0 1px #427cb8;
+  border-radius: 4px;
+}
 .cad-file-viewport {
   position: absolute;
   inset: 0;

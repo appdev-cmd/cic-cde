@@ -17,6 +17,7 @@ export type CadDrawing = {
   format: "dwg" | "dxf";
   folders: string[];
   folderId?: string;
+  location?: { objectId: string; revision: number };
   bytes: number;
   createdAt: string;
 };
@@ -27,7 +28,11 @@ export type CadFolderChange =
   | { operation: "move"; id: string; expectedRevision: number; parentId: string | null }
   | { operation: "remove"; id: string; expectedRevision: number };
 
-type FolderCatalog = { folders: CadFolder[]; aliases: Record<string, string> };
+type FolderCatalog = {
+  folders: CadFolder[];
+  aliases: Record<string, string>;
+  locations: Record<string, { folderId: string | null; revision: number }>;
+};
 
 async function folderRpc<T>(operation: string, payload: Record<string, unknown>, signal?: AbortSignal) {
   const request = supabase.rpc("cde_cad_folders", { project_id: selectedProject, operation, payload });
@@ -41,6 +46,12 @@ async function folderRpc<T>(operation: string, payload: Record<string, unknown>,
 
 export function changeCadFolder({ operation, ...payload }: CadFolderChange) {
   return folderRpc<{ id: string }>(operation, payload);
+}
+
+export function moveCadDrawing(location: NonNullable<CadDrawing["location"]>, folderId: string | null) {
+  return folderRpc("move_drawing", {
+    objectId: location.objectId, expectedRevision: location.revision, folderId,
+  });
 }
 
 export function cadDrawingPath(drawing: CadDrawing) {
@@ -96,6 +107,7 @@ export async function listCadWorkspace(signal: AbortSignal) {
           format: parts[2] === "dwg" ? "dwg" : "dxf",
           folders: legacy ? segments.slice(1).map(decodeSegment) : [],
           folderId: storedFolder ? segments[1] : undefined,
+          location: { objectId: object.id, revision: 0 },
           bytes: Number(object.metadata?.size) || 0,
           createdAt: object.created_at,
         });
@@ -111,8 +123,11 @@ export async function listCadWorkspace(signal: AbortSignal) {
   const folderIndex = new Map(catalog.folders.map((folder) => [folder.id, folder]));
   for (const drawing of drawings) {
     const prefix = drawing.key.slice(0, drawing.key.lastIndexOf("/"));
-    const sourceId = drawing.folderId ?? (drawing.folders.length ? catalog.aliases[prefix] : undefined);
-    if (!sourceId) continue;
+    const location = drawing.location && catalog.locations?.[drawing.location.objectId];
+    const sourceId = location ? location.folderId :
+      drawing.folderId ?? (drawing.folders.length ? catalog.aliases[prefix] : undefined);
+    if (location && drawing.location) drawing.location.revision = location.revision;
+    if (!sourceId && !location) continue;
     const folder = liveCadFolder(folderIndex, sourceId);
     drawing.folderId = folder?.id;
     drawing.folders = folder ? cadFolderNames(folderIndex, folder.id) : [];
