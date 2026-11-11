@@ -34,7 +34,8 @@ interface Runtime {
   group: THREE.Group;
   marker: THREE.Mesh;
   meshes: Map<string, THREE.Mesh>;
-  fit: (keepDirection?: boolean) => void;
+  fit: (mode?: "selection") => void;
+  cancelFit: () => void;
   invalidate: () => void;
 }
 
@@ -116,6 +117,7 @@ function surfaceMaterial(color: string, opacity?: number) {
 function focusView(r: Runtime, props: Props) {
   r.marker.visible = Boolean(props.focusPoint && props.focusIds.length);
   if (!props.focusIds.length) return;
+  r.cancelFit();
   if (props.focusPoint) {
     const point = r.group.localToWorld(new THREE.Vector3(...props.focusPoint));
     r.marker.position.copy(point);
@@ -160,6 +162,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         if (activeLoad.current) activeLoad.current.selectionToFit = undefined;
         const r = runtime.current;
         if (!r) return;
+        r.cancelFit();
         const c = r.controls.target;
         const distance = Math.max(1, r.camera.position.distanceTo(c));
         r.camera.position.set(c.x + 0.01, c.y + distance, c.z);
@@ -237,7 +240,24 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     group.rotation.x = -Math.PI / 2;
     scene.add(group);
     const meshes = new Map<string, THREE.Mesh>();
-    const fit = (keepDirection = false) => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const fitDuration = 400;
+    let hasFramed = false;
+    let flight: {
+      startedAt: number;
+      fromTarget: THREE.Vector3;
+      fromPosition: THREE.Vector3;
+      toTarget: THREE.Vector3;
+      toPosition: THREE.Vector3;
+      near: number;
+      far: number;
+      maxDistance: number;
+    } | null = null;
+    const cancelFit = () => {
+      flight = null;
+    };
+    const fit = (mode?: "selection") => {
+      cancelFit();
       const bounds = new THREE.Box3();
       for (const mesh of meshes.values()) {
         if (mesh.visible) bounds.union(new THREE.Box3().setFromObject(mesh));
@@ -251,17 +271,51 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         1,
         (size * 0.55) / Math.sin(Math.min(verticalHalfFov, horizontalHalfFov)),
       );
-      const direction = keepDirection
+      const direction = mode === "selection"
         ? camera.position.clone().sub(controls.target)
         : initialDirection.clone();
       if (!direction.lengthSq()) direction.copy(initialDirection);
-      controls.maxDistance = Math.max(180, distance * 5);
-      controls.target.copy(center);
-      camera.position.copy(center).add(direction.setLength(distance));
-      camera.near = Math.max(0.01, size / 2000);
-      camera.far = Math.max(1000, controls.maxDistance * 2);
+      const position = center.clone().add(direction.setLength(distance));
+      const near = Math.max(0.01, size / 2000);
+      const maxDistance = Math.max(180, distance * 5);
+      const far = Math.max(1000, maxDistance * 2);
+
+      if (mode === "selection" && hasFramed && !reducedMotion.matches) {
+        const fromTarget = controls.target.clone();
+        const fromPosition = camera.position.clone();
+
+        // Clear orbit damping without changing the starting camera pose.
+        const damping = controls.enableDamping;
+        controls.enableDamping = false;
+        controls.update();
+        controls.enableDamping = damping;
+        controls.target.copy(fromTarget);
+        camera.position.copy(fromPosition);
+
+        flight = {
+          startedAt: performance.now(),
+          fromTarget,
+          fromPosition,
+          toTarget: center,
+          toPosition: position,
+          near,
+          far,
+          maxDistance,
+        };
+        controls.maxDistance = Math.max(controls.maxDistance, maxDistance);
+        camera.near = Math.min(camera.near, near);
+        camera.far = Math.max(camera.far, far);
+      } else {
+        controls.maxDistance = maxDistance;
+        controls.target.copy(center);
+        camera.position.copy(position);
+        camera.near = near;
+        camera.far = far;
+        controls.update();
+      }
+      hasFramed = true;
       camera.updateProjectionMatrix();
-      controls.update();
+      invalidate();
     };
     const marker = new THREE.Mesh(
       new THREE.SphereGeometry(0.15, 16, 12),
@@ -280,6 +334,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       dirty = true;
     };
     controls.addEventListener("change", invalidate);
+    controls.addEventListener("start", cancelFit);
     runtime.current = {
       scene,
       camera,
@@ -289,6 +344,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       marker,
       meshes,
       fit,
+      cancelFit,
       invalidate,
     };
     const resize = new ResizeObserver(() => {
@@ -303,8 +359,22 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     resize.observe(host);
     let frame = 0;
     let disposed = false;
-    const render = () => {
+    const render = (now: number) => {
       if (disposed) return;
+      if (flight) {
+        const progress = THREE.MathUtils.clamp((now - flight.startedAt) / fitDuration, 0, 1);
+        const eased = progress * progress * (3 - 2 * progress);
+        controls.target.lerpVectors(flight.fromTarget, flight.toTarget, eased);
+        camera.position.lerpVectors(flight.fromPosition, flight.toPosition, eased);
+        if (progress === 1) {
+          camera.near = flight.near;
+          camera.far = flight.far;
+          controls.maxDistance = flight.maxDistance;
+          camera.updateProjectionMatrix();
+          flight = null;
+        }
+        invalidate();
+      }
       const changed = controls.update();
       if (dirty || changed) {
         renderer.render(scene, camera);
@@ -312,7 +382,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       }
       frame = requestAnimationFrame(render);
     };
-    render();
+    render(performance.now());
     const raycaster = new THREE.Raycaster();
     let startX = 0,
       startY = 0;
@@ -358,6 +428,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       disposed = true;
       cancelAnimationFrame(frame);
       resize.disconnect();
+      controls.removeEventListener("start", cancelFit);
       controls.dispose();
       renderer.domElement.removeEventListener("pointerdown", down);
       renderer.domElement.removeEventListener("pointerup", up);
@@ -538,7 +609,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           selection.room === current.room &&
           !current.focusIds.length
         ) {
-          r.fit(true);
+          r.fit("selection");
         } else if (!movedCamera) {
           if (current.focusIds.length) focusView(r, current);
           else if (fitInitial) r.fit();
@@ -590,7 +661,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     if (!props.fitRequest) return;
     const { floor, room } = callbacks.current;
     if (activeLoad.current) activeLoad.current.selectionToFit = { floor, room };
-    runtime.current?.fit(true);
+    runtime.current?.fit("selection");
   }, [props.fitRequest]);
 
   useEffect(() => {
