@@ -1207,6 +1207,9 @@ export default function App({ project, account }: WorkspaceControls) {
                   mode={mode}
                   section={planView ? null : section}
                   onSectionBoundsChange={setSectionBounds}
+                  onSectionPositionChange={(position) =>
+                    setSection((current) => current && { ...current, position })
+                  }
                   measure={measure}
                   cadPlanRotation={planView ? (cadPlanActive ? cadAlignment.rotation : 0) : null}
                   onPlanViewport={syncCadViewport}

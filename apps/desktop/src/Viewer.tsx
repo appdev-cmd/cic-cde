@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { Move } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { geometryBuffer, geometryViews } from "./geometry";
@@ -25,6 +26,7 @@ interface Props {
   mode: ViewMode;
   section: SectionCut | null;
   onSectionBoundsChange: (bounds: SectionBounds | null) => void;
+  onSectionPositionChange: (position: number) => void;
   measure: boolean;
   cadPlanRotation: number | null;
   onPlanViewport: (view: CadWindow) => void;
@@ -204,6 +206,7 @@ function focusView(r: Runtime, props: Props) {
 
 export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
   const container = useRef<HTMLDivElement>(null);
+  const sectionHandle = useRef<HTMLDivElement>(null);
   const runtime = useRef<Runtime | null>(null);
   const cancelLoad = useRef<() => void>(() => {});
   const activeLoad = useRef<{
@@ -250,7 +253,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
 
   useEffect(() => {
     const host = container.current;
-    if (!host) return;
+    const handle = sectionHandle.current;
+    if (!host || !handle) return;
     const scene = new THREE.Scene();
     const background = getComputedStyle(host).getPropertyValue("--viewer-background").trim();
     scene.background = new THREE.Color(background || "#dceefa");
@@ -276,6 +280,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let sectionBounds: SectionBounds | null = null;
     let sectionComponent = 1;
     let sectionCoordinate = 0;
+    const sectionAnchor = new THREE.Vector3();
+    const handleProjection = new THREE.Vector3();
+    const metres = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 });
     const setSection = (section: SectionCut | null) => {
       renderer.localClippingEnabled = Boolean(section && sectionBounds);
       if (section && sectionBounds) {
@@ -288,6 +295,14 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         const normal = (section.flipped ? 1 : -1) * axisDirection;
         sectionPlane.normal.set(0, 0, 0).setComponent(sectionComponent, normal);
         sectionPlane.constant = -normal * sectionCoordinate;
+        const { x, y, z } = sectionBounds;
+        sectionAnchor
+          .set((x[0] + x[1]) / 2, (z[0] + z[1]) / 2, -(y[0] + y[1]) / 2)
+          .setComponent(sectionComponent, sectionCoordinate);
+        handle.setAttribute("aria-valuemin", String(min));
+        handle.setAttribute("aria-valuemax", String(max));
+        handle.setAttribute("aria-valuenow", String(coordinate));
+        handle.setAttribute("aria-valuetext", `${metres.format(coordinate)} mét`);
       }
       renderer.shadowMap.needsUpdate = true;
       invalidate();
@@ -410,6 +425,16 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       flight = null;
       updateSelectionFade(r, 1);
     };
+    const clearOrbitMomentum = () => {
+      const target = controls.target.clone();
+      const position = camera.position.clone();
+      const damping = controls.enableDamping;
+      controls.enableDamping = false;
+      controls.update();
+      controls.enableDamping = damping;
+      controls.target.copy(target);
+      camera.position.copy(position);
+    };
     const fit = (mode?: "selection") => {
       if (mode !== "selection") cancelFit();
       const fade = r.selectionFade;
@@ -448,16 +473,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           flight.toPosition.distanceToSquared(position) < 1e-8
         ) return;
 
+        // Clear orbit damping without changing the starting camera pose.
+        clearOrbitMomentum();
         const fromTarget = controls.target.clone();
         const fromPosition = camera.position.clone();
-
-        // Clear orbit damping without changing the starting camera pose.
-        const damping = controls.enableDamping;
-        controls.enableDamping = false;
-        controls.update();
-        controls.enableDamping = damping;
-        controls.target.copy(fromTarget);
-        camera.position.copy(fromPosition);
 
         const startedAt = performance.now();
         if (fade) {
@@ -568,6 +587,101 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let frame = 0;
     let disposed = false;
     let lastFrameAt = performance.now();
+    const dragRay = new THREE.Raycaster();
+    const dragNdc = new THREE.Vector2();
+    const dragHit = new THREE.Vector3();
+    let sectionDrag: {
+      pointerId: number;
+      range: SectionBounds[keyof SectionBounds];
+      position: number;
+      startY: number;
+      axis: THREE.Vector3;
+      projection: { plane: THREE.Plane; origin: THREE.Vector3 } | null;
+    } | null = null;
+    const updateHandle = () => {
+      const section = callbacks.current.section;
+      const range = section && sectionBounds?.[section.axis];
+      const point = handleProjection.copy(sectionAnchor).project(camera);
+      handle.hidden = planRotation !== null || !range || range[0] === range[1] ||
+        (!sectionDrag && (Math.abs(point.x) > 1 || Math.abs(point.y) > 1 || Math.abs(point.z) > 1));
+      if (handle.hidden) return;
+      const x = THREE.MathUtils.clamp((point.x + 1) * host.clientWidth / 2, 18, host.clientWidth - 18);
+      const y = THREE.MathUtils.clamp((1 - point.y) * host.clientHeight / 2, 18, host.clientHeight - 18);
+      handle.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+    };
+    const updateDragRay = (event: PointerEvent) => {
+      const rect = host.getBoundingClientRect();
+      dragNdc.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((event.clientY - rect.top) / rect.height) * 2,
+      );
+      dragRay.setFromCamera(dragNdc, camera);
+    };
+    const startSectionDrag = (event: PointerEvent) => {
+      const section = callbacks.current.section;
+      const range = section && sectionBounds?.[section.axis];
+      if (event.button !== 0 || sectionDrag || !section || !range || range[0] === range[1]) return;
+      event.preventDefault();
+      cancelFit();
+      clearOrbitMomentum();
+      controls.update();
+      camera.updateMatrixWorld();
+      updateDragRay(event);
+      const axis = new THREE.Vector3().setComponent(sectionComponent, section.axis === "y" ? -1 : 1);
+      const normal = dragRay.ray.direction.clone().addScaledVector(axis, -dragRay.ray.direction.dot(axis));
+      let projection = null;
+      // A drag plane facing the camera keeps the handle under the pointer along its axis.
+      // When looking along that axis, use vertical pointer movement instead.
+      if (normal.lengthSq() > 0.04) {
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal.normalize(), sectionAnchor);
+        const origin = dragRay.ray.intersectPlane(plane, new THREE.Vector3());
+        if (origin) projection = { plane, origin };
+      }
+      sectionDrag = { pointerId: event.pointerId, range, position: section.position, startY: event.clientY, axis, projection };
+      handle.dataset.dragging = "true";
+      handle.setPointerCapture(event.pointerId);
+    };
+    const setSectionPosition = (position: number) => {
+      callbacks.current.onSectionPositionChange(THREE.MathUtils.clamp(position, 0, 1));
+    };
+    const moveSectionDrag = (event: PointerEvent) => {
+      if (sectionDrag?.pointerId !== event.pointerId) return;
+      const section = callbacks.current.section;
+      const { range, position, startY, axis, projection } = sectionDrag;
+      if (!section || sectionBounds?.[section.axis] !== range) return;
+      if (projection) {
+        updateDragRay(event);
+        if (!dragRay.ray.intersectPlane(projection.plane, dragHit)) return;
+        setSectionPosition(position + dragHit.sub(projection.origin).dot(axis) / (range[1] - range[0]));
+      } else {
+        setSectionPosition(position + (startY - event.clientY) / host.clientHeight);
+      }
+    };
+    const finishSectionDrag = (event: PointerEvent) => {
+      if (sectionDrag?.pointerId !== event.pointerId) return;
+      sectionDrag = null;
+      delete handle.dataset.dragging;
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      invalidate();
+    };
+    const stepSection = (event: KeyboardEvent) => {
+      const section = callbacks.current.section;
+      if (!section) return;
+      const step = event.shiftKey ? 0.01 : 0.001;
+      let position = section.position;
+      switch (event.key) {
+        case "ArrowRight":
+        case "ArrowUp": position += step; break;
+        case "ArrowLeft":
+        case "ArrowDown": position -= step; break;
+        case "Home": position = 0; break;
+        case "End": position = 1; break;
+        default: return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      setSectionPosition(position);
+    };
     const render = (now: number) => {
       if (disposed) return;
       const fade = r.selectionFade;
@@ -598,6 +712,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       const changed = planRotation === null && controls.update();
       if (dirty || changed) {
         renderer.render(scene, activeCamera());
+        updateHandle();
         if (planRotation !== null) callbacks.current.onPlanViewport(plan.viewport());
         dirty = false;
       }
@@ -693,6 +808,12 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     renderer.domElement.addEventListener("pointerup", up);
     renderer.domElement.addEventListener("pointercancel", pointerCancel);
     renderer.domElement.addEventListener("wheel", wheel, { passive: false });
+    handle.addEventListener("pointerdown", startSectionDrag);
+    handle.addEventListener("pointermove", moveSectionDrag);
+    handle.addEventListener("pointerup", finishSectionDrag);
+    handle.addEventListener("pointercancel", finishSectionDrag);
+    handle.addEventListener("lostpointercapture", finishSectionDrag);
+    handle.addEventListener("keydown", stepSection);
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
@@ -704,6 +825,12 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       renderer.domElement.removeEventListener("pointerup", up);
       renderer.domElement.removeEventListener("pointercancel", pointerCancel);
       renderer.domElement.removeEventListener("wheel", wheel);
+      handle.removeEventListener("pointerdown", startSectionDrag);
+      handle.removeEventListener("pointermove", moveSectionDrag);
+      handle.removeEventListener("pointerup", finishSectionDrag);
+      handle.removeEventListener("pointercancel", finishSectionDrag);
+      handle.removeEventListener("lostpointercapture", finishSectionDrag);
+      handle.removeEventListener("keydown", stepSection);
       scene.traverse((o) => {
         if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
           o.geometry.dispose();
@@ -959,6 +1086,18 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       className={`three-view ${props.measure ? "measuring" : ""}`}
       ref={container}
       aria-label="Mô hình BIM 3D tương tác"
-    />
+    >
+      <div
+        ref={sectionHandle}
+        className="section-handle"
+        role="slider"
+        tabIndex={0}
+        aria-label="Tay nắm mặt cắt"
+        title="Kéo để di chuyển mặt cắt"
+        hidden
+      >
+        <Move size={17} aria-hidden="true" />
+      </div>
+    </div>
   );
 });

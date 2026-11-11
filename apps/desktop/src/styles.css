@@ -758,6 +758,37 @@ textarea::placeholder {
 .three-view.measuring {
   cursor: crosshair;
 }
+.section-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #a55b37;
+  color: white;
+  box-shadow: 0 2px 8px #26374c59;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.section-handle[hidden] {
+  display: none;
+}
+.section-handle:hover,
+.section-handle[data-dragging="true"] {
+  background: #884626;
+}
+.section-handle[data-dragging="true"] {
+  cursor: grabbing;
+}
+.section-handle:focus-visible {
+  outline: 2px solid #26374c;
+  outline-offset: 2px;
+}
 .cad-plan {
   isolation: isolate;
 }
