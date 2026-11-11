@@ -208,6 +208,7 @@ function focusView(r: Runtime, props: Props) {
 export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
   const container = useRef<HTMLDivElement>(null);
   const sectionHandle = useRef<HTMLDivElement>(null);
+  const sectionHandleCoordinate = useRef<HTMLSpanElement>(null);
   const runtime = useRef<Runtime | null>(null);
   const cancelLoad = useRef<() => void>(() => {});
   const activeLoad = useRef<{
@@ -256,7 +257,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
   useEffect(() => {
     const host = container.current;
     const handle = sectionHandle.current;
-    if (!host || !handle) return;
+    const handleCoordinate = sectionHandleCoordinate.current;
+    if (!host || !handle || !handleCoordinate) return;
     const scene = new THREE.Scene();
     const background = getComputedStyle(host).getPropertyValue("--viewer-background").trim();
     scene.background = new THREE.Color(background || "#dceefa");
@@ -337,7 +339,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         handle.setAttribute("aria-valuemin", String(min));
         handle.setAttribute("aria-valuemax", String(max));
         handle.setAttribute("aria-valuenow", String(coordinate));
-        handle.setAttribute("aria-valuetext", `${metres.format(coordinate)} mét`);
+        const displayCoordinate = metres.format(coordinate);
+        handle.setAttribute("aria-valuetext", `${displayCoordinate} mét`);
+        handleCoordinate.textContent = `${section.axis.toUpperCase()} ${displayCoordinate} m`;
       }
       renderer.shadowMap.needsUpdate = true;
       invalidate();
@@ -647,9 +651,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       handle.hidden = planRotation !== null || !range || range[0] === range[1] ||
         (!sectionDrag && (Math.abs(point.x) > 1 || Math.abs(point.y) > 1 || Math.abs(point.z) > 1));
       if (handle.hidden) return;
-      const x = THREE.MathUtils.clamp((point.x + 1) * host.clientWidth / 2, 18, host.clientWidth - 18);
+      const width = host.clientWidth;
+      const x = THREE.MathUtils.clamp((point.x + 1) * width / 2, 18, width - 18);
       const y = THREE.MathUtils.clamp((1 - point.y) * host.clientHeight / 2, 18, host.clientHeight - 18);
       handle.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+      if (!handleCoordinate.hidden) {
+        handleCoordinate.classList.toggle("align-left", x + 26 + handleCoordinate.offsetWidth > width);
+      }
     };
     const updateDragRay = (event: PointerEvent) => {
       const rect = host.getBoundingClientRect();
@@ -762,6 +770,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         const section = callbacks.current.section;
         sectionPreview.visible = planRotation === null && sectionDrag !== null && section !== null &&
           sectionBounds?.[section.axis] === sectionDrag.range;
+        handleCoordinate.hidden = !sectionPreview.visible;
         renderer.render(scene, activeCamera());
         updateHandle();
         if (planRotation !== null) callbacks.current.onPlanViewport(plan.viewport());
@@ -1149,6 +1158,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         hidden
       >
         <Move size={17} aria-hidden="true" />
+        <span ref={sectionHandleCoordinate} className="section-handle-coordinate" aria-hidden="true" hidden />
       </div>
     </div>
   );

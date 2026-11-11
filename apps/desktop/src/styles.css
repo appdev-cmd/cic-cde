@@ -789,6 +789,26 @@ textarea::placeholder {
   outline: 2px solid #26374c;
   outline-offset: 2px;
 }
+.section-handle-coordinate {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #26374c;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.section-handle-coordinate.align-left {
+  right: calc(100% + 8px);
+  left: auto;
+}
 .cad-plan {
   isolation: isolate;
 }
