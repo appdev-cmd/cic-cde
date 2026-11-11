@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { cadDrawingPath, cadFormat, deleteCadDrawing, listCadDrawings, uploadCadDrawing, type CadDrawing } from "./cadStorage";
+import { cadDrawingPath, cadFormat, deleteCadDrawing, listCadWorkspace, uploadCadDrawing, type CadDrawing } from "./cadStorage";
 import CadFilePreview from "./CadFilePreview";
 import DeleteFileDialog from "./DeleteFileDialog";
+import { cadFolderNames, type CadFolder } from "./cadFolderTree";
 
 const number = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
 const date = new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" });
@@ -30,6 +31,8 @@ function CadPreview({ drawing, close }: { drawing: CadDrawing; close(): void }) 
 
 export default function CadDrawings({ canUpload, canDelete }: { canUpload: boolean; canDelete: boolean }) {
   const [drawings, setDrawings] = useState<CadDrawing[]>([]);
+  const [folders, setFolders] = useState<CadFolder[]>([]);
+  const [destination, setDestination] = useState("");
   const [selected, setSelected] = useState<CadDrawing>();
   const [toDelete, setToDelete] = useState<CadDrawing>();
   const [query, setQuery] = useState("");
@@ -37,6 +40,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<{ done: number; total: number; percent: number }>();
   const [failed, setFailed] = useState<{ file: File; message: string }[]>([]);
+  const [failedDestination, setFailedDestination] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [folderNotice, setFolderNotice] = useState("");
@@ -48,7 +52,11 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
     setLoading(true);
     setError("");
     try {
-      setDrawings(await listCadDrawings(current.signal));
+      const data = await listCadWorkspace(current.signal);
+      if (current.signal.aborted) return;
+      setDrawings(data.drawings);
+      setFolders(data.folders);
+      setDestination((id) => data.folders.some((folder) => folder.id === id) ? id : "");
     } catch (failure) {
       if (!current.signal.aborted) setError(errorMessage(failure));
     } finally {
@@ -61,7 +69,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
     return () => request.current?.abort();
   }, []);
 
-  async function upload(files: File[], skipped = 0) {
+  async function upload(files: File[], skipped = 0, targetFolder = destination) {
     setFolderNotice(skipped ? `Đã bỏ qua ${skipped} file ngoài định dạng DWG/DXF.` : "");
     if (!files.length) {
       setFailed([]);
@@ -73,9 +81,12 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
     request.current = current;
     setProgress({ done: 0, total: files.length, percent: 0 });
     setFailed([]);
+    setFailedDestination(targetFolder);
     setMessage("");
     setError("");
     const failures: { file: File; message: string }[] = [];
+    const folderCache = new Map<string, Promise<string>>();
+    const target = targetFolder ? { id: targetFolder, path: cadFolderNames(folderIndex, targetFolder) } : undefined;
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     let sentBytes = 0;
     let done = 0;
@@ -94,7 +105,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
             sentBytes += uploaded - last;
             last = uploaded;
             report();
-          });
+          }, folderCache, target);
           if (!current.signal.aborted) setDrawings((previous) => [drawing, ...previous]);
         } catch (failure) {
           if (!current.signal.aborted) failures.push({ file, message: errorMessage(failure) });
@@ -112,8 +123,10 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
     if (count > 0) {
       setMessage(files.length === 1 ? `Đã tải lên ${files[0].name}.` : `Đã tải lên ${count}/${files.length} bản vẽ.`);
     }
+    if (folderCache.size > 0) void reload();
   }
 
+  const folderIndex = new Map(folders.map((folder) => [folder.id, folder]));
   const visible = drawings.filter((drawing) => (!format || drawing.format === format) &&
     cadDrawingPath(drawing).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
@@ -130,6 +143,17 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
       </div>
       {canUpload && (
         <div className="cde-cad-uploads">
+          {folders.length > 0 && (
+            <label className="cde-cad-upload">Thư mục nhận bản vẽ
+              <select value={destination} disabled={loading || progress !== undefined}
+                onChange={(event) => setDestination(event.target.value)}>
+                <option value="">Thư mục gốc</option>
+                {folders.map((folder) => (
+                  <option value={folder.id} key={folder.id}>{cadFolderNames(folderIndex, folder.id).join(" / ")}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="cde-cad-upload">
             Tải bản vẽ lên dự án
             <input type="file" accept=".dwg,.dxf" multiple disabled={loading || progress !== undefined} onChange={(event) => {
@@ -160,7 +184,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
           <strong>{failed.length} bản vẽ tải lên thất bại</strong>
           <ul>{failed.map(({ file, message }, index) => <li key={index}>{file.webkitRelativePath || file.name} · {message}</li>)}</ul>
           <button type="button" className="button secondary" disabled={loading}
-            onClick={() => void upload(failed.map(({ file }) => file))}>Thử lại các file lỗi</button>
+            onClick={() => void upload(failed.map(({ file }) => file), 0, failedDestination)}>Thử lại các file lỗi</button>
         </div>
       )}
       <div className="cde-filters">

@@ -175,14 +175,13 @@ export default function App({ project, account }: WorkspaceControls) {
   const cadAvailable = cloudEnabled && !desktop && Boolean(projectUser?.projectId);
   const cadKey = `ciccde.cad-alignments.v1:${projectUser?.projectId}:${projectUser?.username}`;
   const [cadMode, setCadMode] = useState<{ floor: string; open: boolean }>();
-  const cadProject = useProjectCadAlignment(
-    cadAvailable, ["admin", "reviewer", "member"].includes(projectUser?.role ?? ""), floor, cadKey,
-  );
+  const canEditCad = ["admin", "reviewer", "member"].includes(projectUser?.role ?? "");
+  const cadProject = useProjectCadAlignment(cadAvailable, canEditCad, floor, cadKey);
   const cadAlignment = cadProject.alignment;
   const canCompareCad = cadAvailable && floor !== "all" && room === null;
   const planView = nav === "plan";
   const cadDirectoryVisible = planView && cadAvailable;
-  const [cadFiles, setCadFiles] = useState<CadFiles>({ drawings: [], status: "loading" });
+  const [cadFiles, setCadFiles] = useState<CadFiles>({ drawings: [], folders: [], status: "loading" });
   const [cadFilesReload, setCadFilesReload] = useState(0);
   const [openCad, setOpenCad] = useState<CadDrawing>();
   const cadFileView = cadDirectoryVisible ? openCad : undefined;
@@ -204,8 +203,8 @@ export default function App({ project, account }: WorkspaceControls) {
     }
     const request = new AbortController();
     setCadFiles((previous) => ({ ...previous, status: "loading" }));
-    void import("./cadStorage").then(({ listCadDrawings }) => listCadDrawings(request.signal)).then((drawings) => {
-      if (!request.signal.aborted) setCadFiles({ drawings, status: "ready" });
+    void import("./cadStorage").then(({ listCadWorkspace }) => listCadWorkspace(request.signal)).then((workspace) => {
+      if (!request.signal.aborted) setCadFiles({ ...workspace, status: "ready" });
     }).catch(() => {
       if (!request.signal.aborted) setCadFiles((previous) => ({ ...previous, status: "error" }));
     });
@@ -919,7 +918,8 @@ export default function App({ project, account }: WorkspaceControls) {
                 </button>
               </div>
               {cadDirectoryVisible ? (
-                <CadDirectory files={cadFiles} selected={cadFileView?.key} onOpen={setOpenCad} onReload={reloadCadFiles} />
+                <CadDirectory files={cadFiles} selected={cadFileView?.key} canManage={canEditCad}
+                  onOpen={setOpenCad} onReload={reloadCadFiles} />
               ) : <>
               <div className="model-search">
                 <Search size={14} />

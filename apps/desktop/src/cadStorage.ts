@@ -1,10 +1,12 @@
 import { selectedProject } from "./bridge";
 import { supabase, uploadCloudFile } from "./cloud";
+import { cadFolderNames, liveCadFolder, type CadFolder } from "./cadFolderTree";
 
 const bucket = "cde-cad";
 const maxBytes = 25_000_000;
 const maxPathBytes = 1024;
 const folderPrefix = "folders";
+const folderIdPrefix = "by-folder";
 const encodedSegment = /^[A-Za-z0-9_-]{1,340}$/;
 const objectNamePattern = /^[0-9a-f-]{36}_([A-Za-z0-9_-]{1,340})\.(dwg|dxf)$/;
 const storage = supabase.storage.from(bucket);
@@ -14,9 +16,32 @@ export type CadDrawing = {
   name: string;
   format: "dwg" | "dxf";
   folders: string[];
+  folderId?: string;
   bytes: number;
   createdAt: string;
 };
+
+export type CadFolderChange =
+  | { operation: "create"; name: string; parentId: string | null }
+  | { operation: "rename"; id: string; expectedRevision: number; name: string }
+  | { operation: "move"; id: string; expectedRevision: number; parentId: string | null }
+  | { operation: "remove"; id: string; expectedRevision: number };
+
+type FolderCatalog = { folders: CadFolder[]; aliases: Record<string, string> };
+
+async function folderRpc<T>(operation: string, payload: Record<string, unknown>, signal?: AbortSignal) {
+  const request = supabase.rpc("cde_cad_folders", { project_id: selectedProject, operation, payload });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  if (error) {
+    if (error.code === "28000") window.dispatchEvent(new Event("ciccde-expired"));
+    throw new Error(error.message);
+  }
+  return data as T;
+}
+
+export function changeCadFolder({ operation, ...payload }: CadFolderChange) {
+  return folderRpc<{ id: string }>(operation, payload);
+}
 
 export function cadDrawingPath(drawing: CadDrawing) {
   return [...drawing.folders, drawing.name].join("/");
@@ -47,7 +72,7 @@ function encodeSegment(value: string) {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export async function listCadDrawings(signal: AbortSignal): Promise<CadDrawing[]> {
+export async function listCadWorkspace(signal: AbortSignal) {
   const prefix = selectedProject + "/";
   const drawings: CadDrawing[] = [];
   let cursor: string | undefined;
@@ -61,13 +86,16 @@ export async function listCadDrawings(signal: AbortSignal): Promise<CadDrawing[]
       const key = path.slice(prefix.length);
       const segments = key.split("/");
       const parts = objectNamePattern.exec(segments.pop() ?? "");
-      if (!parts || (segments.length > 0 && (segments[0] !== folderPrefix || segments.length < 2))) continue;
+      const legacy = segments[0] === folderPrefix && segments.length > 1;
+      const storedFolder = segments[0] === folderIdPrefix && segments.length === 2;
+      if (!parts || (segments.length && !legacy && !storedFolder)) continue;
       try {
         drawings.push({
           key,
           name: decodeSegment(parts[1]),
           format: parts[2] === "dwg" ? "dwg" : "dxf",
-          folders: segments.slice(1).map(decodeSegment),
+          folders: legacy ? segments.slice(1).map(decodeSegment) : [],
+          folderId: storedFolder ? segments[1] : undefined,
           bytes: Number(object.metadata?.size) || 0,
           createdAt: object.created_at,
         });
@@ -79,13 +107,28 @@ export async function listCadDrawings(signal: AbortSignal): Promise<CadDrawing[]
     if (!data.nextCursor || data.nextCursor === cursor) throw new Error("Không thể tải trang tiếp theo của danh sách CAD.");
     cursor = data.nextCursor;
   }
-  return drawings.sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+  const catalog = await folderRpc<FolderCatalog>("list", {}, signal);
+  const folderIndex = new Map(catalog.folders.map((folder) => [folder.id, folder]));
+  for (const drawing of drawings) {
+    const prefix = drawing.key.slice(0, drawing.key.lastIndexOf("/"));
+    const sourceId = drawing.folderId ?? (drawing.folders.length ? catalog.aliases[prefix] : undefined);
+    if (!sourceId) continue;
+    const folder = liveCadFolder(folderIndex, sourceId);
+    drawing.folderId = folder?.id;
+    drawing.folders = folder ? cadFolderNames(folderIndex, folder.id) : [];
+  }
+  return {
+    drawings: drawings.sort((first, second) => second.createdAt.localeCompare(first.createdAt)),
+    folders: catalog.folders.filter((folder) => !folder.removed),
+  };
 }
 
 export async function uploadCadDrawing(
   file: File,
   signal: AbortSignal,
   onProgress: (uploaded: number, total: number) => void,
+  folderCache: Map<string, Promise<string>>,
+  destination?: { id: string; path: string[] },
 ): Promise<CadDrawing> {
   const extension = cadFormat(file.name);
   if (!extension) throw new Error("Chọn bản vẽ DWG hoặc DXF.");
@@ -93,11 +136,24 @@ export async function uploadCadDrawing(
   const relative = file.webkitRelativePath ? file.webkitRelativePath.split("/") : [file.name];
   if (relative.pop() !== file.name) throw new Error("Đường dẫn bản vẽ không hợp lệ.");
   const filename = `${crypto.randomUUID()}_${encodeSegment(file.name)}.${extension}`;
-  const key = relative.length ? [folderPrefix, ...relative.map(encodeSegment), filename].join("/") : filename;
+  let folderId = destination?.id;
+  if (relative.length) {
+    const cacheKey = JSON.stringify([folderId, ...relative]);
+    let pending = folderCache.get(cacheKey);
+    if (!pending) {
+      pending = folderRpc<{ id: string }>("ensure", { path: relative, parentId: folderId }, signal).then(({ id }) => id);
+      folderCache.set(cacheKey, pending);
+    }
+    folderId = await pending;
+  }
+  const key = folderId ? `${folderIdPrefix}/${folderId}/${filename}` : filename;
   const path = `${selectedProject}/${key}`;
   if (new TextEncoder().encode(path).length > maxPathBytes) throw new Error("Đường dẫn quá dài. Hãy rút ngắn tên hoặc giảm số cấp thư mục.");
   await uploadCloudFile(bucket, path, file, signal, onProgress);
-  return { key, name: file.name, folders: relative, format: extension, bytes: file.size, createdAt: new Date().toISOString() };
+  return {
+    key, name: file.name, folders: [...(destination?.path ?? []), ...relative], folderId,
+    format: extension, bytes: file.size, createdAt: new Date().toISOString(),
+  };
 }
 
 export async function downloadCadDrawing(drawing: CadDrawing, signal: AbortSignal) {

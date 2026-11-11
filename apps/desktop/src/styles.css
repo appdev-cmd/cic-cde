@@ -796,6 +796,35 @@ textarea::placeholder {
   margin: 8px 12px;
   font-size: 11px;
 }
+.cad-directory-actions {
+  display: flex;
+  gap: 5px;
+}
+.cad-folder-branch {
+  position: relative;
+}
+.cad-folder-managed > details > summary {
+  padding-right: 28px;
+}
+.cad-directory-folders .cad-folder-manage {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 25px;
+  height: 26px;
+  justify-content: center;
+}
+.cad-folder-dialog-path {
+  overflow-wrap: anywhere;
+  color: #53667d;
+}
+.cad-folder-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
 .cad-directory-folders {
   max-height: 36vh;
   overflow: auto;
