@@ -131,7 +131,7 @@ export default function Cde() {
         <div className="cde-intro">
           <div>
             <p>{(user?.projectName || "Riverside Tower").toUpperCase()}</p>
-            <h1>Sổ hồ sơ phối hợp</h1>
+            <h1>Hồ sơ dự án</h1>
             <span>{cloudEnabled && !desktop ? "Quản lý bản vẽ CAD, phiên bản IFC và theo dõi quá trình duyệt." : "Quản lý phiên bản IFC và theo dõi quá trình duyệt."}</span>
           </div>
           {view === "ifc" && (
