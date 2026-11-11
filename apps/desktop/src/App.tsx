@@ -258,8 +258,20 @@ export default function App({ project, account }: WorkspaceControls) {
   const [geometryStopped, setGeometryStopped] = useState(false);
   const [geometryAttempt, setGeometryAttempt] = useState(0);
   const [checking, setChecking] = useState(false);
-  const [checkModelsA, setCheckModelsA] = useState<string[]>(["demo"]);
-  const [checkModelsB, setCheckModelsB] = useState<string[]>(["demo"]);
+  const cloudClashChecks = cloudEnabled && !localDesktop;
+  const [checkModelsA, setCheckModelsA] = useState<string[]>(cloudClashChecks ? [] : ["demo"]);
+  const [checkModelsB, setCheckModelsB] = useState<string[]>(cloudClashChecks ? [] : ["demo"]);
+  const checkModelOptions = [
+    ...(cloudClashChecks ? [] : [{ id: "demo", name: "Riverside · IFC mẫu" }]),
+    ...data.models.filter((model) => !model.synthetic),
+  ];
+  const checkModelOptionIds = checkModelOptions.map((model) => model.id);
+  const selectedCheckModelsA = checkModelOptionIds.filter((id) => checkModelsA.includes(id));
+  const selectedCheckModelsB = checkModelOptionIds.filter((id) => checkModelsB.includes(id));
+  const maxCheckModels = 12;
+  const checkModelLimitExceeded = cloudClashChecks
+    ? new Set([...selectedCheckModelsA, ...selectedCheckModelsB]).size > maxCheckModels
+    : Math.max(selectedCheckModelsA.length, selectedCheckModelsB.length) > maxCheckModels;
   const [geometryLoading, setGeometryLoading] = useState(false);
   const [geometryStats, setGeometryStats] = useState<{
     durationMs: number;
@@ -660,12 +672,12 @@ export default function App({ project, account }: WorkspaceControls) {
     }
   };
   const runCheck = async () => {
-    if (checking) return;
+    if (checking || checkModelLimitExceeded) return;
     setChecking(true);
     try {
       const result = await call<CheckRun>("checks.run", {
-        modelIdsA: checkModelsA,
-        modelIdsB: checkModelsB,
+        modelIdsA: selectedCheckModelsA,
+        modelIdsB: selectedCheckModelsB,
         classA,
         classB,
         floor,
@@ -2032,41 +2044,48 @@ export default function App({ project, account }: WorkspaceControls) {
                 </header>
                 <div className="check-model-groups">
                   {[
-                    {
-                      label: "Mô hình IFC nhóm A",
-                      ids: checkModelsA,
-                      set: setCheckModelsA,
-                    },
-                    {
-                      label: "Mô hình IFC nhóm B",
-                      ids: checkModelsB,
-                      set: setCheckModelsB,
-                    },
-                  ].map((group) => (
-                    <fieldset key={group.label}>
-                      <legend>{group.label}</legend>
-                      {[
-                        { id: "demo", name: "Riverside · IFC mẫu" },
-                        ...data.models.filter((m) => !m.synthetic),
-                      ].map((model) => (
-                        <label key={model.id}>
-                          <input
-                            type="checkbox"
-                            checked={group.ids.includes(model.id)}
-                            disabled={checking}
-                            onChange={(event) =>
-                              group.set((previous) =>
-                                event.target.checked
-                                  ? [...previous, model.id]
-                                  : previous.filter((id) => id !== model.id),
-                              )
-                            }
-                          />
-                          <span>{model.name}</span>
-                        </label>
-                      ))}
-                    </fieldset>
-                  ))}
+                    { name: "A", ids: selectedCheckModelsA, set: setCheckModelsA },
+                    { name: "B", ids: selectedCheckModelsB, set: setCheckModelsB },
+                  ].map((group) => {
+                    const allSelected = checkModelOptions.length > 0 && group.ids.length === checkModelOptions.length;
+                    const action = allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả";
+                    return (
+                      <fieldset key={group.name}>
+                        <legend>Mô hình IFC nhóm {group.name}</legend>
+                        <div className="check-model-actions">
+                          <span>Đã chọn {group.ids.length}/{checkModelOptions.length}</span>
+                          <button
+                            type="button"
+                            className="button secondary tiny"
+                            aria-label={action + " mô hình nhóm " + group.name}
+                            disabled={checking || !checkModelOptions.length}
+                            onClick={() => group.set(allSelected ? [] : checkModelOptionIds)}
+                          >
+                            {action}
+                          </button>
+                        </div>
+                        <div className="check-model-list">
+                          {checkModelOptions.map((model) => (
+                            <label key={model.id}>
+                              <input
+                                type="checkbox"
+                                checked={group.ids.includes(model.id)}
+                                disabled={checking}
+                                onChange={(event) =>
+                                  group.set((previous) =>
+                                    event.target.checked
+                                      ? [...previous, model.id]
+                                      : previous.filter((id) => id !== model.id),
+                                  )
+                                }
+                              />
+                              <span>{model.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    );
+                  })}
                 </div>
                 <div className="check-fields">
                   {[
@@ -2129,12 +2148,21 @@ export default function App({ project, account }: WorkspaceControls) {
                     đạt giới hạn số kết quả.
                   </p>
                 </div>
+                {checkModelLimitExceeded && (
+                  <p className="check-model-limit" role="status">
+                    {cloudClashChecks
+                      ? "Tối đa " + maxCheckModels + " mô hình khác nhau cho cả hai nhóm."
+                      : "Tối đa " + maxCheckModels + " mô hình cho mỗi nhóm."}
+                    {" "}Bỏ chọn bớt mô hình để chạy kiểm tra.
+                  </p>
+                )}
                 <button
                   className="button primary full"
                   disabled={
                     checking ||
-                    !checkModelsA.length ||
-                    !checkModelsB.length ||
+                    !selectedCheckModelsA.length ||
+                    !selectedCheckModelsB.length ||
+                    checkModelLimitExceeded ||
                     !connected ||
                     !Number.isFinite(tolerance) ||
                     tolerance < 0.1 ||

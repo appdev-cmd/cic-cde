@@ -2434,7 +2434,7 @@ table {
   overflow-y: auto;
 }
 .check-modal {
-  width: min(760px, calc(100vw - 32px));
+  width: min(1000px, calc(100vw - 32px));
 }
 .check-modal-heading {
   display: flex;
@@ -2477,8 +2477,24 @@ table {
   padding: 10px;
   border: 1px solid #e3e8ee;
   border-radius: 6px;
+}
+.check-model-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #596779;
+  font-size: 10px;
+}
+.check-model-list {
   max-height: 200px;
   overflow: auto;
+}
+.check-modal > .check-model-limit {
+  margin: 12px 0 0;
+  color: #8b4e24;
 }
 .check-model-groups legend {
   font-size: 9px;
