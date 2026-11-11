@@ -26,7 +26,7 @@ interface Props {
   onSelect: (id: string | null) => void;
   onMeasure: (distance: number) => void;
 }
-type RoomFade = {
+type SelectionFade = {
   startOpacity: Map<THREE.Mesh, number>;
   meshes: Set<THREE.Mesh>;
   startedAt: number | null;
@@ -41,15 +41,15 @@ interface Runtime {
   group: THREE.Group;
   marker: THREE.Mesh;
   meshes: Map<string, THREE.Mesh>;
-  roomFade: RoomFade | null;
-  prepareRoomFade: (props: Props) => void;
+  selectionFade: SelectionFade | null;
+  prepareSelectionFade: (props: Props) => void;
   fit: (mode?: "selection") => void;
   cancelFit: () => void;
   invalidate: () => void;
 }
 
 function applyAppearance(r: Runtime, props: Props) {
-  r.prepareRoomFade(props);
+  r.prepareSelectionFade(props);
   const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
   const models = new Map(props.models.map((model) => [model.id, model]));
   const elements = new Map(props.elements.map((element) => [element.id, element]));
@@ -67,7 +67,7 @@ function applyAppearance(r: Runtime, props: Props) {
 
 function meshOpacity(r: Runtime, mesh: THREE.Mesh) {
   const target = mesh.userData.inScope ? 1 : 0;
-  const fade = r.roomFade;
+  const fade = r.selectionFade;
   const start = fade?.startOpacity.get(mesh) ?? 0;
   if (fade && !mesh.userData.modelHidden && start !== target) {
     fade.meshes.add(mesh);
@@ -92,12 +92,12 @@ function applyMaterialOpacity(material: THREE.MeshStandardMaterial, opacity: num
   material.depthWrite = !fading && material.opacity >= 0.5;
 }
 
-function updateRoomFade(r: Runtime, progress: number) {
-  const fade = r.roomFade;
+function updateSelectionFade(r: Runtime, progress: number) {
+  const fade = r.selectionFade;
   if (!fade) return;
   fade.progress = progress;
   if (progress === 1) {
-    r.roomFade = null;
+    r.selectionFade = null;
     r.renderer.shadowMap.needsUpdate = true;
   }
   for (const mesh of fade.meshes) {
@@ -305,24 +305,27 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     };
     let hasFramed = false;
     let lastSelection = { floor: callbacks.current.floor, room: callbacks.current.room, request: callbacks.current.fitRequest };
-    const prepareRoomFade = (next: Props) => {
+    const prepareSelectionFade = (next: Props) => {
       const previous = lastSelection;
       lastSelection = { floor: next.floor, room: next.room, request: next.fitRequest };
       if (previous.floor === next.floor && previous.room === next.room) return;
       if (
-        previous.room && next.room && previous.room !== next.room &&
-        previous.request !== next.fitRequest && hasFramed && !reducedMotion.matches
+        previous.floor !== "all" &&
+        next.floor !== "all" &&
+        previous.request !== next.fitRequest &&
+        hasFramed &&
+        !reducedMotion.matches
       ) {
         const startOpacity = new Map<THREE.Mesh, number>();
         for (const mesh of meshes.values()) {
           if (mesh.visible) startOpacity.set(mesh, mesh.userData.scopeOpacity);
         }
         if (startOpacity.size) {
-          r.roomFade = { startOpacity, meshes: new Set(), startedAt: null, progress: 0 };
+          r.selectionFade = { startOpacity, meshes: new Set(), startedAt: null, progress: 0 };
           return;
         }
       }
-      updateRoomFade(r, 1);
+      updateSelectionFade(r, 1);
     };
     let flight: {
       startedAt: number;
@@ -336,13 +339,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     } | null = null;
     const cancelFit = () => {
       flight = null;
-      updateRoomFade(r, 1);
+      updateSelectionFade(r, 1);
     };
     const fit = (mode?: "selection") => {
       if (mode !== "selection") cancelFit();
       const startedAt = performance.now();
-      const startingFade = r.roomFade?.startedAt === null;
-      if (r.roomFade && startingFade) r.roomFade.startedAt = startedAt;
+      const startingFade = r.selectionFade?.startedAt === null;
+      if (r.selectionFade && startingFade) r.selectionFade.startedAt = startedAt;
       const bounds = new THREE.Box3();
       for (const mesh of meshes.values()) {
         if (mesh.userData.inScope) bounds.union(new THREE.Box3().setFromObject(mesh));
@@ -437,8 +440,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       group,
       marker,
       meshes,
-      roomFade: null,
-      prepareRoomFade,
+      selectionFade: null,
+      prepareSelectionFade,
       fit,
       cancelFit,
       invalidate,
@@ -471,8 +474,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         }
         invalidate();
       }
-      const fadeStart = r.roomFade?.startedAt;
-      if (fadeStart != null) updateRoomFade(r, easedProgress(now, fadeStart));
+      const fadeStart = r.selectionFade?.startedAt;
+      if (fadeStart != null) updateSelectionFade(r, easedProgress(now, fadeStart));
       const changed = controls.update();
       if (dirty || changed) {
         renderer.render(scene, camera);
