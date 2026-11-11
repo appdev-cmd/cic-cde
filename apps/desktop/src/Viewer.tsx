@@ -57,6 +57,7 @@ interface Runtime {
   setSection: (section: SectionCut | null) => void;
   updateSectionBounds: () => void;
   activeCamera: () => THREE.PerspectiveCamera | THREE.OrthographicCamera;
+  restoreResolution: () => void;
   fit: (mode?: "selection") => void;
   cancelFit: () => void;
   invalidate: () => void;
@@ -241,6 +242,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       capture() {
         const r = runtime.current;
         if (!r) return;
+        r.restoreResolution();
         r.renderer.render(r.scene, r.activeCamera());
         const a = document.createElement("a");
         a.download = "CIC-CDE-view.png";
@@ -269,7 +271,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       reversedDepthBuffer: true,
       preserveDrawingBuffer: true,
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const fullPixelRatio = Math.min(window.devicePixelRatio, 2);
+    const motionPixelRatio = Math.max(0.75, fullPixelRatio * 0.65);
+    renderer.setPixelRatio(fullPixelRatio);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.autoUpdate = false;
     renderer.shadowMap.needsUpdate = true;
@@ -564,6 +568,11 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const invalidate = () => {
       dirty = true;
     };
+    const setResolution = (ratio: number) => {
+      if (renderer.getPixelRatio() === ratio) return;
+      renderer.setPixelRatio(ratio);
+      invalidate();
+    };
     const planPointers = new Map<number, { x: number; y: number }>();
     const setPlan = (rotation: number | null) => {
       if (rotation === planRotation) return;
@@ -599,6 +608,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       setSection,
       updateSectionBounds,
       activeCamera,
+      restoreResolution: () => setResolution(fullPixelRatio),
       fit,
       cancelFit,
       invalidate,
@@ -618,6 +628,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let frame = 0;
     let disposed = false;
     let lastFrameAt = performance.now();
+    let lastMotionAt = -Infinity;
     const dragRay = new THREE.Raycaster();
     const dragNdc = new THREE.Vector2();
     const dragHit = new THREE.Vector3();
@@ -742,6 +753,11 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       const fadeStart = r.selectionFade?.startedAt;
       if (fadeStart != null) updateSelectionFade(r, easedProgress(now, fadeStart));
       const changed = planRotation === null && controls.update();
+      if (changed || flight || sectionDrag) lastMotionAt = now;
+      const draw = renderer.info.render;
+      const dense = draw.calls >= 2_500 || draw.triangles >= 750_000;
+      const moving = planRotation === null && now - lastMotionAt < 140;
+      setResolution(dense && moving ? motionPixelRatio : fullPixelRatio);
       if (dirty || changed) {
         const section = callbacks.current.section;
         sectionPreview.visible = planRotation === null && sectionDrag !== null && section !== null &&
@@ -963,6 +979,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       else groups.set(key, [e]);
     }
     const tasks = [...groups.entries()];
+    const sliceBudget = fresh.length >= 4_000 ? 6 : 12;
     let cursor = 0;
     const load = async () => {
       while (!cancelled && cursor < tasks.length) {
@@ -1017,7 +1034,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           r.meshes.set(e.id, mesh);
           done++;
           if ((!published && done >= 64) || performance.now() - lastProgress >= 150) publish();
-          if (performance.now() - sliceStarted >= 12) {
+          if (performance.now() - sliceStarted >= sliceBudget) {
             // Let input and painting run without waiting on a refresh frame for each batch.
             await new Promise<void>((resolve) => setTimeout(resolve, 0));
             sliceStarted = performance.now();

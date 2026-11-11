@@ -10,6 +10,7 @@ import sys
 
 import ifcopenshell
 import ifcopenshell.geom
+from ifcopenshell.util.shape import get_shape_vertices
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 DATA = pathlib.Path(os.environ.get("QABIM_DATA_DIR", str(ROOT / ".local")))
@@ -20,9 +21,10 @@ from spatial import spatial_location
 from terrain_preview import SVDSP_GRADE_ID, SVDSP_PREVIEW_VERSION, SVDSP_TERRAIN_HASH, pavement_footprint, trim_grade
 
 COLORS = {"STR": "#c7cbd2", "HVAC": "#56a7ae", "PLUM": "#7291ce", "ARC": "#d9cbb8"}
-MAX_PREVIEW_PRODUCTS = 12_000
-MAX_PREVIEW_COORDINATES_AND_INDICES = 8_000_000
+MAX_PREVIEW_PRODUCTS = 25_000
+MAX_PREVIEW_COORDINATES_AND_INDICES = 24_000_000
 MAX_IFC_BYTES = 500_000_000
+REUSE_GEOMETRY_AFTER_PRODUCTS = 12_000
 
 
 class PreviewLimitError(ValueError):
@@ -113,6 +115,11 @@ def import_model(path: str, display_name=None):
             f"Preview product limit: {len(products)} > {MAX_PREVIEW_PRODUCTS}",
             "preview_products", count=len(products), limit=MAX_PREVIEW_PRODUCTS,
         )
+    # Local geometry lets the iterator reuse shared IFC representations. Keep
+    # the preview in world coordinates by applying each product's placement.
+    reuse_geometry = len(products) > REUSE_GEOMETRY_AFTER_PRODUCTS and not terrain_preview
+    if reuse_geometry:
+        settings.set("use-world-coords", False)
     elements=[];generated=set();float_count=0
     writer=ChunkWriter(store,model_id,ifcopenshell.version)
     if products:
@@ -120,7 +127,11 @@ def import_model(path: str, display_name=None):
         if iterator.initialize():
             while True:
                 shape=iterator.get();product=model.by_id(shape.id)
-                vertices=list(shape.geometry.verts);faces=list(shape.geometry.faces)
+                vertices = (
+                    get_shape_vertices(shape, shape.geometry).ravel().tolist()
+                    if reuse_geometry else list(shape.geometry.verts)
+                )
+                faces=list(shape.geometry.faces)
                 material_ids = shape.geometry.material_ids
                 if footprint is not None and product.GlobalId == SVDSP_GRADE_ID:
                     faces, material_ids = trim_grade(vertices, faces, material_ids, footprint)
