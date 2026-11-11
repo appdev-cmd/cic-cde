@@ -36,3 +36,8 @@ body {
   min-height: 0;
   overflow: hidden;
 }
+
+.cad-overlay-mode {
+  background: white;
+  pointer-events: none;
+}

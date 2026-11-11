@@ -2,8 +2,10 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { geometryBuffer, geometryViews } from "./geometry";
+import { CadPlanCamera } from "./cadPlanCamera";
 import { spaceKey } from "./spatial";
 import type { BimModel, BimElement, ViewerApi, ViewMode } from "./types";
+import type { CadWindow } from "@qabim/cad-viewer/overlay";
 
 interface Props {
   loadAttempt: number;
@@ -23,6 +25,8 @@ interface Props {
   mode: ViewMode;
   section: boolean;
   measure: boolean;
+  cadPlanRotation: number | null;
+  onPlanViewport: (view: CadWindow) => void;
   onSelect: (id: string | null) => void;
   onMeasure: (distance: number) => void;
 }
@@ -44,6 +48,8 @@ interface Runtime {
   meshes: Map<string, THREE.Mesh>;
   selectionFade: SelectionFade | null;
   prepareSelectionFade: (props: Props) => void;
+  setPlan: (rotation: number | null) => void;
+  activeCamera: () => THREE.PerspectiveCamera | THREE.OrthographicCamera;
   fit: (mode?: "selection") => void;
   cancelFit: () => void;
   invalidate: () => void;
@@ -174,6 +180,7 @@ function surfaceMaterial(color: string, opacity?: number) {
 
 function focusView(r: Runtime, props: Props) {
   r.marker.visible = Boolean(props.focusPoint && props.focusIds.length);
+  if (props.cadPlanRotation !== null) return;
   if (!props.focusIds.length) return;
   r.cancelFit();
   if (props.focusPoint) {
@@ -220,6 +227,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         if (activeLoad.current) activeLoad.current.selectionToFit = undefined;
         const r = runtime.current;
         if (!r) return;
+        if (callbacks.current.cadPlanRotation !== null) {
+          r.fit();
+          return;
+        }
         r.cancelFit();
         const c = r.controls.target;
         const distance = Math.max(1, r.camera.position.distanceTo(c));
@@ -229,7 +240,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       capture() {
         const r = runtime.current;
         if (!r) return;
-        r.renderer.render(r.scene, r.camera);
+        r.renderer.render(r.scene, r.activeCamera());
         const a = document.createElement("a");
         a.download = "CIC-CDE-view.png";
         a.href = r.renderer.domElement.toDataURL("image/png");
@@ -246,6 +257,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const background = getComputedStyle(host).getPropertyValue("--viewer-background").trim();
     scene.background = new THREE.Color(background || "#dceefa");
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
+    const plan = new CadPlanCamera();
+    let planRotation: number | null = null;
+    const activeCamera = () => planRotation === null ? camera : plan.camera;
     const initialDirection = new THREE.Vector3(0.94, 0.63, 1.02);
     camera.position.copy(initialDirection);
     const renderer = new THREE.WebGLRenderer({
@@ -311,6 +325,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       lastSelection = { floor: next.floor, room: next.room, request: next.fitRequest };
       if (previous.floor === next.floor && previous.room === next.room) return;
       if (
+        next.cadPlanRotation === null &&
         previous.request !== next.fitRequest &&
         hasFramed &&
         !reducedMotion.matches
@@ -357,6 +372,11 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       }
       if (bounds.isEmpty()) {
         flight = null;
+        return;
+      }
+      if (planRotation !== null) {
+        plan.fit(bounds);
+        invalidate();
         return;
       }
       const center = bounds.getCenter(new THREE.Vector3());
@@ -435,6 +455,24 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const invalidate = () => {
       dirty = true;
     };
+    const planPointers = new Map<number, { x: number; y: number }>();
+    const setPlan = (rotation: number | null) => {
+      if (rotation === planRotation) return;
+      const entering = planRotation === null;
+      planRotation = rotation;
+      controls.enabled = rotation === null;
+      grid.visible = rotation === null;
+      ground.visible = rotation === null;
+      planPointers.clear();
+      cancelFit();
+      if (rotation !== null) {
+        plan.setRotation(rotation);
+        if (entering) fit();
+      } else {
+        fit("selection");
+      }
+      invalidate();
+    };
     controls.addEventListener("change", invalidate);
     controls.addEventListener("start", cancelFit);
     const r: Runtime = {
@@ -447,6 +485,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       meshes,
       selectionFade: null,
       prepareSelectionFade,
+      setPlan,
+      activeCamera,
       fit,
       cancelFit,
       invalidate,
@@ -459,6 +499,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      plan.resize(w, h);
       invalidate();
     });
     resize.observe(host);
@@ -492,9 +533,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       }
       const fadeStart = r.selectionFade?.startedAt;
       if (fadeStart != null) updateSelectionFade(r, easedProgress(now, fadeStart));
-      const changed = controls.update();
+      const changed = planRotation === null && controls.update();
       if (dirty || changed) {
-        renderer.render(scene, camera);
+        renderer.render(scene, activeCamera());
+        if (planRotation !== null) callbacks.current.onPlanViewport(plan.viewport());
         dirty = false;
       }
       frame = requestAnimationFrame(render);
@@ -504,12 +546,55 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let startX = 0,
       startY = 0;
     let firstPoint: THREE.Vector3 | null = null;
+    let planDragged = false;
     const down = (e: PointerEvent) => {
       startX = e.clientX;
       startY = e.clientY;
+      if (planRotation !== null) {
+        planDragged = planPointers.size > 0;
+        planPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        renderer.domElement.setPointerCapture(e.pointerId);
+      }
     };
+    const move = (e: PointerEvent) => {
+      const previous = planPointers.get(e.pointerId);
+      if (!previous) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (!rect.height) return;
+      if (!planDragged && Math.hypot(e.clientX - startX, e.clientY - startY) <= 5) return;
+      planDragged = true;
+      const dx = e.clientX - previous.x;
+      const dy = e.clientY - previous.y;
+      const other = [...planPointers].find(([id]) => id !== e.pointerId)?.[1];
+      if (other) {
+        const oldDistance = Math.hypot(previous.x - other.x, previous.y - other.y);
+        const newDistance = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+        if (oldDistance > 2 && newDistance > 2) {
+          plan.zoom(newDistance / oldDistance, (previous.x + other.x) / 2 - rect.left - rect.width / 2,
+            (previous.y + other.y) / 2 - rect.top - rect.height / 2, rect.height);
+        }
+        plan.pan(dx / 2, dy / 2, rect.height);
+      } else {
+        plan.pan(dx, dy, rect.height);
+      }
+      planPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      invalidate();
+    };
+    const wheel = (e: WheelEvent) => {
+      if (planRotation === null) return;
+      e.preventDefault();
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (!rect.height) return;
+      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? rect.height : 1);
+      plan.zoom(Math.exp(-THREE.MathUtils.clamp(delta, -200, 200) / 400),
+        e.clientX - rect.left - rect.width / 2, e.clientY - rect.top - rect.height / 2, rect.height);
+      invalidate();
+    };
+    const pointerCancel = (e: PointerEvent) => planPointers.delete(e.pointerId);
     const up = (e: PointerEvent) => {
+      planPointers.delete(e.pointerId);
       if (
+        (planRotation !== null && planDragged) ||
         Math.hypot(e.clientX - startX, e.clientY - startY) > 5 ||
         e.button !== 0
       )
@@ -520,7 +605,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           ((e.clientX - rect.left) / rect.width) * 2 - 1,
           (-(e.clientY - rect.top) / rect.height) * 2 + 1,
         ),
-        camera,
+        activeCamera(),
       );
       const hits = raycaster.intersectObjects(
         [...meshes.values()].filter((m) => m.visible && m.userData.inScope),
@@ -540,7 +625,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       callbacks.current.onSelect(hit?.object.userData.elementId ?? null);
     };
     renderer.domElement.addEventListener("pointerdown", down);
+    renderer.domElement.addEventListener("pointermove", move);
     renderer.domElement.addEventListener("pointerup", up);
+    renderer.domElement.addEventListener("pointercancel", pointerCancel);
+    renderer.domElement.addEventListener("wheel", wheel, { passive: false });
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
@@ -548,7 +636,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       controls.removeEventListener("start", cancelFit);
       controls.dispose();
       renderer.domElement.removeEventListener("pointerdown", down);
+      renderer.domElement.removeEventListener("pointermove", move);
       renderer.domElement.removeEventListener("pointerup", up);
+      renderer.domElement.removeEventListener("pointercancel", pointerCancel);
+      renderer.domElement.removeEventListener("wheel", wheel);
       scene.traverse((o) => {
         if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
           o.geometry.dispose();
@@ -772,6 +863,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     props.mode,
     props.section,
   ]);
+
+  useEffect(() => {
+    runtime.current?.setPlan(props.cadPlanRotation);
+  }, [props.cadPlanRotation]);
 
   useEffect(() => {
     if (!props.fitRequest) return;

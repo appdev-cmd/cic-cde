@@ -69,7 +69,8 @@ export default function CadDrawings({ canUpload }: { canUpload: boolean }) {
   const [drawings, setDrawings] = useState<CadDrawing[]>([]);
   const [selected, setSelected] = useState<CadDrawing>();
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState<number>();
+  const [progress, setProgress] = useState<{ done: number; total: number; percent: number }>();
+  const [failed, setFailed] = useState<{ file: File; message: string }[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const request = useRef<AbortController>(null);
@@ -93,23 +94,49 @@ export default function CadDrawings({ canUpload }: { canUpload: boolean }) {
     return () => request.current?.abort();
   }, []);
 
-  async function upload(file: File) {
+  async function upload(files: File[]) {
     const current = new AbortController();
     request.current = current;
-    setProgress(0);
+    setProgress({ done: 0, total: files.length, percent: 0 });
+    setFailed([]);
     setMessage("");
     setError("");
-    try {
-      const drawing = await uploadCadDrawing(file, current.signal, (uploaded, total) => {
-        setProgress(Math.floor(100 * uploaded / total));
-      });
-      if (current.signal.aborted) return;
-      setDrawings((previous) => [drawing, ...previous]);
-      setMessage(`Đã tải lên ${drawing.name}.`);
-    } catch (failure) {
-      if (!current.signal.aborted) setError(errorMessage(failure));
-    } finally {
-      if (!current.signal.aborted) setProgress(undefined);
+    const failures: { file: File; message: string }[] = [];
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    let sentBytes = 0;
+    let done = 0;
+    let index = 0;
+    function report() {
+      if (!current.signal.aborted) {
+        setProgress({ done, total: files.length, percent: Math.min(100, Math.floor(100 * sentBytes / (totalBytes || 1))) });
+      }
+    }
+    async function next() {
+      while (index < files.length && !current.signal.aborted) {
+        const file = files[index++];
+        let last = 0;
+        try {
+          const drawing = await uploadCadDrawing(file, current.signal, (uploaded) => {
+            sentBytes += uploaded - last;
+            last = uploaded;
+            report();
+          });
+          if (!current.signal.aborted) setDrawings((previous) => [drawing, ...previous]);
+        } catch (failure) {
+          if (!current.signal.aborted) failures.push({ file, message: errorMessage(failure) });
+        }
+        sentBytes += file.size - last;
+        done++;
+        report();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(files.length, 3) }, () => next()));
+    if (current.signal.aborted) return;
+    setProgress(undefined);
+    setFailed(failures);
+    const count = files.length - failures.length;
+    if (count > 0) {
+      setMessage(files.length === 1 ? `Đã tải lên ${files[0].name}.` : `Đã tải lên ${count}/${files.length} bản vẽ.`);
     }
   }
 
@@ -127,16 +154,24 @@ export default function CadDrawings({ canUpload }: { canUpload: boolean }) {
       {canUpload && (
         <label className="cde-cad-upload">
           Tải bản vẽ lên dự án
-          <input type="file" accept=".dwg,.dxf" disabled={loading || progress !== undefined} onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
+          <input type="file" accept=".dwg,.dxf" multiple disabled={loading || progress !== undefined} onChange={(event) => {
+            const files = Array.from(event.currentTarget.files ?? []);
             event.currentTarget.value = "";
-            if (file) void upload(file);
+            if (files.length) void upload(files);
           }} />
         </label>
       )}
-      {progress !== undefined && <p role="status">Đang tải lên… {progress}%</p>}
+      {progress && <p role="status">Đã xử lý {progress.done}/{progress.total} bản vẽ · {progress.percent}%</p>}
       {message && <p role="status">{message}</p>}
       {error && <p className="cde-message" role="alert">{error}</p>}
+      {failed.length > 0 && (
+        <div className="cde-message" role="alert">
+          <strong>{failed.length} bản vẽ tải lên thất bại</strong>
+          <ul>{failed.map(({ file, message }, index) => <li key={index}>{file.name} · {message}</li>)}</ul>
+          <button type="button" className="button secondary" disabled={loading}
+            onClick={() => void upload(failed.map(({ file }) => file))}>Thử lại các file lỗi</button>
+        </div>
+      )}
       {drawings.length > 0 ? (
         <div className="cde-table">
           <table>

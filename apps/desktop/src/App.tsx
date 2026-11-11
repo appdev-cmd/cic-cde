@@ -1,5 +1,6 @@
 import { useCdeUser, type WorkspaceControls } from "./AuthContext";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CadWindow } from "@qabim/cad-viewer/overlay";
 import {
   Activity,
   ArrowDownToLine,
@@ -45,9 +46,13 @@ import {
   X,
 } from "lucide-react";
 import Viewer from "./Viewer";
+import type { CadOverlayApi } from "./CadOverlay";
+import { defaultCadAlignment, readCadAlignments, type CadAlignment } from "./cadAlignment";
 import { groupByStorey, spaceKey, spaceLabel, storeyLabel } from "./spatial";
 import {
   call,
+  cloudEnabled,
+  desktop,
   importIfc,
   loadWorkspace,
   waitImport,
@@ -63,6 +68,8 @@ import type {
   ViewMode,
   Workspace,
 } from "./types";
+
+const CadOverlay = lazy(() => import("./CadOverlay"));
 
 const issueLabels: Record<IssueState, string> = {
   Open: "Mới",
@@ -120,11 +127,13 @@ type Message = { role: "user" | "assistant"; text: string };
 function ToolButton({
   label,
   active,
+  disabled,
   onClick,
   children,
 }: {
   label: string;
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -133,6 +142,7 @@ function ToolButton({
       title={label}
       aria-label={label}
       aria-pressed={active}
+      disabled={disabled}
       className={`tool-button ${active ? "active" : ""}`}
       onClick={onClick}
     >
@@ -156,6 +166,33 @@ export default function App({ project, account }: WorkspaceControls) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [floor, setFloorValue] = useState("all");
   const [room, setRoom] = useState<string | null>(null);
+  const cadAvailable = cloudEnabled && !desktop && Boolean(projectUser?.projectId);
+  const cadKey = `ciccde.cad-alignments.v1:${projectUser?.projectId}:${projectUser?.username}`;
+  const [cadOpen, setCadOpen] = useState(false);
+  const [cadAlignments, setCadAlignments] = useState(() => cadAvailable ? readCadAlignments(cadKey) : {});
+  const cadAlignment = Object.hasOwn(cadAlignments, floor) ? cadAlignments[floor] : defaultCadAlignment;
+  const canCompareCad = cadAvailable && floor !== "all" && room === null;
+  const cadPlanActive = canCompareCad && cadOpen && nav !== "data";
+  const cadOverlay = useRef<CadOverlayApi>(null);
+  const cadWindow = useRef<CadWindow | null>(null);
+  const syncCadViewport = useCallback((view: CadWindow) => {
+    cadWindow.current = view;
+    cadOverlay.current?.sync(view);
+  }, []);
+  function updateCadAlignment(update: Partial<CadAlignment>) {
+    setCadAlignments((previous) => ({
+      ...previous,
+      [floor]: { ...(Object.hasOwn(previous, floor) ? previous[floor] : defaultCadAlignment), ...update },
+    }));
+  }
+  useEffect(() => {
+    if (!cadAvailable) return;
+    try {
+      localStorage.setItem(cadKey, JSON.stringify(cadAlignments));
+    } catch {
+      // Alignment remains usable for this session when storage is unavailable.
+    }
+  }, [cadAlignments, cadAvailable, cadKey]);
   const [fitRequest, setFitRequest] = useState(0);
   const [expandedStoreys, setExpandedStoreys] = useState<Set<string>>(
     new Set(),
@@ -1079,7 +1116,7 @@ export default function App({ project, account }: WorkspaceControls) {
                 </button>
               </div>
             </div>
-            <div className="viewport">
+            <div className={cadPlanActive ? "viewport cad-plan" : "viewport"}>
               {nav === "data" ? (
                 <div className="data-view">
                   <div className="data-heading">
@@ -1140,11 +1177,19 @@ export default function App({ project, account }: WorkspaceControls) {
                   focusIds={focusIds}
                   focusPoint={focusPoint}
                   mode={mode}
-                  section={section}
+                  section={section && !cadPlanActive}
                   measure={measure}
+                  cadPlanRotation={cadPlanActive ? cadAlignment.rotation : null}
+                  onPlanViewport={syncCadViewport}
                   onSelect={selectElement}
                   onMeasure={handleMeasure}
                 />
+              )}
+              {cadPlanActive && (
+                <Suspense fallback={<p className="cad-overlay-status" role="status">Đang mở đối chiếu CAD…</p>}>
+                  <CadOverlay ref={cadOverlay} alignment={cadAlignment} floor={storeyLabel(floor)}
+                    view={cadWindow} onChange={updateCadAlignment} onClose={() => setCadOpen(false)} />
+                </Suspense>
               )}
               {nav !== "data" && (
                 <>
@@ -1152,7 +1197,7 @@ export default function App({ project, account }: WorkspaceControls) {
                     <span className="green-dot" /> LIVE VIEW <span>·</span>{" "}
                     {scopeLabel}
                   </div>
-                  <div className="orientation">
+                  {!cadPlanActive && <div className="orientation">
                     <button
                       title="Nhìn từ trên"
                       aria-label="Nhìn từ trên"
@@ -1163,7 +1208,7 @@ export default function App({ project, account }: WorkspaceControls) {
                     </button>
                     <span>N</span>
                     <i />
-                  </div>
+                  </div>}
                   <div className="axis">
                     <span className="axis-z">Z</span>
                     <span className="axis-y">Y</span>
@@ -1185,13 +1230,13 @@ export default function App({ project, account }: WorkspaceControls) {
                     >
                       <Focus size={18} />
                     </ToolButton>
-                    <ToolButton
+                    {!cadPlanActive && <ToolButton
                       label="Cắt mô hình tại cao độ 17.8 m"
                       active={section}
                       onClick={() => setSection((v) => !v)}
                     >
                       <Cuboid size={18} />
-                    </ToolButton>
+                    </ToolButton>}
                     <ToolButton
                       label="Đo hai điểm trong mô hình"
                       active={measure}
@@ -1206,12 +1251,22 @@ export default function App({ project, account }: WorkspaceControls) {
                     <ToolButton label="Hiện toàn bộ mô hình" onClick={reset}>
                       <Eye size={18} />
                     </ToolButton>
-                    <ToolButton
+                    {cadAvailable && (
+                      <ToolButton
+                        label={canCompareCad ? "Chồng bản vẽ CAD" : "Chọn một tầng để chồng bản vẽ CAD"}
+                        active={cadPlanActive}
+                        disabled={!canCompareCad}
+                        onClick={() => setCadOpen((open) => !open)}
+                      >
+                        <Layers3 size={18} />
+                      </ToolButton>
+                    )}
+                    {!cadPlanActive && <ToolButton
                       label="Chụp góc nhìn"
                       onClick={() => viewer.current?.capture()}
                     >
                       <Maximize2 size={17} />
-                    </ToolButton>
+                    </ToolButton>}
                   </div>
                   <div className="viewer-hint">
                     {measure ? (
@@ -1221,6 +1276,8 @@ export default function App({ project, account }: WorkspaceControls) {
                           ? "Chọn hai điểm trên cấu kiện"
                           : `${distance.toFixed(3)} m · Chọn tiếp hai điểm mới`}
                       </>
+                    ) : cadPlanActive ? (
+                      <><MousePointer2 size={12} /> Kéo để di chuyển <span>·</span> Cuộn để thu phóng</>
                     ) : (
                       <>
                         <MousePointer2 size={12} /> Kéo để xoay <span>·</span>{" "}

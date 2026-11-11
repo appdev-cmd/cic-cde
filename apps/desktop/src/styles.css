@@ -758,6 +758,97 @@ textarea::placeholder {
 .three-view.measuring {
   cursor: crosshair;
 }
+.cad-plan {
+  isolation: isolate;
+}
+.cad-plan .three-view:not(.measuring) {
+  cursor: grab;
+}
+.cad-plan .three-view:not(.measuring):active {
+  cursor: grabbing;
+}
+.cad-overlay-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.cad-overlay-panel {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  width: min(265px, calc(100% - 24px));
+  max-height: calc(100% - 96px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #d5dee8;
+  border-radius: 8px;
+  background: #fffffff5;
+  color: #263546;
+  box-shadow: 0 6px 18px #4156711a;
+  font-size: 11px;
+}
+.cad-overlay-panel header,
+.cad-overlay-visible {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cad-overlay-panel header {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cad-overlay-panel h2 {
+  margin: 0;
+  font-size: 13px;
+}
+.cad-overlay-panel button,
+.cad-overlay-status button {
+  color: #344c67;
+  text-decoration: underline;
+}
+.cad-overlay-panel label:not(.cad-overlay-visible) {
+  display: grid;
+  gap: 4px;
+}
+.cad-overlay-panel select,
+.cad-overlay-panel input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #d5dee8;
+  border-radius: 5px;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+.cad-overlay-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 9px;
+}
+.cad-overlay-opacity {
+  margin-top: 8px;
+}
+.cad-overlay-panel input[type="range"] {
+  width: 100%;
+}
+.cad-overlay-status {
+  position: absolute;
+  z-index: 2;
+  top: 35px;
+  left: 12px;
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 11px;
+}
 .view-badge {
   position: absolute;
   top: 16px;
