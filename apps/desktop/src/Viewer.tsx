@@ -170,6 +170,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
+      logarithmicDepthBuffer: true,
       preserveDrawingBuffer: true,
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

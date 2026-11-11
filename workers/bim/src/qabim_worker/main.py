@@ -17,6 +17,7 @@ DATA = pathlib.Path(os.environ.get("QABIM_DATA_DIR", str(ROOT / ".local")))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from geometry_cache import ChunkWriter, cache_valid, decode_element, VERSION, SETTINGS
 from federation import run_federation
+from terrain_preview import SVDSP_GRADE_ID, SVDSP_PREVIEW_VERSION, SVDSP_TERRAIN_HASH, pavement_footprint, trim_grade
 
 COLORS = {"STR": "#c7cbd2", "HVAC": "#56a7ae", "PLUM": "#7291ce", "ARC": "#d9cbb8"}
 MAX_PREVIEW_PRODUCTS = 12_000
@@ -35,9 +36,9 @@ def file_hash(path):
         return hashlib.file_digest(file, "sha256").hexdigest()
 
 
-def apply_surface_styles(element, mesh, faces):
+def apply_surface_styles(element, materials, material_ids, faces):
     styles = []
-    for style in mesh.materials:
+    for style in materials:
         color = element["color"]
         rgb = style.get_color()
         channels = (rgb.r(), rgb.g(), rgb.b())
@@ -47,7 +48,6 @@ def apply_surface_styles(element, mesh, faces):
         opacity = round(1 - min(1, max(0, transparency)), 4) if math.isfinite(transparency) else 1
         styles.append((color, opacity))
 
-    material_ids = mesh.material_ids
     if not styles or not faces or len(material_ids) * 3 != len(faces):
         return faces
     fallback = (element["color"], 1)
@@ -78,6 +78,8 @@ def import_model(path: str, display_name=None):
         raise ValueError("IFC STEP files must be at most 500 MB")
     digest=file_hash(source)
     model_id=digest[:16]
+    terrain_preview = digest == SVDSP_TERRAIN_HASH
+    preview_version = SVDSP_PREVIEW_VERSION if terrain_preview else VERSION
     store=DATA/"models"/digest
     store.mkdir(parents=True,exist_ok=True)
     snapshot=store/"source.ifc"
@@ -95,7 +97,7 @@ def import_model(path: str, display_name=None):
     if manifest.exists():
         try:
             result=json.loads(manifest.read_text(encoding="utf-8"))
-            if cache_valid(result,store,ifcopenshell.version):
+            if cache_valid(result,store,ifcopenshell.version,preview_version):
                 result["model"]["name"]=display_name or source.name
                 result["timings"]={"cacheHit":True,"totalMs":(time.perf_counter()-started)*1000}
                 return result
@@ -104,6 +106,7 @@ def import_model(path: str, display_name=None):
     model=ifcopenshell.open(str(snapshot))
     settings=ifcopenshell.geom.settings();settings.set("use-world-coords",True)
     settings.set("apply-default-materials", False)
+    footprint = pavement_footprint(model, settings) if terrain_preview else None
     products=[p for p in model.by_type("IfcProduct") if getattr(p,"Representation",None)]
     if len(products) > MAX_PREVIEW_PRODUCTS:
         raise PreviewLimitError(
@@ -118,6 +121,9 @@ def import_model(path: str, display_name=None):
             while True:
                 shape=iterator.get();product=model.by_id(shape.id)
                 vertices=list(shape.geometry.verts);faces=list(shape.geometry.faces)
+                material_ids = shape.geometry.material_ids
+                if footprint is not None and product.GlobalId == SVDSP_GRADE_ID:
+                    faces, material_ids = trim_grade(vertices, faces, material_ids, footprint)
                 if any(not math.isfinite(v) for v in vertices):
                     raise ValueError("Non-finite geometry coordinates")
                 float_count+=len(vertices)+len(faces)
@@ -130,17 +136,17 @@ def import_model(path: str, display_name=None):
                     "ifcClass":kind,"modelId":model_id,"discipline":discipline,"storey":container.Name if container else "Unassigned",
                     "color":COLORS[discipline],"properties":{"IFC GUID":product.GlobalId,"STEP ID":str(product.id()),
                     "IFC Class":kind,"Name":product.Name or kind,"Schema":model.schema}}
-                faces = apply_surface_styles(element, shape.geometry, faces)
+                faces = apply_surface_styles(element, shape.geometry.materials, material_ids, faces)
                 writer.add(element,vertices,faces);elements.append(element);generated.add(product.id())
                 if not iterator.next():break
     assets=writer.finish()
     failures=[{"stepId":p.id(),"message":"Geometry iterator did not produce this represented product"} for p in products if p.id() not in generated]
     result={"model":{"id":model_id,"name":display_name or source.name,"discipline":"IFC","schema":model.schema,
         "count":len(elements),"hash":digest,"status":"warnings" if failures else "ready","geometryAssets":assets,
-        "renderOrigin":writer.origin or [0,0,0],"previewVersion":VERSION,"transform":{"translation":[0,0,0],"rotationZDegrees":0,"revision":0}},
+        "renderOrigin":writer.origin or [0,0,0],"previewVersion":preview_version,"transform":{"translation":[0,0,0],"rotationZDegrees":0,"revision":0}},
         "elements":elements,"coverage":{"expected":len(products),"generated":len(elements),"failed":failures},
         "coordinateSystem":"IFC world coordinates, metres, Z-up","previewFormat":"QBM1 little-endian chunks",
-        "cacheVersion":VERSION,"engineVersion":ifcopenshell.version,"geometrySettings":SETTINGS,
+        "cacheVersion":preview_version,"engineVersion":ifcopenshell.version,"geometrySettings":SETTINGS,
         "timings":{"cacheHit":False,"totalMs":(time.perf_counter()-started)*1000}}
     staging=store/"preview.staging.json";staging.write_text(json.dumps(result,ensure_ascii=False),encoding="utf-8");staging.replace(manifest)
     return result

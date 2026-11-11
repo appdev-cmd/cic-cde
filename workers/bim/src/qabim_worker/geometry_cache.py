@@ -57,8 +57,8 @@ class ChunkWriter:
         return self.assets
 
 
-def cache_valid(result, store, engine):
-    if result.get("cacheVersion")!=VERSION or result.get("engineVersion")!=engine or result.get("geometrySettings")!=SETTINGS:
+def cache_valid(result, store, engine, preview_version=VERSION):
+    if result.get("cacheVersion")!=preview_version or result.get("engineVersion")!=engine or result.get("geometrySettings")!=SETTINGS:
         return False
     for asset in result["model"].get("geometryAssets",[]):
         path=pathlib.Path(store)/asset["file"]
