@@ -41,3 +41,22 @@ body {
   background: white;
   pointer-events: none;
 }
+
+.cad-overlay-mode.cad-pick-mode {
+  pointer-events: auto;
+}
+
+.cad-pick-marker {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #1d60a1;
+  color: white;
+  text-align: center;
+  line-height: 18px;
+  pointer-events: none;
+}

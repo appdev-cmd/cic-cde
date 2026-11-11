@@ -1,4 +1,4 @@
-import type { CadWindow } from "@qabim/cad-viewer/overlay";
+import type { CadWindow, PlanPick, PlanPoint } from "@qabim/cad-viewer/overlay";
 
 export const cadUnits = { mm: 0.001, cm: 0.01, m: 1, in: 0.0254, ft: 0.3048 } as const;
 export type CadUnit = "auto" | keyof typeof cadUnits;
@@ -9,17 +9,18 @@ export type CadAlignmentValues = {
   y: number;
   rotation: number;
   opacity: number;
+  scale?: number;
 };
 export type CadAlignment = CadAlignmentValues & { visible: boolean };
 export type ProjectCadAlignment = { floor: string; revision: number; alignment: CadAlignmentValues | null };
 
 export const defaultCadAlignment: CadAlignment = {
-  drawing: "", unit: "auto", x: 0, y: 0, rotation: 0, opacity: 0.8, visible: true,
+  drawing: "", unit: "auto", x: 0, y: 0, rotation: 0, opacity: 0.8, scale: 1, visible: true,
 };
 
 export function sameCadAlignment(a: CadAlignmentValues, b: CadAlignmentValues) {
   return a.drawing === b.drawing && a.unit === b.unit && a.x === b.x && a.y === b.y
-    && a.rotation === b.rotation && a.opacity === b.opacity;
+    && a.rotation === b.rotation && a.opacity === b.opacity && (a.scale ?? 1) === (b.scale ?? 1);
 }
 
 const insertionUnitScale: Record<number, number> = {
@@ -33,8 +34,15 @@ export function detectedCadScale(insunits: number) {
   return insertionUnitScale[insunits];
 }
 
+export const minCadScale = 0.000001;
+export const maxCadScale = 1000000;
+
+export function cadUnitScale(unit: CadUnit, detectedScale?: number) {
+  return unit === "auto" ? (detectedScale ?? cadUnits.mm) : cadUnits[unit];
+}
+
 export function toCadWindow(view: CadWindow, alignment: CadAlignment, detectedScale?: number): CadWindow {
-  const scale = alignment.unit === "auto" ? (detectedScale ?? cadUnits.mm) : cadUnits[alignment.unit];
+  const scale = cadUnitScale(alignment.unit, detectedScale) * (alignment.scale ?? 1);
   const radians = alignment.rotation * Math.PI / 180;
   const cos = Math.cos(radians), sin = Math.sin(radians);
   const x = view.centerX - alignment.x;
@@ -47,6 +55,40 @@ export function toCadWindow(view: CadWindow, alignment: CadAlignment, detectedSc
   };
 }
 
+export function ifcPointFromPick({ u, v, view }: PlanPick, rotation: number): PlanPoint {
+  const radians = rotation * Math.PI / 180;
+  const cos = Math.cos(radians), sin = Math.sin(radians);
+  const horizontal = (u - 0.5) * view.width;
+  const vertical = (0.5 - v) * view.height;
+  return { x: view.centerX + cos * horizontal - sin * vertical, y: view.centerY + sin * horizontal + cos * vertical };
+}
+
+export function projectIfcPoint(point: PlanPoint, view: CadWindow, rotation: number) {
+  const radians = rotation * Math.PI / 180;
+  const cos = Math.cos(radians), sin = Math.sin(radians);
+  const x = point.x - view.centerX, y = point.y - view.centerY;
+  return { u: 0.5 + (cos * x + sin * y) / view.width, v: 0.5 - (-sin * x + cos * y) / view.height };
+}
+
+export function alignCadPoints(
+  [cadA, cadB]: readonly [PlanPoint, PlanPoint],
+  [ifcA, ifcB]: readonly [PlanPoint, PlanPoint],
+  unitScale: number,
+): Pick<CadAlignmentValues, "x" | "y" | "rotation" | "scale"> | null {
+  const cadX = cadB.x - cadA.x, cadY = cadB.y - cadA.y;
+  const ifcX = ifcB.x - ifcA.x, ifcY = ifcB.y - ifcA.y;
+  const cadLength = Math.hypot(cadX, cadY), ifcLength = Math.hypot(ifcX, ifcY);
+  const metresPerUnit = ifcLength / cadLength;
+  const scale = metresPerUnit / unitScale;
+  if (!(scale >= minCadScale && scale <= maxCadScale) || ifcLength < 0.000001) return null;
+  const angle = Math.atan2(cadX * ifcY - cadY * ifcX, cadX * ifcX + cadY * ifcY);
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const x = ifcA.x - metresPerUnit * (cos * cadA.x - sin * cadA.y);
+  const y = ifcA.y - metresPerUnit * (sin * cadA.x + cos * cadA.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || Math.max(Math.abs(x), Math.abs(y)) > 1e9) return null;
+  return { x, y, rotation: angle * 180 / Math.PI, scale };
+}
+
 export function readCadAlignments(key: string): Record<string, CadAlignment> {
   try {
     const data: Record<string, CadAlignment> = JSON.parse(localStorage.getItem(key) || "{}");
@@ -54,6 +96,7 @@ export function readCadAlignments(key: string): Record<string, CadAlignment> {
       value && typeof value.drawing === "string" && typeof value.visible === "boolean"
       && (value.unit === "auto" || Object.hasOwn(cadUnits, value.unit))
       && [value.x, value.y, value.rotation, value.opacity].every(Number.isFinite)
+      && (value.scale === undefined || (value.scale >= minCadScale && value.scale <= maxCadScale))
       && value.opacity >= 0 && value.opacity <= 1,
     ));
   } catch {

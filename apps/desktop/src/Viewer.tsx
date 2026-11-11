@@ -5,7 +5,7 @@ import { geometryBuffer, geometryViews } from "./geometry";
 import { CadPlanCamera } from "./cadPlanCamera";
 import { spaceKey } from "./spatial";
 import type { BimModel, BimElement, SectionBounds, SectionCut, ViewerApi, ViewMode } from "./types";
-import type { CadWindow } from "@qabim/cad-viewer/overlay";
+import type { CadWindow, PlanPick } from "@qabim/cad-viewer/overlay";
 
 interface Props {
   loadAttempt: number;
@@ -28,6 +28,7 @@ interface Props {
   measure: boolean;
   cadPlanRotation: number | null;
   onPlanViewport: (view: CadWindow) => void;
+  onPlanPick: (pick: PlanPick) => boolean;
   onSelect: (id: string | null) => void;
   onMeasure: (distance: number) => void;
 }
@@ -661,11 +662,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       )
         return;
       const rect = renderer.domElement.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const u = (e.clientX - rect.left) / rect.width;
+      const v = (e.clientY - rect.top) / rect.height;
+      if (planRotation !== null && u >= 0 && u <= 1 && v >= 0 && v <= 1 &&
+        callbacks.current.onPlanPick({ u, v, view: plan.viewport() })) return;
       raycaster.setFromCamera(
-        new THREE.Vector2(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          (-(e.clientY - rect.top) / rect.height) * 2 + 1,
-        ),
+        new THREE.Vector2(u * 2 - 1, 1 - v * 2),
         activeCamera(),
       );
       const hits = raycaster.intersectObjects(

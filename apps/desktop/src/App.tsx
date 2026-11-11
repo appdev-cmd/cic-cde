@@ -47,7 +47,9 @@ import {
 } from "lucide-react";
 import Viewer from "./Viewer";
 import SectionControls from "./SectionControls";
+import CadDirectory, { type CadFiles } from "./CadDirectory";
 import type { CadOverlayApi } from "./CadOverlay";
+import type { CadDrawing } from "./cadStorage";
 import { useProjectCadAlignment } from "./useProjectCadAlignment";
 import { groupByStorey, spaceKey, spaceLabel, storeyLabel } from "./spatial";
 import {
@@ -73,6 +75,7 @@ import type {
 } from "./types";
 
 const CadOverlay = lazy(() => import("./CadOverlay"));
+const CadFilePreview = lazy(() => import("./CadFilePreview"));
 
 const issueLabels: Record<IssueState, string> = {
   Open: "Mới",
@@ -178,14 +181,36 @@ export default function App({ project, account }: WorkspaceControls) {
   const cadAlignment = cadProject.alignment;
   const canCompareCad = cadAvailable && floor !== "all" && room === null;
   const planView = nav === "plan";
+  const cadDirectoryVisible = planView && cadAvailable;
+  const [cadFiles, setCadFiles] = useState<CadFiles>({ drawings: [], status: "loading" });
+  const [cadFilesReload, setCadFilesReload] = useState(0);
+  const [openCad, setOpenCad] = useState<CadDrawing>();
+  const cadFileView = cadDirectoryVisible ? openCad : undefined;
   const cadOpen = cadMode?.floor !== floor || cadMode.open;
-  const cadPlanActive = planView && canCompareCad && cadOpen;
+  const cadPlanActive = planView && canCompareCad && cadOpen && !cadFileView;
   const cadOverlay = useRef<CadOverlayApi>(null);
   const cadWindow = useRef<CadWindow | null>(null);
   const syncCadViewport = useCallback((view: CadWindow) => {
     cadWindow.current = view;
     cadOverlay.current?.sync(view);
   }, []);
+  function reloadCadFiles() {
+    setCadFilesReload((attempt) => attempt + 1);
+  }
+  useEffect(() => {
+    if (!cadDirectoryVisible) {
+      setOpenCad(undefined);
+      return;
+    }
+    const request = new AbortController();
+    setCadFiles((previous) => ({ ...previous, status: "loading" }));
+    void import("./cadStorage").then(({ listCadDrawings }) => listCadDrawings(request.signal)).then((drawings) => {
+      if (!request.signal.aborted) setCadFiles({ drawings, status: "ready" });
+    }).catch(() => {
+      if (!request.signal.aborted) setCadFiles((previous) => ({ ...previous, status: "error" }));
+    });
+    return () => request.abort();
+  }, [cadDirectoryVisible, cadFilesReload]);
   const [fitRequest, setFitRequest] = useState(0);
   const [expandedStoreys, setExpandedStoreys] = useState<Set<string>>(
     new Set(),
@@ -883,7 +908,7 @@ export default function App({ project, account }: WorkspaceControls) {
           {left && (
             <aside className="model-panel">
               <div className="panel-title">
-                <h2>Mô hình dự án</h2>
+                <h2>{cadDirectoryVisible ? "Mặt bằng dự án" : "Mô hình dự án"}</h2>
                 <button
                   className="icon-button small"
                   title="Thu gọn danh sách"
@@ -893,6 +918,9 @@ export default function App({ project, account }: WorkspaceControls) {
                   <PanelLeftClose size={15} />
                 </button>
               </div>
+              {cadDirectoryVisible ? (
+                <CadDirectory files={cadFiles} selected={cadFileView?.key} onOpen={setOpenCad} onReload={reloadCadFiles} />
+              ) : <>
               <div className="model-search">
                 <Search size={14} />
                 <input
@@ -968,6 +996,7 @@ export default function App({ project, account }: WorkspaceControls) {
                 {importing ? "Đang xử lý IFC..." : "Thêm mô hình IFC"}
                 <span>+</span>
               </button>
+              </>}
               <div className="panel-section-header storey-header">
                 <span>CẤU TRÚC KHÔNG GIAN</span>
               </div>
@@ -1043,7 +1072,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   </li>
                 ))}
               </ul>
-              {search && (
+              {!cadDirectoryVisible && search && (
                 <div className="search-matches">
                   <span>{filteredElements.length} kết quả</span>
                   {filteredElements.slice(0, 8).map((e) => (
@@ -1181,21 +1210,40 @@ export default function App({ project, account }: WorkspaceControls) {
                   measure={measure}
                   cadPlanRotation={planView ? (cadPlanActive ? cadAlignment.rotation : 0) : null}
                   onPlanViewport={syncCadViewport}
+                  onPlanPick={(pick) => cadOverlay.current?.pick(pick) ?? false}
                   onSelect={selectElement}
                   onMeasure={handleMeasure}
                 />
               )}
               {cadPlanActive && (
                 <Suspense fallback={<p className="cad-overlay-status" role="status">Đang mở đối chiếu CAD…</p>}>
-                  <CadOverlay ref={cadOverlay} alignment={cadAlignment} floor={storeyLabel(floor)}
-                    view={cadWindow} project={cadProject.controls}
+                  <CadOverlay key={floor} ref={cadOverlay} alignment={cadAlignment} floor={storeyLabel(floor)}
+                    view={cadWindow} project={cadProject.controls} files={cadFiles} reloadFiles={reloadCadFiles}
                     onChange={(update) => {
                       setCadMode({ floor, open: true });
                       cadProject.update(update);
                     }} onClose={() => setCadMode({ floor, open: false })} />
                 </Suspense>
               )}
-              {nav !== "data" && (
+              {cadFileView && (
+                <section className="cad-file-viewport" aria-label="Trình xem bản vẽ CAD">
+                  <header>
+                    <strong title={cadFileView.name}>{cadFileView.name}</strong>
+                    <button type="button" className="button secondary" onClick={() => setOpenCad(undefined)}>Về mặt bằng IFC</button>
+                    <button type="button" className="button primary" disabled={!canCompareCad}
+                      title={canCompareCad ? undefined : "Chọn một tầng IFC ở cây không gian"}
+                      onClick={() => {
+                        cadProject.update({ drawing: cadFileView.key, visible: true });
+                        setCadMode({ floor, open: true });
+                        setOpenCad(undefined);
+                      }}>Chồng lên tầng IFC</button>
+                  </header>
+                  <Suspense fallback={<p className="cde-cad-loading" role="status">Đang mở bản vẽ…</p>}>
+                    <CadFilePreview key={cadFileView.key} drawing={cadFileView} />
+                  </Suspense>
+                </section>
+              )}
+              {nav !== "data" && !cadFileView && (
                 <>
                   <div className="view-badge">
                     <span className="green-dot" /> LIVE VIEW <span>·</span>{" "}

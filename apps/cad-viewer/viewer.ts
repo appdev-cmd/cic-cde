@@ -1,6 +1,6 @@
 import { AcApDocManager, AcApOpenViewMode, AcEdOpenMode } from "@mlightcad/cad-simple-viewer";
 import { AcDbDatabaseConverterManager, AcDbFileType, AcGeBox2d, acdbHostApplicationServices } from "@mlightcad/data-model";
-import { isCadWindow, type CadWindow } from "./overlay";
+import { isCadWindow, isPlanPoint, type CadWindow, type PlanPoint } from "./overlay";
 import { AcDbLibreDwgConverter } from "@mlightcad/libredwg-converter";
 import "./viewer.css";
 
@@ -16,10 +16,36 @@ function setupOverlay(manager: AcApDocManager) {
   let current: CadWindow | null = null;
   let synced = false;
   let frame = 0;
+  let picking = false;
+  let pickFrame = 0;
+  let down: { id: number; x: number; y: number } | undefined;
+  let points: PlanPoint[] = [];
+  const canvas = document.getElementById("cad-canvas")!;
+  const markers = [1, 2].map((index) => {
+    const marker = document.createElement("span");
+    marker.className = "cad-pick-marker";
+    marker.textContent = String(index);
+    marker.hidden = true;
+    canvas.append(marker);
+    return marker;
+  });
+  const renderMarkers = () => {
+    if (!picking) return;
+    for (const [index, marker] of markers.entries()) {
+      const point = points[index];
+      marker.hidden = !point;
+      if (point) {
+        const pixel = view.worldToScreen(point);
+        marker.style.left = `${pixel.x}px`;
+        marker.style.top = `${pixel.y}px`;
+      }
+    }
+    pickFrame = requestAnimationFrame(renderMarkers);
+  };
   const apply = () => {
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
-      if (!current) return;
+      if (!current || picking) return;
       const { centerX, centerY, width, height } = current;
       view.zoomTo(new AcGeBox2d(
         { x: centerX - width / 2, y: centerY - height / 2 },
@@ -33,9 +59,44 @@ function setupOverlay(manager: AcApDocManager) {
   };
   window.addEventListener("message", (event) => {
     if (event.origin !== origin || event.source !== window.parent) return;
+    if (event.data?.type === "cde-cad-pick-mode") {
+      const next = event.data.active === true;
+      points = Array.isArray(event.data.points) ? event.data.points.slice(0, 2).filter(isPlanPoint) : [];
+      if (next === picking) return;
+      picking = next;
+      down = undefined;
+      document.body.classList.toggle("cad-pick-mode", picking);
+      cancelAnimationFrame(pickFrame);
+      if (picking) {
+        view.zoomToFitDrawing();
+        renderMarkers();
+      } else {
+        for (const marker of markers) marker.hidden = true;
+        apply();
+      }
+      return;
+    }
     if (event.data?.type !== "cde-cad-overlay-window" || !isCadWindow(event.data.window)) return;
     current = event.data.window;
     apply();
+  });
+  canvas.addEventListener("pointerdown", (event) => {
+    if (picking && event.isPrimary && event.button === 0) {
+      down = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    }
+  });
+  canvas.addEventListener("pointerup", (event) => {
+    if (!down || down.id !== event.pointerId) return;
+    const start = down;
+    down = undefined;
+    if (!picking || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return;
+    const rect = canvas.getBoundingClientRect();
+    const point = view.screenToWorld({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+    window.parent.postMessage({ type: "cde-cad-pick-point", point: { x: point.x, y: point.y } }, origin);
+  });
+  canvas.addEventListener("pointercancel", () => { down = undefined; });
+  window.addEventListener("keydown", (event) => {
+    if (picking && event.key === "Escape") window.parent.postMessage({ type: "cde-cad-pick-cancel" }, origin);
   });
   window.addEventListener("resize", apply);
   window.parent.postMessage({ type: "cde-cad-overlay-ready", units: database.insunits }, origin);

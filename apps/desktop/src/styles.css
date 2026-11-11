@@ -761,6 +761,81 @@ textarea::placeholder {
 .cad-plan {
   isolation: isolate;
 }
+.cad-directory > p {
+  margin: 8px 12px;
+  font-size: 11px;
+}
+.cad-directory-folders {
+  max-height: 36vh;
+  overflow: auto;
+  padding: 0 8px;
+}
+.cad-directory-folders summary,
+.cad-directory-folders button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  padding: 6px 4px;
+  color: #344c67;
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+}
+.cad-directory-folders summary::before {
+  content: "▸";
+}
+.cad-directory-folders details[open] > summary::before {
+  content: "▾";
+}
+.cad-directory-folders summary small {
+  margin-left: auto;
+}
+.cad-directory-folders ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 15px;
+}
+.cad-directory-folders button[aria-pressed="true"],
+.cad-directory-folders button:hover {
+  background: #eaf3fb;
+}
+.cad-directory-folders button > svg {
+  flex: none;
+}
+.cad-directory-folders button span,
+.cad-file-viewport header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cad-file-viewport {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+.cad-file-viewport header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e1e6ec;
+}
+.cad-file-viewport header strong {
+  flex: 1;
+  min-width: 110px;
+}
+.cad-file-viewport iframe {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+}
 .cad-plan .three-view:not(.measuring) {
   cursor: grab;
 }
@@ -775,6 +850,39 @@ textarea::placeholder {
   border: 0;
   pointer-events: none;
   mix-blend-mode: multiply;
+}
+.cad-overlay-frame.cad-overlay-picking {
+  pointer-events: auto;
+  mix-blend-mode: normal;
+  z-index: 1;
+}
+.cad-plan:has(.cad-calibration-active) .three-view {
+  cursor: crosshair;
+}
+.ifc-pick-marker {
+  position: absolute;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #1d60a1;
+  color: white;
+  text-align: center;
+  line-height: 18px;
+  font-size: 11px;
+  pointer-events: none;
+}
+.cad-calibration-active {
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 5px;
+  background: #eaf3fb;
+}
+.cad-overlay-panel .cad-calibrate-button {
+  margin-bottom: 8px;
+  text-decoration: none;
 }
 .cad-overlay-panel {
   position: absolute;

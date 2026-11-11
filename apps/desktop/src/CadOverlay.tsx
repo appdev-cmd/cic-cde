@@ -1,24 +1,40 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObject } from "react";
-import type { CadWindow } from "@qabim/cad-viewer/overlay";
-import { cadUnits, detectedCadScale, toCadWindow, type CadAlignment, type CadUnit } from "./cadAlignment";
-import { downloadCadDrawing, listCadDrawings, type CadDrawing } from "./cadStorage";
+import { isPlanPoint, type CadWindow, type PlanPick, type PlanPoint } from "@qabim/cad-viewer/overlay";
+import {
+  alignCadPoints, cadUnits, cadUnitScale, detectedCadScale, ifcPointFromPick, maxCadScale,
+  minCadScale, projectIfcPoint, toCadWindow, type CadAlignment, type CadUnit,
+} from "./cadAlignment";
+import { downloadCadDrawing, type CadDrawing } from "./cadStorage";
+import type { CadFiles } from "./CadDirectory";
 import type { CadProjectControls } from "./useProjectCadAlignment";
 
-export type CadOverlayApi = { sync(view: CadWindow): void };
+export type CadOverlayApi = { sync(view: CadWindow): void; pick(point: PlanPick): boolean };
+type CadLayerApi = Pick<CadOverlayApi, "sync">;
+type PickStage = "cad" | "ifc" | null;
+type CadReader = { drawing: string; unitScale?: number };
+type Calibration = { cad: PlanPoint[]; ifc: PlanPoint[] };
+const noPoints: PlanPoint[] = [];
 
 type LayerProps = {
-  ref: Ref<CadOverlayApi>;
+  ref: Ref<CadLayerApi>;
   drawing: CadDrawing;
   alignment: CadAlignment;
   view: RefObject<CadWindow | null>;
+  stage: PickStage;
+  points: PlanPoint[];
+  onPoint: (point: PlanPoint) => void;
+  onCancel: () => void;
+  onReady: (reader: CadReader | null) => void;
 };
 
-function CadLayer({ ref, drawing, alignment, view }: LayerProps) {
+function CadLayer({ ref, drawing, alignment, view, stage, points, onPoint, onCancel, onReady }: LayerProps) {
   const frame = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
   const detectedScale = useRef<number>(undefined);
   const latest = useRef(alignment);
   latest.current = alignment;
+  const callbacks = useRef({ onPoint, onCancel, onReady });
+  callbacks.current = { onPoint, onCancel, onReady };
   const [file, setFile] = useState<Blob>();
   const [synced, setSynced] = useState(false);
   const [error, setError] = useState("");
@@ -43,8 +59,18 @@ function CadLayer({ ref, drawing, alignment, view }: LayerProps) {
         ready.current = true;
         if (view.current) sync(view.current);
       }
-      if (event.data?.type === "cde-cad-overlay-synced") setSynced(true);
-      if (event.data?.type === "cde-cad-error") setError("Không thể mở bản vẽ CAD để chồng lên IFC.");
+      if (event.data?.type === "cde-cad-overlay-synced") {
+        setSynced(true);
+        callbacks.current.onReady({ drawing: drawing.key, unitScale: detectedScale.current });
+      }
+      if (event.data?.type === "cde-cad-pick-point" && isPlanPoint(event.data.point)) {
+        callbacks.current.onPoint(event.data.point);
+      }
+      if (event.data?.type === "cde-cad-pick-cancel") callbacks.current.onCancel();
+      if (event.data?.type === "cde-cad-error") {
+        callbacks.current.onReady(null);
+        setError("Không thể mở bản vẽ CAD để chồng lên IFC.");
+      }
     }
     window.addEventListener("message", receive);
     void downloadCadDrawing(drawing, request.signal).then((blob) => {
@@ -64,6 +90,13 @@ function CadLayer({ ref, drawing, alignment, view }: LayerProps) {
   }, [alignment, view]);
 
   useEffect(() => {
+    if (!synced) return;
+    frame.current?.contentWindow?.postMessage({
+      type: "cde-cad-pick-mode", active: stage === "cad", points,
+    }, location.origin);
+  }, [points, stage, synced]);
+
+  useEffect(() => {
     if (!file || synced || error) return;
     const timer = window.setTimeout(() => setError("Trình xem mất quá nhiều thời gian để mở bản vẽ."), 60_000);
     return () => window.clearTimeout(timer);
@@ -74,12 +107,12 @@ function CadLayer({ ref, drawing, alignment, view }: LayerProps) {
       {file && !error && (
         <iframe
           ref={frame}
-          className="cad-overlay-frame"
+          className={stage === "cad" ? "cad-overlay-frame cad-overlay-picking" : "cad-overlay-frame"}
           src={import.meta.env.BASE_URL + "cad-viewer.html"}
           title={`Lớp CAD ${drawing.name}`}
-          aria-hidden="true"
+          aria-hidden={stage !== "cad"}
           tabIndex={-1}
-          style={{ opacity: synced && alignment.visible ? alignment.opacity : 0 }}
+          style={{ opacity: stage === "cad" ? 1 : synced && stage !== "ifc" && alignment.visible ? alignment.opacity : 0 }}
           onLoad={() => frame.current?.contentWindow?.postMessage({
             type: "cde-cad-overlay-open", file, format: drawing.format,
           }, location.origin)}
@@ -99,13 +132,13 @@ function CadLayer({ ref, drawing, alignment, view }: LayerProps) {
   );
 }
 
-function OffsetInput({ label, value, onChange, limit }: {
-  label: string; value: number; onChange: (value: number) => void; limit: number;
+function OffsetInput({ label, value, onChange, limit, minimum = -limit }: {
+  label: string; value: number; onChange: (value: number) => void; limit: number; minimum?: number;
 }) {
   return (
     <label>
       {label}
-      <input type="number" step="any" min={-limit} max={limit} defaultValue={value} key={value}
+      <input type="number" step="any" min={minimum} max={limit} defaultValue={value} key={value}
         onBlur={(event) => {
           const input = event.currentTarget;
           if (input.validity.valid && Number.isFinite(input.valueAsNumber)) onChange(input.valueAsNumber);
@@ -119,36 +152,106 @@ function OffsetInput({ label, value, onChange, limit }: {
   );
 }
 
-export default function CadOverlay({ ref, alignment, floor, view, project, onChange, onClose }: {
+export default function CadOverlay({ ref, alignment, floor, view, project, files, reloadFiles, onChange, onClose }: {
   ref: Ref<CadOverlayApi>;
   alignment: CadAlignment;
   floor: string;
   view: RefObject<CadWindow | null>;
   project: CadProjectControls;
+  files: CadFiles;
+  reloadFiles: () => void;
   onChange: (update: Partial<CadAlignment>) => void;
   onClose: () => void;
 }) {
-  const [drawings, setDrawings] = useState<CadDrawing[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [retry, setRetry] = useState(0);
+  const { drawings, status } = files;
   const drawing = drawings.find((item) => item.key === alignment.drawing);
+  const layer = useRef<CadLayerApi>(null);
+  const [reader, setReader] = useState<CadReader | null>(null);
+  const calibration = useRef<Calibration>(null);
+  const [picks, setPicks] = useState<Calibration | null>(null);
+  const [markerView, setMarkerView] = useState<CadWindow | null>(null);
+  const [pickError, setPickError] = useState("");
+  const [preview, setPreview] = useState(false);
+  const stage: PickStage = !picks ? null : picks.cad.length < 2 ? "cad" : "ifc";
+
+  function setCalibration(next: Calibration | null) {
+    calibration.current = next;
+    setPicks(next);
+  }
+
+  function cancelCalibration() {
+    setCalibration(null);
+    setPickError("");
+  }
+
+  function collectCad(point: PlanPoint) {
+    const current = calibration.current;
+    if (!current || current.cad.length >= 2) return;
+    const first = current.cad[0];
+    if (first && Math.hypot(first.x - point.x, first.y - point.y) < 1e-9) {
+      setPickError("Chọn điểm CAD thứ hai ở vị trí khác điểm thứ nhất.");
+      return;
+    }
+    setPickError("");
+    setCalibration({ ...current, cad: [...current.cad, point] });
+  }
+
+  function collectIfc(pick: PlanPick) {
+    const current = calibration.current;
+    if (!current) return false;
+    if (current.cad.length !== 2) return true;
+    const point = ifcPointFromPick(pick, alignment.rotation);
+    const first = current.ifc[0];
+    setMarkerView(pick.view);
+    if (!first) {
+      setCalibration({ ...current, ifc: [point] });
+      return true;
+    }
+    const result = alignCadPoints([current.cad[0], current.cad[1]], [first, point],
+      cadUnitScale(alignment.unit, reader?.unitScale));
+    if (!result) {
+      setPickError("Không tính được phép căn. Chọn điểm IFC thứ hai ở xa hơn hoặc kiểm tra đơn vị CAD.");
+      return true;
+    }
+    cancelCalibration();
+    onChange({ ...result, visible: true });
+    setPreview(true);
+    return true;
+  }
+
+  useImperativeHandle(ref, () => ({
+    sync(window) {
+      layer.current?.sync(window);
+      if (calibration.current?.ifc.length) setMarkerView(window);
+    },
+    pick: collectIfc,
+  }));
 
   useEffect(() => {
-    const request = new AbortController();
-    void listCadDrawings(request.signal).then((result) => {
-      if (!request.signal.aborted) {
-        setDrawings(result);
-        setStatus("ready");
-      }
-    }).catch(() => {
-      if (!request.signal.aborted) setStatus("error");
-    });
-    return () => request.abort();
-  }, [retry]);
+    cancelCalibration();
+    setPreview(false);
+  }, [alignment.drawing]);
+
+  useEffect(() => {
+    if (!stage) return;
+    function keydown(event: KeyboardEvent) {
+      if (event.key === "Escape") cancelCalibration();
+    }
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [stage]);
 
   return (
     <>
-      {drawing && <CadLayer key={drawing.key} ref={ref} drawing={drawing} alignment={alignment} view={view} />}
+      {drawing && (
+        <CadLayer key={drawing.key} ref={layer} drawing={drawing} alignment={alignment} view={view}
+          stage={stage} points={picks?.cad ?? noPoints} onPoint={collectCad} onCancel={cancelCalibration} onReady={setReader} />
+      )}
+      {stage === "ifc" && markerView && picks?.ifc.map((point, index) => {
+        const { u, v } = projectIfcPoint(point, markerView, alignment.rotation);
+        return <span className="ifc-pick-marker" key={index} aria-hidden="true"
+          style={{ left: `${u * 100}%`, top: `${v * 100}%` }}>{index + 1}</span>;
+      })}
       <section className="cad-overlay-panel" aria-labelledby="cad-overlay-title">
         <header>
           <h2 id="cad-overlay-title">Đối chiếu CAD · {floor}</h2>
@@ -156,12 +259,29 @@ export default function CadOverlay({ ref, alignment, floor, view, project, onCha
         </header>
         {status === "loading" && <p role="status">Đang tải danh sách bản vẽ…</p>}
         {status === "error" && <p role="alert">
-          Không tải được danh sách. <button type="button" onClick={() => {
-            setStatus("loading");
-            setRetry((attempt) => attempt + 1);
-          }}>Thử lại</button>
+          Không tải được danh sách. <button type="button" onClick={reloadFiles}>Thử lại</button>
         </p>}
-        <fieldset disabled={project.saving}>
+        {stage && (
+          <div className="cad-calibration-active">
+            <strong role="status">{stage === "cad" ? `CAD · Chọn điểm ${(picks?.cad.length ?? 0) + 1}` :
+              `IFC · Chọn điểm ${(picks?.ifc.length ?? 0) + 1}`}</strong>
+            <p>{stage === "cad" ? "Cuộn để thu phóng, kéo bằng nút giữa để di chuyển." :
+              "Chọn các điểm tương ứng theo đúng thứ tự trên CAD."}</p>
+            {pickError && <p role="alert">{pickError}</p>}
+            <button type="button" onClick={cancelCalibration}>Hủy căn chỉnh</button>
+          </div>
+        )}
+        {!stage && project.canEdit && drawing && (
+          <button type="button" className="button secondary cad-calibrate-button"
+            disabled={reader?.drawing !== drawing.key || project.saving || project.loading}
+            onClick={() => {
+              setPreview(false);
+              setMarkerView(view.current);
+              setCalibration({ cad: [], ifc: [] });
+            }}>Căn bằng 2 điểm</button>
+        )}
+        {!stage && preview && project.dirty && <p role="status">Đã căn bằng 2 điểm. Kiểm tra lớp chồng rồi lưu vào dự án.</p>}
+        <fieldset disabled={project.saving || Boolean(stage)}>
         {status === "ready" && (
           <label>
             Bản vẽ của tầng
@@ -188,6 +308,8 @@ export default function CadOverlay({ ref, alignment, floor, view, project, onCha
                 onChange={(rotation) => onChange({ rotation })} />
               <OffsetInput label="Dịch X (m)" value={alignment.x} limit={1e9} onChange={(x) => onChange({ x })} />
               <OffsetInput label="Dịch Y (m)" value={alignment.y} limit={1e9} onChange={(y) => onChange({ y })} />
+              <OffsetInput label="Hệ số tỷ lệ" value={alignment.scale ?? 1} minimum={minCadScale} limit={maxCadScale}
+                onChange={(scale) => onChange({ scale })} />
             </div>
             <label className="cad-overlay-opacity">
               Độ đậm CAD
@@ -218,7 +340,7 @@ export default function CadOverlay({ ref, alignment, floor, view, project, onCha
             </p>
           )}
           {project.canEdit && (
-            <button type="button" className="button primary" disabled={!project.canSave}
+            <button type="button" className="button primary" disabled={!project.canSave || Boolean(stage)}
               onClick={() => void project.save()}>Lưu vào dự án</button>
           )}
         </footer>
