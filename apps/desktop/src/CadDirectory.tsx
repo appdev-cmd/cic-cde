@@ -191,7 +191,6 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
       event.dataTransfer.setData(cadDragType, drawing.key);
       dragSource.current = drawing;
       setDragged(drawing);
-      setFeedback(undefined);
     },
     end: endDrag,
     over(event, folderId) {
@@ -216,11 +215,18 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
       setChoosing(drawing);
     },
   } : undefined;
+  const dropAtRoot = Boolean(drawingActions?.dragged?.folderId);
 
   return (
     <section className="cad-directory" aria-label="Cây bản vẽ CAD">
       <div className="panel-section-header">
-        <span>BẢN VẼ CAD</span>
+        <span className="cad-directory-title" data-cad-root-drop={dropAtRoot || undefined}
+          data-cad-drop-active={target === rootDropTarget ? true : undefined}
+          onDragOver={dropAtRoot ? (event) => drawingActions?.over(event, null) : undefined}
+          onDragLeave={dropAtRoot ? (event) => drawingActions?.leave(event, rootDropTarget) : undefined}
+          onDrop={dropAtRoot ? (event) => drawingActions?.drop(event, null) : undefined}>
+          {dropAtRoot ? "Thả vào thư mục gốc" : "BẢN VẼ CAD"}
+        </span>
         <div className="cad-directory-actions">
           {canManage && <button type="button" aria-label="Tạo thư mục CAD" title="Tạo thư mục CAD"
             disabled={files.status !== "ready"} onClick={() => setEditing(null)}><FolderPlus size={15} /></button>}
@@ -243,14 +249,6 @@ export default function CadDirectory({ files, selected, canManage, onOpen, onRel
         <p>Tải DWG/DXF lên tại <a href="?cde=1">Hồ sơ CDE</a>.</p>}
       {files.status === "ready" && term && tree.folders.size === 0 &&
         <p>Không có bản vẽ hoặc thư mục phù hợp.</p>}
-      {drawingActions?.dragged?.folderId && (
-        <div className="cad-root-drop" data-cad-drop-active={target === rootDropTarget ? true : undefined}
-          onDragOver={(event) => drawingActions.over(event, null)}
-          onDragLeave={(event) => drawingActions.leave(event, rootDropTarget)}
-          onDrop={(event) => drawingActions.drop(event, null)}>
-          <Folder size={14} /> Thả vào thư mục gốc
-        </div>
-      )}
       <div className="cad-directory-folders">
         <ul key={term}>
           {[...tree.folders].sort(([, a], [, b]) => cadNames.compare(a.name, b.name)).map(([key, folder]) => (

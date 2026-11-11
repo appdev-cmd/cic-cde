@@ -916,16 +916,18 @@ textarea::placeholder {
 .cad-directory-folders [data-cad-dragging] {
   opacity: 0.55;
 }
-.cad-root-drop {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 4px 8px;
-  padding: 6px;
-  border: 1px dashed #819ab6;
+.cad-directory-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cad-directory [data-cad-root-drop] {
+  outline: 1px dashed #819ab6;
+  outline-offset: 2px;
   border-radius: 4px;
   color: #344c67;
-  font-size: 11px;
 }
 .cad-directory [data-cad-drop-active] {
   background: #dceeff;
