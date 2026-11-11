@@ -164,9 +164,13 @@ def process(job_id: UUID, request: Request):
                     source = folder / 'source.ifc'
                     cloud.download(inputs['path'], source)
                     result = run_worker(cloud, job_id, folder, 'model.import', {'path': str(source), 'name': inputs['name']}, deadline)
+                    uploaded_assets = set()
                     for asset in result['model']['geometryAssets']:
                         asset['storagePath'] = f"{cloud.project}/jobs/{job_id}/{job['leaseId']}/{asset['id']}.qbm"
+                        if asset['id'] in uploaded_assets:
+                            continue
                         cloud.upload_geometry(asset['storagePath'], folder / 'models' / result['model']['hash'] / asset['file'])
+                        uploaded_assets.add(asset['id'])
                 else:
                     ids = list(set(inputs['modelIdsA'] + inputs['modelIdsB']))
                     if len(ids) > 12:
