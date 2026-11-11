@@ -46,6 +46,7 @@ import {
   X,
 } from "lucide-react";
 import Viewer from "./Viewer";
+import SectionControls from "./SectionControls";
 import type { CadOverlayApi } from "./CadOverlay";
 import { useProjectCadAlignment } from "./useProjectCadAlignment";
 import { groupByStorey, spaceKey, spaceLabel, storeyLabel } from "./spatial";
@@ -64,6 +65,8 @@ import type {
   CoordinationIssue,
   IssueState,
   Finding,
+  SectionBounds,
+  SectionCut,
   ViewerApi,
   ViewMode,
   Workspace,
@@ -206,7 +209,8 @@ export default function App({ project, account }: WorkspaceControls) {
   );
   const [focusIds, setFocusIds] = useState<string[]>([]);
   const [mode, setMode] = useState<ViewMode>("solid");
-  const [section, setSection] = useState(false);
+  const [section, setSection] = useState<SectionCut | null>(null);
+  const [sectionBounds, setSectionBounds] = useState<SectionBounds | null>(null);
   const [measure, setMeasure] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -471,7 +475,7 @@ export default function App({ project, account }: WorkspaceControls) {
     setFocusIds([]);
     setFinding(null);
     setSelected(null);
-    setSection(false);
+    setSection(null);
     setMeasure(false);
     setMode("solid");
     setTimeout(() => viewer.current?.fit(), 0);
@@ -1172,7 +1176,8 @@ export default function App({ project, account }: WorkspaceControls) {
                   focusIds={focusIds}
                   focusPoint={focusPoint}
                   mode={mode}
-                  section={section && !planView}
+                  section={planView ? null : section}
+                  onSectionBoundsChange={setSectionBounds}
                   measure={measure}
                   cadPlanRotation={planView ? (cadPlanActive ? cadAlignment.rotation : 0) : null}
                   onPlanViewport={syncCadViewport}
@@ -1196,6 +1201,9 @@ export default function App({ project, account }: WorkspaceControls) {
                     <span className="green-dot" /> LIVE VIEW <span>·</span>{" "}
                     {scopeLabel}
                   </div>
+                  {section && !planView && (
+                    <SectionControls cut={section} bounds={sectionBounds} onChange={setSection} />
+                  )}
                   {!planView && <div className="orientation">
                     <button
                       title="Nhìn từ trên"
@@ -1230,9 +1238,12 @@ export default function App({ project, account }: WorkspaceControls) {
                       <Focus size={18} />
                     </ToolButton>
                     {!planView && <ToolButton
-                      label="Cắt mô hình tại cao độ 17.8 m"
-                      active={section}
-                      onClick={() => setSection((v) => !v)}
+                      label="Cắt mô hình"
+                      active={section !== null}
+                      onClick={() => {
+                        setSection((current) => current ? null : { axis: "z", position: 0.5, flipped: false });
+                        setDistance(null);
+                      }}
                     >
                       <Cuboid size={18} />
                     </ToolButton>}

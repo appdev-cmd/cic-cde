@@ -982,6 +982,54 @@ textarea::placeholder {
   background: #a3b79d;
   transform: rotate(-30deg);
 }
+.section-controls {
+  position: absolute;
+  top: 35px;
+  left: 14px;
+  width: min(226px, calc(100% - 28px));
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce5ed;
+  border-radius: 8px;
+  background: #fffffff5;
+  color: #34475a;
+  box-shadow: 0 6px 18px #41567114;
+  font-size: 11px;
+}
+.section-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.section-controls select,
+.section-controls button {
+  min-height: 29px;
+  padding: 3px 6px;
+  border: 1px solid #dce5ed;
+  border-radius: 5px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+.section-controls button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.section-controls-reading output {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.section-controls input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.section-controls-side {
+  color: #65788b;
+  font-size: 10px;
+}
 .viewer-toolbar {
   position: absolute;
   left: 50%;

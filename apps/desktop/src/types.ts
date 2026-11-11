@@ -85,6 +85,9 @@ export interface Workspace {
   synthetic: boolean;
 }
 export type ViewMode = "solid" | "xray" | "wireframe";
+export type SectionAxis = "x" | "y" | "z";
+export type SectionCut = { axis: SectionAxis; position: number; flipped: boolean };
+export type SectionBounds = Record<SectionAxis, [min: number, max: number]>;
 export interface ViewerApi {
   cancelLoad(): void;
   fit(): void;

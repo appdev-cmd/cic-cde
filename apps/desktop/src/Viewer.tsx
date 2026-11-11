@@ -4,7 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { geometryBuffer, geometryViews } from "./geometry";
 import { CadPlanCamera } from "./cadPlanCamera";
 import { spaceKey } from "./spatial";
-import type { BimModel, BimElement, ViewerApi, ViewMode } from "./types";
+import type { BimModel, BimElement, SectionBounds, SectionCut, ViewerApi, ViewMode } from "./types";
 import type { CadWindow } from "@qabim/cad-viewer/overlay";
 
 interface Props {
@@ -23,7 +23,8 @@ interface Props {
   focusIds: string[];
   focusPoint: [number, number, number] | null;
   mode: ViewMode;
-  section: boolean;
+  section: SectionCut | null;
+  onSectionBoundsChange: (bounds: SectionBounds | null) => void;
   measure: boolean;
   cadPlanRotation: number | null;
   onPlanViewport: (view: CadWindow) => void;
@@ -46,9 +47,12 @@ interface Runtime {
   group: THREE.Group;
   marker: THREE.Mesh;
   meshes: Map<string, THREE.Mesh>;
+  sectionPlanes: THREE.Plane[];
   selectionFade: SelectionFade | null;
   prepareSelectionFade: (props: Props) => void;
   setPlan: (rotation: number | null) => void;
+  setSection: (section: SectionCut | null) => void;
+  updateSectionBounds: () => void;
   activeCamera: () => THREE.PerspectiveCamera | THREE.OrthographicCamera;
   fit: (mode?: "selection") => void;
   cancelFit: () => void;
@@ -57,7 +61,6 @@ interface Runtime {
 
 function applyAppearance(r: Runtime, props: Props) {
   r.prepareSelectionFade(props);
-  const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
   const models = new Map(props.models.map((model) => [model.id, model]));
   const elements = new Map(props.elements.map((element) => [element.id, element]));
   for (const mesh of r.meshes.values()) {
@@ -66,7 +69,7 @@ function applyAppearance(r: Runtime, props: Props) {
       mesh.userData.storey = element.storey;
       mesh.userData.spaceKey = spaceKey(element);
     }
-    styleMesh(r, mesh, props, models.get(mesh.userData.modelId), plane);
+    styleMesh(r, mesh, props, models.get(mesh.userData.modelId));
   }
   r.renderer.shadowMap.needsUpdate = true;
   r.invalidate();
@@ -119,7 +122,7 @@ function updateSelectionFade(r: Runtime, progress: number) {
   r.invalidate();
 }
 
-function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel | undefined, plane: THREE.Plane) {
+function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel | undefined) {
   const id = mesh.userData.elementId;
   const origin = mesh.userData.relativeGeometry
     ? (model?.renderOrigin ?? [0, 0, 0])
@@ -156,23 +159,17 @@ function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel |
     material.wireframe = props.mode === "wireframe";
     material.userData.baseOpacity = props.mode === "xray" ? (highlight ? 1 : xrayOpacity) : surfaceOpacity;
     applyMaterialOpacity(material, opacity, fading);
-    material.clippingPlanes = props.section ? [plane] : [];
-    if (
-      material.userData.mode !== props.mode ||
-      material.userData.section !== props.section
-    ) {
+    if (material.userData.mode !== props.mode) {
       material.needsUpdate = true;
-      Object.assign(material.userData, {
-        mode: props.mode,
-        section: props.section,
-      });
+      material.userData.mode = props.mode;
     }
   }
 }
 
-function surfaceMaterial(color: string, opacity?: number) {
+function surfaceMaterial(planes: THREE.Plane[], color: string, opacity?: number) {
   const material = new THREE.MeshStandardMaterial({
     color, roughness: 0.82, metalness: 0, side: THREE.DoubleSide,
+    clippingPlanes: planes, clipShadows: true,
   });
   material.userData = { surfaceColor: color, surfaceOpacity: opacity };
   return material;
@@ -273,7 +270,27 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     renderer.shadowMap.needsUpdate = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.localClippingEnabled = true;
+    const sectionPlane = new THREE.Plane();
+    const sectionPlanes = [sectionPlane];
+    let sectionBounds: SectionBounds | null = null;
+    let sectionComponent = 1;
+    let sectionCoordinate = 0;
+    const setSection = (section: SectionCut | null) => {
+      renderer.localClippingEnabled = Boolean(section && sectionBounds);
+      if (section && sectionBounds) {
+        const [min, max] = sectionBounds[section.axis];
+        const coordinate = THREE.MathUtils.lerp(min, max, section.position);
+        // IFC is Z-up. The model group rotates it to world Y-up and maps IFC Y to -Z.
+        sectionComponent = section.axis === "x" ? 0 : section.axis === "y" ? 2 : 1;
+        const axisDirection = section.axis === "y" ? -1 : 1;
+        sectionCoordinate = coordinate * axisDirection;
+        const normal = (section.flipped ? 1 : -1) * axisDirection;
+        sectionPlane.normal.set(0, 0, 0).setComponent(sectionComponent, normal);
+        sectionPlane.constant = -normal * sectionCoordinate;
+      }
+      renderer.shadowMap.needsUpdate = true;
+      invalidate();
+    };
     host.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -312,6 +329,35 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     group.rotation.x = -Math.PI / 2;
     scene.add(group);
     const meshes = new Map<string, THREE.Mesh>();
+    const getScopeBounds = (clip: boolean) => {
+      const bounds = new THREE.Box3();
+      const box = new THREE.Box3();
+      const keepHigher = sectionPlane.normal.getComponent(sectionComponent) > 0;
+      for (const mesh of meshes.values()) {
+        if (!mesh.userData.inScope) continue;
+        box.setFromObject(mesh);
+        if (clip) {
+          if (keepHigher) {
+            box.min.setComponent(sectionComponent, Math.max(sectionCoordinate, box.min.getComponent(sectionComponent)));
+          } else {
+            box.max.setComponent(sectionComponent, Math.min(sectionCoordinate, box.max.getComponent(sectionComponent)));
+          }
+        }
+        if (!box.isEmpty()) bounds.union(box);
+      }
+      return bounds;
+    };
+    const updateSectionBounds = () => {
+      if (!callbacks.current.section) return;
+      const { min, max } = getScopeBounds(false);
+      sectionBounds = Number.isFinite(min.x) ? {
+        x: [min.x, max.x],
+        y: [-max.z, -min.z],
+        z: [min.y, max.y],
+      } : null;
+      setSection(callbacks.current.section);
+      callbacks.current.onSectionBoundsChange(sectionBounds);
+    };
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const fitDuration = 400;
     const easedProgress = (now: number, startedAt: number) => {
@@ -366,10 +412,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const fit = (mode?: "selection") => {
       if (mode !== "selection") cancelFit();
       const fade = r.selectionFade;
-      const bounds = new THREE.Box3();
-      for (const mesh of meshes.values()) {
-        if (mesh.userData.inScope) bounds.union(new THREE.Box3().setFromObject(mesh));
-      }
+      const bounds = getScopeBounds(renderer.localClippingEnabled);
       if (bounds.isEmpty()) {
         if (fade?.startedAt === null) fade.startedAt = performance.now();
         flight = null;
@@ -460,6 +503,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         depthTest: false,
         transparent: true,
         opacity: 0.95,
+        clippingPlanes: sectionPlanes,
       }),
     );
     marker.visible = false;
@@ -497,9 +541,12 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       group,
       marker,
       meshes,
+      sectionPlanes,
       selectionFade: null,
       prepareSelectionFade,
       setPlan,
+      setSection,
+      updateSectionBounds,
       activeCamera,
       fit,
       cancelFit,
@@ -625,11 +672,11 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         [...meshes.values()].filter((m) => m.visible && m.userData.inScope),
         false,
       );
-      const hit = hits.find(
-        (h) => !callbacks.current.section || h.point.y <= 17.8,
-      );
+      const retained = (point: THREE.Vector3) =>
+        !renderer.localClippingEnabled || sectionPlane.distanceToPoint(point) >= 0;
+      const hit = hits.find((candidate) => retained(candidate.point));
       if (callbacks.current.measure && hit) {
-        if (firstPoint) {
+        if (firstPoint && retained(firstPoint)) {
           callbacks.current.onMeasure(firstPoint.distanceTo(hit.point));
           firstPoint = null;
         } else firstPoint = hit.point.clone();
@@ -717,7 +764,6 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let done = 0;
     callbacks.current.onGeometryProgress({ done, total: fresh.length });
     const started = performance.now();
-    const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
     const fitInitial = ![...r.meshes.values()].some((mesh) => mesh.visible);
     let lastProgress = started;
     let published = false;
@@ -732,6 +778,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       callbacks.current.onGeometryProgress({ done, total: fresh.length });
       if (!published) {
         published = true;
+        r.updateSectionBounds();
         if (fitInitial && !movedCamera && !loadState.selectionToFit && !callbacks.current.focusIds.length) {
           r.fit();
         }
@@ -786,9 +833,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           const material = e.surfaceMaterials?.length
             ? e.surfaceMaterials.map(({ start, count, color, opacity }, index) => {
                 geometry.addGroup(start, count, index);
-                return surfaceMaterial(color, opacity);
+                return surfaceMaterial(r.sectionPlanes, color, opacity);
               })
-            : surfaceMaterial(e.color, e.surfaceOpacity);
+            : surfaceMaterial(r.sectionPlanes, e.color, e.surfaceOpacity);
           const mesh = new THREE.Mesh(geometry, material);
           mesh.userData = {
             elementId: e.id,
@@ -800,7 +847,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
             geometryKey: keys.get(e.id),
           };
           mesh.receiveShadow = true;
-          styleMesh(r, mesh, callbacks.current, models.get(e.modelId), plane);
+          styleMesh(r, mesh, callbacks.current, models.get(e.modelId));
           r.group.add(mesh);
           r.meshes.set(e.id, mesh);
           done++;
@@ -823,6 +870,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         if (cancelled) return;
         publish();
         r.renderer.shadowMap.needsUpdate = true;
+        r.updateSectionBounds();
         const current = callbacks.current;
         const selection = loadState.selectionToFit;
         if (
@@ -876,8 +924,16 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     props.selected,
     props.focusIds,
     props.mode,
-    props.section,
   ]);
+
+  const sectionEnabled = props.section !== null;
+  useEffect(() => {
+    if (sectionEnabled) runtime.current?.updateSectionBounds();
+  }, [sectionEnabled, props.elements, props.models, props.hidden, props.floor, props.room]);
+
+  useEffect(() => {
+    runtime.current?.setSection(props.section);
+  }, [props.section]);
 
   useEffect(() => {
     runtime.current?.setPlan(props.cadPlanRotation);
