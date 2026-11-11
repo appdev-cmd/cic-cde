@@ -1,4 +1,4 @@
-import { useCdeUser } from "./AuthContext";
+import { useCdeUser, type WorkspaceControls } from "./AuthContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -10,7 +10,6 @@ import {
   Box,
   Boxes,
   Check,
-  CheckCheck,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -142,7 +141,7 @@ function ToolButton({
   );
 }
 
-export default function App() {
+export default function App({ project, account }: WorkspaceControls) {
   const projectUser = useCdeUser();
   const projectName = projectUser?.projectName || "Riverside Tower";
   const readOnly = projectUser?.role === "viewer";
@@ -689,15 +688,9 @@ export default function App() {
           <span>
             CIC<span className="brand-light">CDE</span>
           </span>
-          <span className="alpha">ALPHA</span>
         </a>
         <span className="top-divider" />
-        <button className="project-switch" onClick={() => setModal("settings")}>
-          <span className="project-avatar">R</span>
-          <span>{projectName}</span>
-          <ChevronDown size={13} />
-        </button>
-        <span className="project-phase">Design coordination</span>
+        {project || <span className="local-project">{projectName}</span>}
         <div className="top-spacer" />
         <a className="top-ai" href="?cde=1">
           Hồ sơ CDE
@@ -722,13 +715,7 @@ export default function App() {
           <Bell size={18} />
           <i />
         </button>
-        <button
-          className="user-avatar"
-          title="Local workspace"
-          onClick={() => setModal("settings")}
-        >
-          QA
-        </button>
+        {account}
       </header>
 
       <aside className="rail">
@@ -779,18 +766,11 @@ export default function App() {
 
       <main className="main">
         <div className="workspace-heading">
-          <div>
-            <div className="eyebrow">
-              WORKSPACE <ChevronRight size={11} /> RIVERSIDE TOWER
-            </div>
-            <h1>
-              Không gian phối hợp <span className="demo-pill">Dự án mẫu</span>
-            </h1>
-          </div>
+          <h1>
+            Không gian phối hợp
+            {!loading && data.synthetic && <span className="demo-pill">Dự án mẫu</span>}
+          </h1>
           <div className="heading-actions">
-            <span className="save-state">
-              <CheckCheck size={14} /> Phiên local
-            </span>
             <button
               className="button secondary"
               onClick={() => viewer.current?.capture()}

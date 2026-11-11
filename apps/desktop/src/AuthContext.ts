@@ -1,4 +1,5 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+export type WorkspaceControls = { project?: ReactNode; account: ReactNode };
 export type CdeUser = {
   username: string;
   organization: string;

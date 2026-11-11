@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { UserRound } from "lucide-react";
 import {
   authRequest,
   call,
@@ -9,10 +10,19 @@ import {
   setSessionToken,
 } from "./bridge";
 
-import { UserContext, type CdeUser as User } from "./AuthContext";
+import {
+  UserContext,
+  type CdeUser as User,
+  type WorkspaceControls,
+} from "./AuthContext";
+import AccessDialog from "./AccessDialog";
 import ProjectGate from "./ProjectGate";
 export { useCdeUser } from "./AuthContext";
-export default function AuthGate({ children }: { children: ReactNode }) {
+export default function AuthGate({
+  children,
+}: {
+  children: (controls: WorkspaceControls) => ReactNode;
+}) {
   const inviteToken =
     new URLSearchParams(window.location.hash.slice(1)).get("invite") || "";
   const [joining, setJoining] = useState(false);
@@ -78,6 +88,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }
   async function signOut() {
     setBusy(true);
+    setError("");
     try {
       await authRequest("logout", {});
       setSessionToken("");
@@ -117,7 +128,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         location.reload();
       }}
     >
-      {remoteDesktop ? "Chuyển về desktop offline" : cloudEnabled ? "Kết nối CIC CDE Cloud" : "Kết nối pilot Công Báo"}
+      {remoteDesktop
+        ? "Chuyển về desktop offline"
+        : cloudEnabled
+          ? "Kết nối CIC CDE Cloud"
+          : "Kết nối pilot Công Báo"}
     </button>
   );
   if (checking) return <p role="status">Đang kiểm tra phiên CIC CDE…</p>;
@@ -170,18 +185,43 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         </section>
       </main>
     );
-  return (
-    <>
-      <div className="session-bar">
-        <span>
-          CIC CDE ·{" "}
-          {user ? user.organization + " · " + user.username : "Desktop local"}
-        </span>
+  const account = (user || connection) && (
+    <details
+      className="account-menu"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          event.currentTarget.open = false;
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && event.currentTarget.open) {
+          event.stopPropagation();
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }
+      }}
+    >
+      <summary
+        className="icon-button"
+        title="Tài khoản và kết nối"
+        aria-label="Tài khoản và kết nối"
+      >
+        <UserRound size={17} />
+      </summary>
+      <div className="account-menu-content">
+        <strong>{user?.username || "Desktop local"}</strong>
+        {user && <span>{user.organization}</span>}
         {connection}
         {user?.role === "admin" && (
           <button
-            onClick={() => {
-              setShowUsers((value) => !value);
+            className="button secondary"
+            aria-haspopup="dialog"
+            onClick={(event) => {
+              event.currentTarget
+                .closest("details")
+                ?.querySelector("summary")
+                ?.focus();
+              setError("");
+              setShowUsers(true);
               void call<User[]>("users.list")
                 .then(setUsers)
                 .catch((e) => setError(String(e)));
@@ -191,15 +231,35 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           </button>
         )}
         {user && (
-          <button disabled={busy} onClick={() => void signOut()}>
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => void signOut()}
+          >
             Đăng xuất
           </button>
         )}
       </div>
-      {error && <p role="alert">{error}</p>}
+    </details>
+  );
+  return (
+    <div className="workspace-frame">
+      {error && !showUsers && (
+        <p role="alert" className="cde-message">
+          {error}
+        </p>
+      )}
       {showUsers && (
-        <section className="cde-card member-panel">
-          <h2>Tài khoản hệ thống</h2>
+        <AccessDialog
+          title="Tài khoản hệ thống"
+          className="member-panel"
+          onClose={() => setShowUsers(false)}
+        >
+          {error && (
+            <p role="alert" className="cde-message">
+              {error}
+            </p>
+          )}
           <ul>
             {users.map((entry) => (
               <li key={entry.username}>
@@ -244,13 +304,17 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               <button className="button primary">Tạo tài khoản</button>
             </fieldset>
           </form>
-        </section>
+        </AccessDialog>
       )}
       {user ? (
-        <ProjectGate user={user}>{children}</ProjectGate>
+        <ProjectGate user={user} account={account}>
+          {children}
+        </ProjectGate>
       ) : (
-        <UserContext.Provider value={null}>{children}</UserContext.Provider>
+        <UserContext.Provider value={null}>
+          {children({ account })}
+        </UserContext.Provider>
       )}
-    </>
+    </div>
   );
 }

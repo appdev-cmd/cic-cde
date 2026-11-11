@@ -86,12 +86,17 @@ input::placeholder,
 textarea::placeholder {
   color: #a0a8b3;
 }
-.app-shell {
+.workspace-frame {
+  display: flex;
+  flex-direction: column;
   height: 100dvh;
-  min-height: 720px;
+}
+.app-shell {
+  flex: 1;
+  min-height: 620px;
   min-width: 1100px;
   display: grid;
-  grid-template: 62px 1fr/74px 1fr;
+  grid-template: 48px minmax(0, 1fr) / 74px minmax(0, 1fr);
   overflow: hidden;
 }
 .topbar {
@@ -101,14 +106,14 @@ textarea::placeholder {
   padding: 0 23px 0 21px;
   background: #fff;
   border-bottom: 1px solid var(--border);
-  gap: 17px;
+  gap: 12px;
   z-index: 5;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 21px;
+  font-size: 19px;
   letter-spacing: -1px;
   font-weight: 750;
   color: #28374b;
@@ -130,45 +135,14 @@ textarea::placeholder {
 .brand-symbol svg {
   stroke-width: 1.6;
 }
-.alpha {
-  font-size: 8px;
-  letter-spacing: 1px;
-  background: #f0f2f5;
-  color: #8d95a1;
-  font-weight: 600;
-  border-radius: 3px;
-  padding: 4px 5px;
-  margin-left: 2px;
-}
 .top-divider {
   height: 22px;
   width: 1px;
   background: var(--border);
   margin: 0 4px;
 }
-.project-switch {
-  font-size: 12px;
-  font-weight: 550;
-  gap: 9px;
-}
-.project-switch > svg {
-  margin-left: 9px;
-  color: #94a0b0;
-}
-.project-avatar {
-  height: 25px;
-  width: 25px;
-  background: #efebe5;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  color: #8c7965;
-  font-size: 11px;
-}
-.project-phase {
-  font-size: 10px;
-  color: #939daa;
-  margin-left: -7px;
+.local-project {
+  font-weight: 500;
 }
 .top-spacer {
   flex: 1;
@@ -212,17 +186,6 @@ textarea::placeholder {
   height: 4px;
   width: 4px;
   border-radius: 50%;
-}
-.user-avatar {
-  border-radius: 50%;
-  height: 29px;
-  width: 29px;
-  background: #e8edf2;
-  color: #526780;
-  font-size: 10px;
-  font-weight: 600;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #e6ebf0;
 }
 .rail {
   background: #fff;
@@ -300,7 +263,7 @@ textarea::placeholder {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 23px 0 20px;
+  padding: 7px 0;
   flex-shrink: 0;
   gap: 15px;
 }
@@ -315,7 +278,7 @@ textarea::placeholder {
   margin-bottom: 9px;
 }
 .workspace-heading h1 {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 550;
   letter-spacing: -0.8px;
   color: #2d3949;
@@ -336,14 +299,6 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.save-state {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  color: #929ca9;
-  margin-right: 7px;
 }
 .button {
   font-size: 10px;
@@ -379,7 +334,7 @@ textarea::placeholder {
   padding: 11px;
 }
 .workspace-tabs {
-  height: 40px;
+  height: 36px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1924,10 +1879,6 @@ table {
   .main {
     padding: 0 28px;
   }
-  .workspace-heading {
-    padding-top: 27px;
-    padding-bottom: 24px;
-  }
   .results-table td {
     padding-top: 9px;
     padding-bottom: 9px;
@@ -1946,15 +1897,6 @@ table {
   .topbar {
     gap: 12px;
     padding-left: 16px;
-  }
-  .project-phase {
-    display: none;
-  }
-  .workspace-heading h1 {
-    font-size: 19px;
-  }
-  .save-state {
-    display: none;
   }
   .workspace-meta {
     font-size: 8px;
@@ -1986,10 +1928,6 @@ table {
   }
 }
 @media (max-height: 850px) {
-  .workspace-heading {
-    padding-top: 17px;
-    padding-bottom: 15px;
-  }
   .results-panel {
     height: 202px;
     min-height: 202px;
@@ -2107,7 +2045,7 @@ table {
 .issue-thread ul { overflow-wrap: anywhere; white-space: pre-wrap; }
 .issue-thread form { display: flex; gap: 8px; }
 .issue-thread input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; }
-.cde-page { min-height: 100vh; overflow: auto; background: #f4f6f8; color: #263546; }
+.cde-page { flex: 1; overflow: auto; background: #f4f6f8; color: #263546; }
 .cde-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 18px clamp(20px, 5vw, 72px); background: white; border-bottom: 1px solid #e3e8ed; }
 .cde-header strong span, .cde-intro > div > p { color: #a25b39; font-size: 11px; letter-spacing: .1em; }
 .cde-header nav, .cde-filters, .cde-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
@@ -2151,13 +2089,92 @@ table {
 .login-page > section { width: min(100%, 420px); }
 .login-page p { margin: 10px 0; }
 .login-page input, .member-panel input, .member-panel select { width: 100%; border: 1px solid #d5dee8; border-radius: 6px; padding: 10px; }
-.session-bar { display: flex; align-items: center; gap: 14px; padding: 7px 20px; background: #edf1f5; flex-wrap: wrap; }
-.session-bar + .app-shell { height: calc(100dvh - 46px); }
-.member-panel { margin: 16px; }
-.project-bar { display:flex; align-items:center; flex-wrap:wrap; gap:16px; padding:10px 20px; border-bottom:1px solid var(--border); background:white; }
-.project-bar label, .project-panel label { display:grid; gap:6px; }
-.project-bar select, .project-panel input:not([type=checkbox]), .project-panel select { padding:8px; border:1px solid #ccd7e2; border-radius:6px; min-width:0; width:100%; }
-.project-panel { margin:16px; }
+.access-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 5;
+}
+.project-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.project-controls > select {
+  height: 30px;
+  min-width: 0;
+  max-width: 250px;
+  padding: 0 8px;
+  border: 1px solid #dde3e9;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--ink);
+  text-overflow: ellipsis;
+}
+.project-controls > button {
+  flex-shrink: 0;
+}
+.account-menu {
+  position: relative;
+  margin-left: auto;
+}
+.topbar .account-menu {
+  margin-left: 0;
+}
+.account-menu > summary {
+  display: grid;
+  place-items: center;
+  list-style: none;
+  cursor: pointer;
+}
+.account-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.account-menu-content {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  gap: 8px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  min-width: 155px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px #29344622;
+  overflow-wrap: anywhere;
+}
+.account-menu-content > span {
+  color: #596779;
+}
+.access-dialog {
+  margin: auto;
+  width: min(680px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  color: var(--ink);
+  overflow: auto;
+}
+.access-dialog::backdrop {
+  background: #27334466;
+}
+.access-dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.project-panel label { display:grid; gap:6px; }
+.project-panel input:not([type=checkbox]), .project-panel select { padding:8px; border:1px solid #ccd7e2; border-radius:6px; min-width:0; width:100%; }
+.project-empty { margin:16px; }
 .project-panel form { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin:14px 0; }
 .project-panel h2, .project-panel h3 { width:100%; }
 .membership-row { padding:10px 0; border-bottom:1px solid var(--border); }
