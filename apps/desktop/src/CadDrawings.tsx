@@ -70,7 +70,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
   }, []);
 
   async function upload(files: File[], skipped = 0, targetFolder = destination) {
-    setFolderNotice(skipped ? `Đã bỏ qua ${skipped} file ngoài định dạng DWG/DXF.` : "");
+    setFolderNotice(skipped ? `Đã bỏ qua ${skipped} tệp ngoài định dạng DWG/DXF.` : "");
     if (!files.length) {
       setFailed([]);
       setMessage("");
@@ -184,7 +184,7 @@ export default function CadDrawings({ canUpload, canDelete }: { canUpload: boole
           <strong>{failed.length} bản vẽ tải lên thất bại</strong>
           <ul>{failed.map(({ file, message }, index) => <li key={index}>{file.webkitRelativePath || file.name} · {message}</li>)}</ul>
           <button type="button" className="button secondary" disabled={loading}
-            onClick={() => void upload(failed.map(({ file }) => file), 0, failedDestination)}>Thử lại các file lỗi</button>
+            onClick={() => void upload(failed.map(({ file }) => file), 0, failedDestination)}>Thử tải lại các tệp bị lỗi</button>
         </div>
       )}
       <div className="cde-filters">

@@ -4,7 +4,6 @@ import type { CadWindow } from "@qabim/cad-viewer/overlay";
 import {
   Activity,
   ArrowDownToLine,
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Bell,
@@ -124,8 +123,8 @@ function mergeImported(
 }
 const NAV = [
   { id: "models", label: "Mô hình", icon: Boxes },
-  { id: "checks", label: "Kiểm tra", icon: ShieldCheck },
-  { id: "issues", label: "Issues", icon: ClipboardList },
+  { id: "checks", label: "Va chạm", icon: ShieldCheck },
+  { id: "issues", label: "Vấn đề phối hợp", icon: ClipboardList },
   { id: "data", label: "Dữ liệu", icon: Grid2X2 },
 ];
 type Nav = "models" | "plan" | "checks" | "issues" | "data";
@@ -578,7 +577,7 @@ export default function App({ project, account }: WorkspaceControls) {
       setComment("");
       setNav("issues");
       setBottom(true);
-      notify("Đã lưu issue phối hợp");
+      notify("Đã tạo vấn đề phối hợp");
     } catch (e) {
       notify(String(e));
     } finally {
@@ -607,7 +606,7 @@ export default function App({ project, account }: WorkspaceControls) {
         setFinding(null);
         setFocusIds([]);
         setSelected(null);
-        notify("Thiếu phiên bản IFC hoặc định vị gốc của issue");
+        notify("Thiếu phiên bản IFC hoặc thông tin định vị đã lưu cho vấn đề này");
         return;
       }
       setData((previous) => ({ ...current, findings: previous.findings }));
@@ -638,7 +637,7 @@ export default function App({ project, account }: WorkspaceControls) {
         assignee,
         state,
       });
-      notify("Đã cập nhật issue");
+      notify("Đã cập nhật vấn đề phối hợp");
     } catch (e) {
       notify(String(e));
     } finally {
@@ -683,11 +682,11 @@ export default function App({ project, account }: WorkspaceControls) {
       setBottom(true);
       setModal(null);
       notify(
-        `${result.findings.length} giao cắt · ${result.coverage.generated}/${result.coverage.expected} hình học · ${result.coverage.complete ? "Hoàn tất" : "Coverage chưa đủ"}`,
+        `${result.findings.length} va chạm · ${result.coverage.generated}/${result.coverage.expected} đối tượng có hình học · ${result.coverage.complete ? "Độ bao phủ đầy đủ" : "Độ bao phủ chưa đầy đủ"}`,
       );
     } catch (error) {
       notify(
-        `Kiểm tra thất bại: ${error instanceof Error ? error.message : String(error)}`,
+        `Kiểm tra va chạm thất bại: ${error instanceof Error ? error.message : String(error)}`,
       );
     } finally {
       setChecking(false);
@@ -796,9 +795,9 @@ export default function App({ project, account }: WorkspaceControls) {
         </button>
         <button
           className="icon-button notification"
-          title="Trạng thái workspace"
-          aria-label="Trạng thái workspace"
-          onClick={() => notify("G1 local workspace · Chưa có thông báo mới")}
+          title="Trạng thái không gian làm việc"
+          aria-label="Trạng thái không gian làm việc"
+          onClick={() => notify("Chưa có thông báo mới")}
         >
           <Bell size={18} />
           <i />
@@ -855,7 +854,7 @@ export default function App({ project, account }: WorkspaceControls) {
       <main className="main">
         <div className="workspace-heading">
           <h1>
-            Không gian phối hợp
+            Phối hợp mô hình BIM
             {!loading && data.synthetic && <span className="demo-pill">Dự án mẫu</span>}
           </h1>
           <div className="heading-actions">
@@ -869,7 +868,7 @@ export default function App({ project, account }: WorkspaceControls) {
               className="button primary"
               onClick={() => setModal("check")}
             >
-              <ShieldCheck size={15} /> Kiểm tra mô hình
+              <ShieldCheck size={15} /> Kiểm tra va chạm
             </button>
           </div>
         </div>
@@ -1654,7 +1653,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   setBottom(true);
                 }}
               >
-                <ShieldCheck size={15} /> Kết quả kiểm tra{" "}
+                <ShieldCheck size={15} /> Kết quả va chạm{" "}
                 <span>{data.findings.length}</span>
               </button>
               <button
@@ -1664,7 +1663,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   setBottom(true);
                 }}
               >
-                <MessageSquare size={14} /> Issues <span>{issues.length}</span>
+                <MessageSquare size={14} /> Vấn đề phối hợp <span>{issues.length}</span>
               </button>
             </div>
             <div className="results-actions">
@@ -1672,8 +1671,8 @@ export default function App({ project, account }: WorkspaceControls) {
                 className={`sample-label ${checkRun ? (checkRun.coverage.complete ? "computed" : "incomplete") : ""}`}
               >
                 {checkRun
-                  ? `IfcOpenShell · ${checkRun.coverage.complete ? "Complete" : "Incomplete"}`
-                  : "Dữ liệu UX mẫu"}
+                  ? `IfcOpenShell · ${checkRun.coverage.complete ? "Độ bao phủ đầy đủ" : "Độ bao phủ chưa đầy đủ"}`
+                  : data.synthetic ? "Dữ liệu mẫu" : "Chưa kiểm tra"}
               </span>
               <button
                 className="icon-button small"
@@ -1713,15 +1712,15 @@ export default function App({ project, account }: WorkspaceControls) {
                     <div className="issues-empty">
                       <ClipboardList size={25} />
                       <span>
-                        Chưa có issue. Chạy kiểm tra hình học, chọn một kết quả
-                        và tạo issue.
+                        Chưa có vấn đề phối hợp. Chọn một kết quả kiểm tra va chạm
+                        để tạo vấn đề.
                       </span>
                     </div>
                   )}
                   {activeIssue && (
                     <section
                       className="issue-thread"
-                      aria-label="Thảo luận issue"
+                      aria-label="Thảo luận vấn đề phối hợp"
                     >
                       <strong>
                         ISS-{String(activeIssue.id).padStart(3, "0")} ·{" "}
@@ -1750,7 +1749,7 @@ export default function App({ project, account }: WorkspaceControls) {
                         />
                         <select
                           name="state"
-                          aria-label="Trạng thái issue"
+                          aria-label="Trạng thái vấn đề phối hợp"
                           defaultValue={activeIssue.state}
                           disabled={issueSaving || readOnly}
                         >
@@ -1806,7 +1805,7 @@ export default function App({ project, account }: WorkspaceControls) {
                       {[
                         { id: "all", label: "Tất cả" },
                         { id: "new", label: "Mới" },
-                        { id: "reviewed", label: "Đã duyệt" },
+                        { id: "reviewed", label: "Đã rà soát" },
                       ].map((s) => (
                         <button
                           className={status === s.id ? "active" : ""}
@@ -1830,7 +1829,7 @@ export default function App({ project, account }: WorkspaceControls) {
                         <Filter size={12} /> {scopeLabel}
                       </span>
                       <button onClick={() => setModal("check")}>
-                        <Settings2 size={13} /> Quy tắc
+                        <Settings2 size={13} /> Cấu hình kiểm tra
                       </button>
                     </div>
                   </div>
@@ -1842,7 +1841,7 @@ export default function App({ project, account }: WorkspaceControls) {
                             <Square size={12} />
                           </th>
                           <th>MÃ</th>
-                          <th>VẤN ĐỀ</th>
+                          <th>VA CHẠM</th>
                           <th>TẦNG</th>
                           <th>MỨC ĐỘ</th>
                           <th>TRẠNG THÁI</th>
@@ -1872,7 +1871,7 @@ export default function App({ project, account }: WorkspaceControls) {
                               <small>
                                 {f.rule}
                                 {f.distance !== undefined
-                                  ? ` · ${f.measurementKind} ${(f.distance * 1000).toFixed(1)} mm`
+                                  ? ` · Độ giao cắt ${(f.distance * 1000).toFixed(1)} mm`
                                   : ""}
                               </small>
                             </td>
@@ -1885,7 +1884,7 @@ export default function App({ project, account }: WorkspaceControls) {
                             </td>
                             <td>
                               <span className={`finding-status ${f.status}`}>
-                                {f.status === "new" ? "Mới" : "Đã duyệt"}
+                                {f.status === "new" ? "Mới" : "Đã rà soát"}
                               </span>
                             </td>
                             <td>
@@ -1901,10 +1900,12 @@ export default function App({ project, account }: WorkspaceControls) {
               <div className="results-footer">
                 <span>
                   {nav === "issues"
-                    ? `${issues.length} issue phối hợp`
+                    ? `${issues.length} vấn đề phối hợp`
                     : checkRun
-                      ? `${findings.length} giao cắt · ${checkRun.coverage.generated}/${checkRun.coverage.expected} hình học · ${checkRun.coverage.unmeasuredCollisionPairs} cặp không đo được`
-                      : `${findings.length} kết quả mẫu · Chưa chạy engine clash`}
+                      ? `${findings.length} va chạm · ${checkRun.coverage.generated}/${checkRun.coverage.expected} đối tượng có hình học · ${checkRun.coverage.unmeasuredCollisionPairs} cặp không đo được`
+                      : data.synthetic
+                        ? `${findings.length} kết quả mẫu`
+                        : "Chưa chạy kiểm tra va chạm"}
                 </span>
                 {finding ? (
                   <div>
@@ -1924,7 +1925,7 @@ export default function App({ project, account }: WorkspaceControls) {
                         );
                       }}
                     >
-                      <Check size={13} /> Đánh dấu đã duyệt
+                      <Check size={13} /> Đánh dấu đã rà soát
                     </button>
                     <button
                       className="button tiny primary"
@@ -1933,7 +1934,7 @@ export default function App({ project, account }: WorkspaceControls) {
                       }
                       onClick={() => void createIssue()}
                     >
-                      <Plus size={12} /> Tạo issue
+                      <Plus size={12} /> Tạo vấn đề phối hợp
                     </button>
                   </div>
                 ) : (
@@ -2020,31 +2021,24 @@ export default function App({ project, account }: WorkspaceControls) {
             </button>
             {modal === "check" ? (
               <>
-                <span className="modal-emblem">
-                  <ShieldCheck size={26} />
-                </span>
-                <div className="eyebrow">MODEL VALIDATION</div>
-                <h2 id="dialog-title">Kiểm tra, có chủ đích.</h2>
-                <p>
-                  Thiết lập phạm vi rõ ràng để tập trung vào những xung đột cần
-                  xử lý.
-                </p>
-                <div className="rule-card">
-                  <span className="discipline-tag hvac">NHÓM A</span>
-                  <ArrowLeft size={14} />
-                  <ArrowRight size={14} />
-                  <span className="discipline-tag str">NHÓM B</span>
-                  <strong>Va chạm hình học</strong>
-                </div>
+                <header className="check-modal-heading">
+                  <span className="modal-emblem" aria-hidden="true">
+                    <ShieldCheck size={26} />
+                  </span>
+                  <div>
+                    <h2 id="dialog-title">Kiểm tra va chạm</h2>
+                    <p>Chọn hai nhóm mô hình IFC để kiểm tra va chạm hình học.</p>
+                  </div>
+                </header>
                 <div className="check-model-groups">
                   {[
                     {
-                      label: "Mô hình nhóm A",
+                      label: "Mô hình IFC nhóm A",
                       ids: checkModelsA,
                       set: setCheckModelsA,
                     },
                     {
-                      label: "Mô hình nhóm B",
+                      label: "Mô hình IFC nhóm B",
                       ids: checkModelsB,
                       set: setCheckModelsB,
                     },
@@ -2076,8 +2070,8 @@ export default function App({ project, account }: WorkspaceControls) {
                 </div>
                 <div className="check-fields">
                   {[
-                    { value: classA, set: setClassA, label: "Nhóm A" },
-                    { value: classB, set: setClassB, label: "Nhóm B" },
+                    { value: classA, set: setClassA, label: "Lớp IFC nhóm A" },
+                    { value: classB, set: setClassB, label: "Lớp IFC nhóm B" },
                   ].map((item) => (
                     <label className="field-label" key={item.label}>
                       {item.label}
@@ -2101,7 +2095,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   ))}
                 </div>
                 <label className="field-label">
-                  Phạm vi
+                  Phạm vi kiểm tra
                   <select
                     value={floor}
                     disabled={checking}
@@ -2130,9 +2124,9 @@ export default function App({ project, account }: WorkspaceControls) {
                 <div className="development-note">
                   <Workflow size={18} />
                   <p>
-                    Kiểm tra giữa các nhóm IFC, dùng cùng định vị với Viewer.
-                    Ngưỡng tính bằng mét sau quy đổi; các trường hợp hình học
-                    không kiểm được sẽ làm coverage chưa hoàn tất.
+                    Phép kiểm tra dùng cùng hệ tọa độ với khung nhìn 3D. Kết quả có thể
+                    chưa đầy đủ nếu thiếu hình học, có cặp không đo được hoặc
+                    đạt giới hạn số kết quả.
                   </p>
                 </div>
                 <button
@@ -2151,7 +2145,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   {checking ? (
                     <>
                       <LoaderCircle className="spin" size={15} />
-                      Đang kiểm tra hình học...
+                      Đang kiểm tra va chạm…
                     </>
                   ) : (
                     <>
@@ -2200,8 +2194,8 @@ export default function App({ project, account }: WorkspaceControls) {
                 <div className="development-note">
                   <Workflow size={18} />
                   <p>
-                    Phép dịch và quay áp dụng cho cả Viewer và kiểm tra. Đổi
-                    định vị sẽ bỏ kết quả đang xem; cần chạy lại kiểm tra.
+                    Phép dịch và quay áp dụng cho cả khung nhìn 3D và kiểm tra
+                    va chạm. Sau khi đổi định vị, hãy chạy lại kiểm tra.
                   </p>
                 </div>
                 <button
@@ -2224,7 +2218,7 @@ export default function App({ project, account }: WorkspaceControls) {
                 <span className="modal-emblem">
                   <Settings2 size={26} />
                 </span>
-                <h2 id="dialog-title">Workspace local</h2>
+                <h2 id="dialog-title">Không gian làm việc cục bộ</h2>
                 <p>CIC CDE Desktop · G0 / G1 · v0.1.0</p>
                 <div className="settings-list">
                   <div>

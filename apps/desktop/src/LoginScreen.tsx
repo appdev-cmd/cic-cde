@@ -31,7 +31,7 @@ export function LoginLayout({ title, description, children }: {
             <p>Quản lý hồ sơ, xem mô hình IFC và phối hợp giữa các đơn vị trên cùng một dự án.</p>
             <ul className="login-capabilities">
               <li><Box size={17} aria-hidden="true" /> Mô hình IFC</li>
-              <li><Layers3 size={17} aria-hidden="true" /> Phối hợp 3D</li>
+              <li><Layers3 size={17} aria-hidden="true" /> Phối hợp mô hình</li>
               <li><Files size={17} aria-hidden="true" /> Hồ sơ dự án</li>
             </ul>
           </div>

@@ -219,7 +219,7 @@ export default function DocumentRegistration({
           const document = next.find((item) => item.code === code && item.modelId === model.modelId);
           if (!document) throw new Error("Chưa ghi được phiên bản. Hãy thử lưu lại.");
           if (document.state !== "WIP") {
-            throw new Error("IFC này đã có phiên bản ngoài WIP với cùng mã hồ sơ.");
+            throw new Error("IFC này đã có phiên bản ngoài WIP với cùng mã mô hình.");
           }
           if (document.title !== row.draft.title.trim() || document.discipline !== row.draft.discipline) {
             throw new Error("IFC này đã có WIP với cùng mã nhưng thông tin khác. Hãy kiểm tra hồ sơ hiện có.");
@@ -257,14 +257,14 @@ export default function DocumentRegistration({
         <fieldset disabled={disabled || saving}>
           <div className="cde-registration-sources">
             <label>
-              Chọn file IFC
+              Chọn tệp IFC
               <input type="file" accept=".ifc" multiple disabled={pending} onChange={(event) => {
                 addFiles(Array.from(event.target.files ?? []));
                 event.target.value = "";
               }} />
             </label>
             <label>
-              Hoặc thêm IFC đã nhập
+              Hoặc chọn mô hình IFC đã nhập
               <select value="" disabled={pending} onChange={(event) => {
                 const model = models.find((item) => item.id === event.target.value);
                 if (!model) return;
@@ -284,24 +284,24 @@ export default function DocumentRegistration({
           </div>
           {!!rows.length && <>
             <div className="cde-table cde-registration-table">
-              <table aria-label="Rà soát hồ sơ IFC trước khi lưu">
+              <table aria-label="Rà soát thông tin đăng ký mô hình IFC">
                 <thead><tr>
-                  <th scope="col">File IFC</th>
-                  <th scope="col">Mã hồ sơ</th>
-                  <th scope="col">Tên hồ sơ</th>
+                  <th scope="col">Tệp IFC</th>
+                  <th scope="col">Mã mô hình IFC</th>
+                  <th scope="col">Tên mô hình</th>
                   <th scope="col">Bộ môn</th>
-                  <th scope="col">Trạng thái</th>
+                  <th scope="col">Tiến độ đăng ký</th>
                   <th scope="col">Thao tác</th>
                 </tr></thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id} data-phase={row.phase}>
                       <th scope="row" className="cde-registration-file">{row.name}</th>
-                      <td><input aria-label={`Mã hồ sơ của ${row.name}`} required
+                      <td><input aria-label={`Mã mô hình IFC của ${row.name}`} required
                         pattern="[A-Za-z0-9_\-]+" maxLength={64} value={row.draft.code}
                         disabled={row.phase === "saved"}
                         onChange={(event) => editField(row.id, "code", event.target.value)} /></td>
-                      <td><input aria-label={`Tên hồ sơ của ${row.name}`} required
+                      <td><input aria-label={`Tên mô hình của ${row.name}`} required
                         maxLength={200} value={row.draft.title} disabled={row.phase === "saved"}
                         onChange={(event) => editField(row.id, "title", event.target.value)} /></td>
                       <td><select aria-label={`Bộ môn của ${row.name}`} required
@@ -332,10 +332,10 @@ export default function DocumentRegistration({
             </div>
             <div className="cde-registration-actions">
               <button type="submit" className="button primary" disabled={pending || !unsaved.length}>
-                Lưu WIP hàng loạt ({unsaved.length})
+                Lưu phiên bản đang thực hiện (WIP) ({unsaved.length})
               </button>
-              {pending ? <small role="status">Đang gợi ý cho các file. Bạn có thể chỉnh thông tin trong lúc chờ.</small>
-                : !!unsaved.length && <small>Kiểm tra mã, tên và bộ môn của từng file trước khi lưu.</small>}
+              {pending ? <small role="status">Đang gợi ý cho các tệp. Bạn có thể chỉnh thông tin trong lúc chờ.</small>
+                : !!unsaved.length && <small>Kiểm tra mã, tên và bộ môn của từng tệp trước khi lưu.</small>}
             </div>
           </>}
         </fieldset>

@@ -2232,23 +2232,6 @@ table {
   color: #9aa5b3;
   line-height: 1.9;
 }
-.rule-card {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f8fafb;
-  padding: 14px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  margin: 22px 0;
-  color: #a3acb8;
-}
-.rule-card strong {
-  font-size: 10px;
-  font-weight: 400;
-  margin-left: auto;
-  color: #8b98a9;
-}
 .field-label {
   display: flex;
   flex-direction: column;
@@ -2427,6 +2410,25 @@ table {
 .check-modal {
   width: min(760px, calc(100vw - 32px));
 }
+.check-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 28px;
+}
+.check-modal-heading .modal-emblem {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.check-modal-heading h2 {
+  margin: 0 0 4px;
+}
+.check-modal-heading p {
+  margin: 0;
+  color: #687789;
+  font-size: 11px;
+  line-height: 1.6;
+}
 
 .app-shell {
   min-width: 960px;
@@ -2449,7 +2451,7 @@ table {
   padding: 10px;
   border: 1px solid #e3e8ee;
   border-radius: 6px;
-  max-height: 140px;
+  max-height: 200px;
   overflow: auto;
 }
 .check-model-groups legend {

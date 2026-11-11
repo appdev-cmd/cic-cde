@@ -22,19 +22,19 @@ export type DocumentVersion = {
   history: { state: Stage; note: string; createdAt: string }[];
 };
 const stageLabels: Record<Stage, string> = {
-  WIP: "Đang soạn",
+  WIP: "Đang thực hiện (WIP)",
   Shared: "Đã chia sẻ",
-  Review: "Chờ duyệt",
-  Approved: "Đã duyệt",
+  Review: "Chờ xem xét",
+  Approved: "Đã phê duyệt",
   Published: "Đã phát hành",
-  Archived: "Lưu trữ",
+  Archived: "Đã lưu trữ",
 };
 const actions: Record<Stage, [Stage, string][]> = {
   WIP: [["Shared", "Chia sẻ"]],
-  Shared: [["Review", "Nộp duyệt"]],
+  Shared: [["Review", "Trình xem xét"]],
   Review: [
-    ["Approved", "Duyệt"],
-    ["WIP", "Trả lại"],
+    ["Approved", "Phê duyệt"],
+    ["WIP", "Trả lại để chỉnh sửa"],
   ],
   Approved: [["Published", "Phát hành"]],
   Published: [["Archived", "Lưu trữ"]],
@@ -117,14 +117,14 @@ export default function Cde() {
     <div className="cde-page">
       <header className="cde-header">
         <strong>
-          CIC CDE <span>{user ? (cloudEnabled ? "CLOUD" : "PILOT CÔNG BÁO") : "CDE LOCAL"}</span>
+          CIC CDE <span>{user ? (cloudEnabled ? "TRỰC TUYẾN" : "THỬ NGHIỆM") : "CỤC BỘ"}</span>
         </strong>
         <nav aria-label="Điều hướng CDE">
           <a aria-current="page" href="?cde=1">
             Hồ sơ
           </a>
-          <a href="?cde=issues">Issues</a>
-          <a href="/">Phối hợp 3D</a>
+          <a href="?cde=issues">Vấn đề phối hợp</a>
+          <a href="/">Phối hợp mô hình</a>
         </nav>
       </header>
       <main>
@@ -132,7 +132,7 @@ export default function Cde() {
           <div>
             <p>{(user?.projectName || "Riverside Tower").toUpperCase()}</p>
             <h1>Hồ sơ dự án</h1>
-            <span>{cloudEnabled && !desktop ? "Quản lý bản vẽ CAD, phiên bản IFC và theo dõi quá trình duyệt." : "Quản lý phiên bản IFC và theo dõi quá trình duyệt."}</span>
+            <span>{cloudEnabled && !desktop ? "Quản lý bản vẽ CAD, phiên bản IFC và theo dõi trạng thái quy trình CDE." : "Quản lý phiên bản IFC và theo dõi trạng thái quy trình CDE."}</span>
           </div>
           {view === "ifc" && (
             <button className="button secondary" disabled={busy} onClick={() => void reload()}>
@@ -172,7 +172,7 @@ export default function Cde() {
               <strong>{documents.length}</strong>
             </div>
             <div>
-              <span>Chờ duyệt</span>
+              <span>Chờ xem xét</span>
               <strong>
                 {
                   documents.filter((document) => document.state === "Review")
@@ -206,16 +206,16 @@ export default function Cde() {
             />
           )}
           <section className="cde-card cde-versions">
-            <h2>Danh sách phiên bản</h2>
+            <h2>Sổ đăng ký phiên bản IFC</h2>
             <div className="cde-filters">
               <input
-                aria-label="Tìm hồ sơ"
+                aria-label="Tìm phiên bản IFC"
                 placeholder="Tìm theo mã, tên hoặc bộ môn"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
               />
               <select
-                aria-label="Lọc trạng thái"
+                aria-label="Lọc theo trạng thái quy trình"
                 value={stage}
                 onChange={(event) => setStage(event.target.value)}
               >
@@ -232,10 +232,10 @@ export default function Cde() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Mã hồ sơ</th>
-                      <th>Tên hồ sơ</th>
+                      <th>Mã mô hình IFC</th>
+                      <th>Tên mô hình</th>
                       <th>Phiên bản</th>
-                      <th>Trạng thái</th>
+                      <th>Trạng thái quy trình</th>
                       {canDelete && <th>Thao tác</th>}
                     </tr>
                   </thead>
@@ -284,7 +284,7 @@ export default function Cde() {
               <p>
                 {ready
                   ? "Không có phiên bản phù hợp."
-                  : "Đang tải hồ sơ…"}
+                  : "Đang tải sổ đăng ký…"}
               </p>
             )}
           </section>
@@ -309,7 +309,7 @@ export default function Cde() {
                   className="button secondary"
                   href={"?model=" + encodeURIComponent(selected.modelId)}
                 >
-                  Mở phiên bản trong Viewer
+                  Mở phiên bản trong khung nhìn 3D
                 </a>
               </div>
               {!!actions[selected.state].length && (
@@ -343,7 +343,7 @@ export default function Cde() {
                     ))}
                 </div>
               )}
-              <h3>Lịch sử phiên bản</h3>
+              <h3>Lịch sử chuyển trạng thái</h3>
               <ul>
                 {selected.history.map((event, index) => (
                   <li key={index}>
@@ -359,7 +359,7 @@ export default function Cde() {
         {toDelete && (
           <DeleteFileDialog title="Xóa phiên bản IFC"
             name={`${toDelete.code} · R${String(toDelete.revision).padStart(2, "0")}`}
-            description="Phiên bản đang soạn sẽ bị xóa khỏi sổ hồ sơ. Mô hình IFC vẫn có thể dùng trong Viewer và đăng ký lại."
+            description="Phiên bản đang thực hiện (WIP) sẽ bị xóa khỏi sổ đăng ký. Bạn vẫn có thể xem mô hình IFC trong khung nhìn 3D và đăng ký lại."
             onClose={() => setToDelete(undefined)}
             onDelete={async () => {
               setBusy(true);
