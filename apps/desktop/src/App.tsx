@@ -156,6 +156,7 @@ export default function App({ project, account }: WorkspaceControls) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [floor, setFloorValue] = useState("all");
   const [room, setRoom] = useState<string | null>(null);
+  const [fitRequest, setFitRequest] = useState(0);
   const [expandedStoreys, setExpandedStoreys] = useState<Set<string>>(
     new Set(),
   );
@@ -402,6 +403,7 @@ export default function App({ project, account }: WorkspaceControls) {
     setSelected(null);
     setFocusIds([]);
     setFinding(null);
+    setFitRequest((request) => request + 1);
   }
   const openFinding = useCallback(
     (f: Finding) => {
@@ -1133,6 +1135,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   hidden={hidden}
                   floor={floor}
                   room={room}
+                  fitRequest={fitRequest}
                   selected={selected}
                   focusIds={focusIds}
                   focusPoint={focusPoint}

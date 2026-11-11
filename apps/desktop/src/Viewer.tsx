@@ -16,6 +16,7 @@ interface Props {
   hidden: Set<string>;
   floor: string;
   room: string | null;
+  fitRequest: number;
   selected: string | null;
   focusIds: string[];
   focusPoint: [number, number, number] | null;
@@ -33,7 +34,7 @@ interface Runtime {
   group: THREE.Group;
   marker: THREE.Mesh;
   meshes: Map<string, THREE.Mesh>;
-  fit: () => void;
+  fit: (keepDirection?: boolean) => void;
   invalidate: () => void;
 }
 
@@ -140,6 +141,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
   const container = useRef<HTMLDivElement>(null);
   const runtime = useRef<Runtime | null>(null);
   const cancelLoad = useRef<() => void>(() => {});
+  const activeLoad = useRef<{
+    selectionToFit?: Pick<Props, "floor" | "room">;
+  } | null>(null);
   const callbacks = useRef(props);
   callbacks.current = props;
   useImperativeHandle(
@@ -149,9 +153,11 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         cancelLoad.current();
       },
       fit() {
+        if (activeLoad.current) activeLoad.current.selectionToFit = undefined;
         runtime.current?.fit();
       },
       top() {
+        if (activeLoad.current) activeLoad.current.selectionToFit = undefined;
         const r = runtime.current;
         if (!r) return;
         const c = r.controls.target;
@@ -179,6 +185,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const background = getComputedStyle(host).getPropertyValue("--viewer-background").trim();
     scene.background = new THREE.Color(background || "#dceefa");
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
+    const initialDirection = new THREE.Vector3(0.94, 0.63, 1.02);
+    camera.position.copy(initialDirection);
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       reversedDepthBuffer: true,
@@ -229,7 +237,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     group.rotation.x = -Math.PI / 2;
     scene.add(group);
     const meshes = new Map<string, THREE.Mesh>();
-    const fit = () => {
+    const fit = (keepDirection = false) => {
       const bounds = new THREE.Box3();
       for (const mesh of meshes.values()) {
         if (mesh.visible) bounds.union(new THREE.Box3().setFromObject(mesh));
@@ -243,11 +251,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         1,
         (size * 0.55) / Math.sin(Math.min(verticalHalfFov, horizontalHalfFov)),
       );
+      const direction = keepDirection
+        ? camera.position.clone().sub(controls.target)
+        : initialDirection.clone();
+      if (!direction.lengthSq()) direction.copy(initialDirection);
       controls.maxDistance = Math.max(180, distance * 5);
       controls.target.copy(center);
-      camera.position
-        .copy(center)
-        .add(new THREE.Vector3(0.94, 0.63, 1.02).setLength(distance));
+      camera.position.copy(center).add(direction.setLength(distance));
       camera.near = Math.max(0.01, size / 2000);
       camera.far = Math.max(1000, controls.maxDistance * 2);
       camera.updateProjectionMatrix();
@@ -370,6 +380,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let cancelled = false;
     cancelLoad.current = () => {
       cancelled = true;
+      activeLoad.current = null;
       callbacks.current.onGeometryLoading(false);
     };
     const models = new Map(props.models.map((model) => [model.id, model]));
@@ -407,6 +418,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       callbacks.current.onGeometryLoading(false);
       return;
     }
+    const loadState: NonNullable<typeof activeLoad.current> = {};
+    activeLoad.current = loadState;
     callbacks.current.onGeometryLoading(true);
     let done = 0;
     callbacks.current.onGeometryProgress({ done, total: fresh.length });
@@ -416,14 +429,19 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let lastProgress = started;
     let published = false;
     let movedCamera = false;
-    const markCameraMoved = () => { movedCamera = true; };
+    const markCameraMoved = () => {
+      movedCamera = true;
+      loadState.selectionToFit = undefined;
+    };
     r.controls.addEventListener("start", markCameraMoved);
     const publish = () => {
       lastProgress = performance.now();
       callbacks.current.onGeometryProgress({ done, total: fresh.length });
       if (!published) {
         published = true;
-        if (fitInitial && !movedCamera && !callbacks.current.focusIds.length) r.fit();
+        if (fitInitial && !movedCamera && !loadState.selectionToFit && !callbacks.current.focusIds.length) {
+          r.fit();
+        }
         requestAnimationFrame(() => {
           if (!cancelled) performance.measure("qabim-geometry-first-frame", { start: started });
         });
@@ -513,8 +531,16 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         if (cancelled) return;
         publish();
         r.renderer.shadowMap.needsUpdate = true;
-        if (!movedCamera) {
-          if (callbacks.current.focusIds.length) focusView(r, callbacks.current);
+        const current = callbacks.current;
+        const selection = loadState.selectionToFit;
+        if (
+          selection?.floor === current.floor &&
+          selection.room === current.room &&
+          !current.focusIds.length
+        ) {
+          r.fit(true);
+        } else if (!movedCamera) {
+          if (current.focusIds.length) focusView(r, current);
           else if (fitInitial) r.fit();
         }
         performance.measure("qabim-geometry-load", {
@@ -532,10 +558,14 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       })
       .finally(() => {
         r.controls.removeEventListener("start", markCameraMoved);
-        if (!cancelled) callbacks.current.onGeometryLoading(false);
+        if (!cancelled) {
+          activeLoad.current = null;
+          callbacks.current.onGeometryLoading(false);
+        }
       });
     return () => {
       cancelled = true;
+      activeLoad.current = null;
       r.controls.removeEventListener("start", markCameraMoved);
     };
   }, [props.elements, props.models, props.hidden, props.loadAttempt]);
@@ -555,6 +585,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     props.mode,
     props.section,
   ]);
+
+  useEffect(() => {
+    if (!props.fitRequest) return;
+    const { floor, room } = callbacks.current;
+    if (activeLoad.current) activeLoad.current.selectionToFit = { floor, room };
+    runtime.current?.fit(true);
+  }, [props.fitRequest]);
 
   useEffect(() => {
     const r = runtime.current;
