@@ -18,6 +18,14 @@ from geometry_cache import ChunkWriter, cache_valid, decode_element, VERSION, SE
 from federation import run_federation
 
 COLORS = {"STR": "#c7cbd2", "HVAC": "#56a7ae", "PLUM": "#7291ce", "ARC": "#d9cbb8"}
+MAX_PREVIEW_PRODUCTS = 4000
+MAX_PREVIEW_COORDINATES_AND_INDICES = 2_000_000
+
+
+class PreviewLimitError(ValueError):
+    def __init__(self, message, reason, **details):
+        super().__init__(message)
+        self.details = {"reason": reason, **details}
 
 
 def import_model(path: str, display_name=None):
@@ -49,8 +57,11 @@ def import_model(path: str, display_name=None):
     model=ifcopenshell.open(str(snapshot))
     settings=ifcopenshell.geom.settings();settings.set("use-world-coords",True)
     products=[p for p in model.by_type("IfcProduct") if getattr(p,"Representation",None)]
-    if len(products)>2000:
-        raise ValueError("G1 preview is limited to 2,000 represented products; no partial silent import")
+    if len(products) > MAX_PREVIEW_PRODUCTS:
+        raise PreviewLimitError(
+            f"Preview product limit: {len(products)} > {MAX_PREVIEW_PRODUCTS}",
+            "preview_products", count=len(products), limit=MAX_PREVIEW_PRODUCTS,
+        )
     elements=[];generated=set();float_count=0
     writer=ChunkWriter(store,model_id,ifcopenshell.version)
     if products:
@@ -62,8 +73,8 @@ def import_model(path: str, display_name=None):
                 if any(not math.isfinite(v) for v in vertices):
                     raise ValueError("Non-finite geometry coordinates")
                 float_count+=len(vertices)+len(faces)
-                if float_count>2_000_000:
-                    raise MemoryError("Preview geometry budget exceeded")
+                if float_count > MAX_PREVIEW_COORDINATES_AND_INDICES:
+                    raise PreviewLimitError("Preview geometry budget exceeded", "preview_geometry")
                 kind=product.is_a()
                 discipline="HVAC" if "Duct" in kind else "PLUM" if "Pipe" in kind else "ARC" if "Wall" in kind else "STR"
                 container=ifcopenshell.util.element.get_container(product)
@@ -169,7 +180,10 @@ def respond(method, params, request_id=1):
     try:
         return {"jsonrpc":"2.0","id":request_id,"result":dispatch(method,params)}
     except Exception as error:
-        return {"jsonrpc":"2.0","id":request_id,"error":{"code":-32000,"message":str(error)}}
+        detail = {"code": -32000, "message": str(error)}
+        if isinstance(error, PreviewLimitError):
+            detail["data"] = error.details
+        return {"jsonrpc": "2.0", "id": request_id, "error": detail}
 
 
 if __name__ == "__main__":

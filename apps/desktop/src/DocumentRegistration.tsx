@@ -171,32 +171,52 @@ export default function DocumentRegistration({
     setNotice("");
     let saved = 0;
     let failed = 0;
+    async function prepareModel(row: DraftRow) {
+      updateRow(row.id, { phase: "saving", status: "Đang chuẩn bị mô hình…" });
+      try {
+        if (row.modelId) return { modelId: row.modelId };
+        if (!row.file) throw new Error("Thiếu mô hình IFC.");
+        const { model } = await importIfc(row.file, request.signal, ({ label }) =>
+          updateRow(row.id, { status: label }),
+        );
+        updateRow(row.id, { modelId: model.id, status: "Đã xử lý hình học · chờ ghi WIP" });
+        onModelImported(model);
+        return { modelId: model.id };
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+
+    function resetStopped(row: DraftRow) {
+      updateRow(row.id, { phase: "ready", status: "Đã dừng, chờ lưu lại" });
+    }
+
+    // Prepare at most two cloud models at once. Register documents in order so
+    // two IFCs with the same code still get consecutive revisions.
+    const preparation = new Map<string, ReturnType<typeof prepareModel>>();
+    const capacity = cloudEnabled && !localDesktop ? 2 : 1;
+    function startPreparation(row: DraftRow) {
+      preparation.set(row.id, prepareModel(row));
+    }
     try {
-      for (const row of targets) {
-        if (request.signal.aborted) break;
-        updateRow(row.id, { phase: "saving", status: "Đang chuẩn bị lưu…" });
+      targets.slice(0, capacity).forEach(startPreparation);
+      for (const [index, row] of targets.entries()) {
+        const model = await preparation.get(row.id)!;
+        preparation.delete(row.id);
+        if (request.signal.aborted) {
+          resetStopped(row);
+          break;
+        }
+        const following = targets[index + capacity];
+        if (following) startPreparation(following);
         try {
-          let target = row.modelId;
-          if (!target && row.file) {
-            const { model } = await importIfc(row.file, request.signal, ({ label }) =>
-              updateRow(row.id, { status: label }),
-            );
-            target = model.id;
-            // Retain the imported model if saving the document fails or is stopped.
-            updateRow(row.id, { modelId: target });
-            onModelImported(model);
-          }
-          if (request.signal.aborted) {
-            updateRow(row.id, { phase: "ready", status: "Đã dừng, chờ lưu lại" });
-            break;
-          }
-          if (!target) throw new Error("Thiếu mô hình IFC.");
+          if (!model.modelId) throw new Error(model.error || "Thiếu mô hình IFC.");
           const code = row.draft.code.trim().toUpperCase();
           updateRow(row.id, { status: "Đang ghi phiên bản WIP…" });
           const next = await call<DocumentVersion[]>("documents.register", {
-            ...row.draft, code, title: row.draft.title.trim(), modelId: target,
+            ...row.draft, code, title: row.draft.title.trim(), modelId: model.modelId,
           });
-          const document = next.find((item) => item.code === code && item.modelId === target);
+          const document = next.find((item) => item.code === code && item.modelId === model.modelId);
           if (!document) throw new Error("Chưa ghi được phiên bản. Hãy thử lưu lại.");
           if (document.state !== "WIP") {
             throw new Error("IFC này đã có phiên bản ngoài WIP với cùng mã hồ sơ.");
@@ -208,13 +228,14 @@ export default function DocumentRegistration({
           saved++;
           updateRow(row.id, { phase: "saved", status: `Đã lưu WIP · R${String(document.revision).padStart(2, "0")}` });
         } catch (error) {
-          if (request.signal.aborted) {
-            updateRow(row.id, { phase: "ready", status: "Đã dừng, chờ lưu lại" });
-            break;
-          }
           failed++;
           updateRow(row.id, { phase: "error", status: error instanceof Error ? error.message : String(error) });
         }
+        if (request.signal.aborted) break;
+      }
+      if (preparation.size) {
+        await Promise.all(preparation.values());
+        targets.filter((row) => preparation.has(row.id)).forEach(resetStopped);
       }
       setNotice([
         `Đã lưu ${saved}/${targets.length} phiên bản WIP.`,

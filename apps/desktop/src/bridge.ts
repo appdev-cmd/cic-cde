@@ -113,6 +113,7 @@ export async function waitImport(
     result?: ImportResult;
     error?: string;
   };
+  let processingSince: number | undefined;
   for (;;) {
     const job = signal.aborted
       ? await call<ImportJob>("jobs.cancel", { jobId })
@@ -121,13 +122,15 @@ export async function waitImport(
     if (job.phase === "cancelled") throw new Error("Đã hủy tải mô hình");
     if (job.phase === "failed") throw new Error(job.error);
     if (processingError?.()) throw processingError();
+    if (job.phase === "running") processingSince ??= Date.now();
+    const elapsed = processingSince === undefined ? 0 : Math.floor((Date.now() - processingSince) / 1000);
     progress({
       label:
         job.phase === "queued"
           ? "Đang chờ worker..."
           : job.phase === "committing"
             ? "Đang lưu mô hình..."
-            : "IfcOpenShell đang đọc và tạo hình học...",
+            : `IfcOpenShell đang xử lý hình học${elapsed >= 5 ? ` · ${elapsed} giây` : "…"}`,
       cancellable: job.cancellable,
     });
     await new Promise((resolve) => setTimeout(resolve, cloudEnabled ? 1000 : 150));

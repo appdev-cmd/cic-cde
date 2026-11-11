@@ -114,7 +114,15 @@ def run_worker(cloud: Cloud, job_id: str, folder: Path, operation: str, inputs: 
         raise RuntimeError('IfcOpenShell worker exited')
     reply = json.loads(output.read_text(encoding='utf-8'))
     if 'error' in reply:
-        raise ValueError('IfcOpenShell không thể xử lý mô hình này')
+        details = reply['error'].get('data', {})
+        reason = details.get('reason')
+        if reason == 'preview_products':
+            count = f"{int(details['count']):,}".replace(',', '.')
+            limit = f"{int(details['limit']):,}".replace(',', '.')
+            raise ValueError(f'Mô hình có {count} đối tượng hình học, vượt giới hạn {limit}. Hãy chia mô hình rồi tải lại.')
+        if reason == 'preview_geometry':
+            raise ValueError('Hình học của mô hình vượt giới hạn xử lý. Hãy chia mô hình rồi tải lại.')
+        raise ValueError('IfcOpenShell không thể đọc hoặc tạo hình học từ file này.')
     return reply['result']
 
 
