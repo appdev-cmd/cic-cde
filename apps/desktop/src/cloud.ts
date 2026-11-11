@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { DocumentDraft } from "./documentMetadata";
 
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -84,4 +85,16 @@ export async function uploadCloudIfc(file: File) {
   const { error } = await supabase.storage.from("cde-files").upload(path, file, { upsert: false, contentType: "application/octet-stream" });
   if (error) throw new Error(error.message);
   return cloudRpc<{ jobId: string }>("jobs.create", { kind: "import", path, name: file.name });
+}
+
+export async function suggestCloudDocument(
+  input: { fileName: string; project: string; description: string; discipline: string },
+  signal: AbortSignal,
+) {
+  const { data, error } = await supabase.functions.invoke<Pick<DocumentDraft, "title" | "discipline">>(
+    "cde-document-ai",
+    { body: { ...input, projectId: localStorage.getItem("ciccde.project") || "demo-project" }, signal },
+  );
+  if (error || !data) throw new Error("Không lấy được gợi ý Vertex AI");
+  return data;
 }

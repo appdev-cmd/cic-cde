@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCdeUser } from "./AuthGate";
-import { call, cloudEnabled, importIfc } from "./bridge";
+import { call, cloudEnabled, importIfc, localDesktop } from "./bridge";
+import { emptyDocumentDraft, readIfcDescription, suggestFromName } from "./documentMetadata";
+import type { DocumentDraft, DisciplineCode } from "./documentMetadata";
 import type { BimModel } from "./types";
 
 type Stage =
@@ -48,9 +50,12 @@ export default function Cde() {
   const [stage, setStage] = useState("");
   const [selectedId, setSelectedId] = useState<number>();
   const [note, setNote] = useState("");
-  const [code, setCode] = useState("");
-  const [title, setTitle] = useState("");
-  const [discipline, setDiscipline] = useState("MEP");
+  const [draft, setDraft] = useState(emptyDocumentDraft);
+  const { code, title, discipline } = draft;
+  const edited = useRef(new Set<keyof DocumentDraft>());
+  const suggestionRequest = useRef<AbortController | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [suggestionStatus, setSuggestionStatus] = useState("");
   const [modelId, setModelId] = useState("");
   const [file, setFile] = useState<File>();
   const [uploadProgress, setUploadProgress] = useState("");
@@ -85,9 +90,60 @@ export default function Cde() {
 
   useEffect(() => {
     void reload();
+    return () => suggestionRequest.current?.abort();
   }, []);
 
+  function editField<K extends keyof DocumentDraft>(field: K, value: DocumentDraft[K]) {
+    edited.current.add(field);
+    setDraft((previous) => ({ ...previous, [field]: value }));
+  }
+
+  async function suggest(name: string, source?: File) {
+    suggestionRequest.current?.abort();
+    const request = new AbortController();
+    suggestionRequest.current = request;
+
+    function fill(values: Partial<DocumentDraft>) {
+      if (request.signal.aborted) return;
+      const fields = (Object.keys(values) as (keyof DocumentDraft)[])
+        .filter((field) => !edited.current.has(field));
+      setDraft((previous) => ({ ...previous, ...Object.fromEntries(fields.map((field) => [field, values[field]])) }));
+    }
+
+    setSuggestionStatus("");
+    const initial = suggestFromName(name);
+    const existing = documents.find((document) => document.code === initial.code);
+    fill(existing
+      ? { code: existing.code, title: existing.title, discipline: existing.discipline as DisciplineCode }
+      : initial);
+    if (existing) {
+      setSuggestionStatus("Đã dùng thông tin của mã hồ sơ hiện có.");
+      return;
+    }
+    if (!name || !cloudEnabled || localDesktop) return;
+
+    setSuggestionStatus("Vertex AI đang gợi ý thông tin hồ sơ…");
+    try {
+      const metadata = source ? await readIfcDescription(source) : { project: "", description: "" };
+      if (request.signal.aborted) return;
+      const { suggestCloudDocument } = await import("./cloud");
+      if (request.signal.aborted) return;
+      const result = await suggestCloudDocument({
+        ...metadata, fileName: name.slice(0, 240), discipline: initial.discipline,
+      }, request.signal);
+      if (request.signal.aborted) return;
+      fill({ title: result.title || initial.title, discipline: initial.discipline || result.discipline });
+      setSuggestionStatus("Đã phân tích bằng Vertex AI. Bạn có thể sửa trước khi lưu.");
+    } catch {
+      if (!request.signal.aborted) {
+        setSuggestionStatus("Vertex AI chưa phản hồi. Bạn có thể dùng gợi ý từ tên file và bổ sung trường còn thiếu.");
+      }
+    }
+  }
+
   async function register() {
+    suggestionRequest.current?.abort();
+    setSuggestionStatus("");
     setBusy(true);
     setMessage("");
     try {
@@ -121,6 +177,11 @@ export default function Cde() {
         )?.id,
       );
       setMessage("Đã ghi phiên bản vào sổ hồ sơ.");
+      edited.current.clear();
+      setDraft(emptyDocumentDraft);
+      setFile(undefined);
+      setModelId("");
+      if (fileInput.current) fileInput.current.value = "";
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -273,7 +334,7 @@ export default function Cde() {
               <p>
                 {ready
                   ? "Không có phiên bản phù hợp."
-                  : "Đang chờ kết nối với desktop local."}
+                  : "Đang tải hồ sơ…"}
               </p>
             )}
           </section>
@@ -287,44 +348,30 @@ export default function Cde() {
             >
               <fieldset disabled={busy || !ready || user?.role === "viewer"}>
                 <label>
-                  Mã hồ sơ
+                  Tải IFC mới
                   <input
-                    required
-                    pattern="[A-Za-z0-9_\-]+"
-                    maxLength={64}
-                    placeholder="VD: RIV-MEP-MODEL"
-                    value={code}
-                    onChange={(event) => setCode(event.target.value)}
+                    ref={fileInput}
+                    type="file"
+                    accept=".ifc"
+                    onChange={(event) => {
+                      const next = event.target.files?.[0];
+                      setFile(next);
+                      setModelId("");
+                      void suggest(next?.name ?? "", next);
+                    }}
                   />
                 </label>
                 <label>
-                  Tên hồ sơ
-                  <input
-                    required
-                    maxLength={200}
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Bộ môn
-                  <select
-                    value={discipline}
-                    onChange={(event) => setDiscipline(event.target.value)}
-                  >
-                    <option>MEP</option>
-                    <option>STR</option>
-                    <option>ARC</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
-                </label>
-                <label>
-                  Chọn IFC đã nhập
+                  Hoặc chọn IFC đã nhập
                   <select
                     disabled={!!file}
                     required={!file}
                     value={modelId}
-                    onChange={(event) => setModelId(event.target.value)}
+                    onChange={(event) => {
+                      const model = models.find((item) => item.id === event.target.value);
+                      setModelId(event.target.value);
+                      void suggest(model?.name ?? "");
+                    }}
                   >
                     <option value="">Chọn mô hình</option>
                     {models.map((model) => (
@@ -334,13 +381,40 @@ export default function Cde() {
                     ))}
                   </select>
                 </label>
+                {suggestionStatus && <small role="status">{suggestionStatus}</small>}
                 <label>
-                  Hoặc tải IFC mới
+                  Mã hồ sơ
                   <input
-                    type="file"
-                    accept=".ifc"
-                    onChange={(event) => setFile(event.target.files?.[0])}
+                    required
+                    pattern="[A-Za-z0-9_\-]+"
+                    maxLength={64}
+                    placeholder="VD: RIV-MEP-MODEL"
+                    value={code}
+                    onChange={(event) => editField("code", event.target.value)}
                   />
+                </label>
+                <label>
+                  Tên hồ sơ
+                  <input
+                    required
+                    maxLength={200}
+                    value={title}
+                    onChange={(event) => editField("title", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Bộ môn
+                  <select
+                    required
+                    value={discipline}
+                    onChange={(event) => editField("discipline", event.target.value as DisciplineCode)}
+                  >
+                    <option value="">Chọn bộ môn</option>
+                    <option>MEP</option>
+                    <option>STR</option>
+                    <option>ARC</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
                 </label>
                 <button className="button primary" disabled={!file && !modelId}>
                   Lưu phiên bản WIP
