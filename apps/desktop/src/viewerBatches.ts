@@ -27,6 +27,8 @@ export class ViewerBatches {
   private readonly batches = new Set<Batch>();
   private readonly dirty = new Set<Batch>();
   private readonly sources = new Map<THREE.Mesh, { batch: Batch; entry: Entry }[]>();
+  private readonly transparentParts = new Map<THREE.Mesh, THREE.Mesh>();
+  private readonly maskedMaterial = new THREE.MeshBasicMaterial({ visible: false });
 
   constructor(private readonly group: THREE.Group) {
     // Picking and bounds still use the original meshes, outside scene traversal.
@@ -36,17 +38,21 @@ export class ViewerBatches {
 
   add(meshes: THREE.Mesh[]) {
     const grouped = new Map<string, Surface[]>();
+    const mixed = new Map<THREE.Mesh, THREE.Material[]>();
+    const eligible = new Set<THREE.Mesh>();
     for (const source of meshes) {
       const materials = (Array.isArray(source.material) ? source.material : [source.material]) as THREE.MeshStandardMaterial[];
       const index = source.geometry.index;
       const slab = source.userData.ifcClass === "IfcSlab";
-      // Keep transparent objects on Three's normal depth-sorted rendering path.
-      if (!index?.count || materials.some((m) => (m.userData.surfaceOpacity ?? (slab ? 0.78 : 1)) < 1)) continue;
+      if (!index?.count) continue;
+      const isOpaque = (m: THREE.MeshStandardMaterial) => (m.userData.surfaceOpacity ?? (slab ? 0.78 : 1)) >= 1;
       const groups = source.geometry.groups.length
         ? source.geometry.groups
         : [{ start: 0, count: index.count, materialIndex: 0 }];
       for (const { start, count, materialIndex } of groups) {
         const material = materials[materialIndex ?? 0];
+        if (!isOpaque(material)) continue;
+        eligible.add(source);
         const key = JSON.stringify([
           source.userData.modelId, source.userData.storey,
           source.userData.relativeGeometry, slab, material.userData.surfaceColor,
@@ -56,10 +62,21 @@ export class ViewerBatches {
         if (bucket) bucket.push(surface);
         else grouped.set(key, [surface]);
       }
+      if (eligible.has(source) && materials.some((material) => !isOpaque(material))) {
+        mixed.set(source, materials.map((material) => isOpaque(material) ? this.maskedMaterial : material));
+      }
     }
-    const eligible = new Set([...grouped.values()].flatMap((surfaces) => surfaces.map(({ source }) => source)));
-    if (grouped.size >= eligible.size) return;
+    const opaqueSurfaces = [...grouped.values()].reduce((sum, surfaces) => sum + surfaces.length, 0);
+    if (grouped.size >= opaqueSurfaces) return;
     for (const surfaces of grouped.values()) this.merge(surfaces);
+    for (const [source, materials] of mixed) {
+      // Draw just the remaining transparent groups per object. The mesh shares
+      // the original buffers and material instances used for picking and fades.
+      const mesh = new THREE.Mesh(source.geometry, materials);
+      mesh.receiveShadow = source.receiveShadow;
+      this.transparentParts.set(source, mesh);
+      this.group.add(mesh);
+    }
     for (const source of eligible) this.sync(source);
   }
 
@@ -122,6 +139,13 @@ export class ViewerBatches {
     const parent = individual ? this.group : this.pickGroup;
     if (source.parent !== parent) parent.add(source);
     source.updateWorldMatrix(true, false);
+    const transparent = this.transparentParts.get(source);
+    if (transparent) {
+      transparent.position.copy(source.position);
+      transparent.quaternion.copy(source.quaternion);
+      transparent.castShadow = source.castShadow;
+      transparent.visible = included;
+    }
     for (const { batch, entry } of links) {
       batch.mesh.position.copy(source.position);
       batch.mesh.quaternion.copy(source.quaternion);
@@ -154,6 +178,8 @@ export class ViewerBatches {
   remove(source: THREE.Mesh) {
     const links = this.sources.get(source);
     if (!links) return;
+    this.transparentParts.get(source)?.removeFromParent();
+    this.transparentParts.delete(source);
     for (const { batch, entry } of links) {
       batch.entries.delete(entry);
       if (batch.entries.size === 0) {
@@ -167,6 +193,7 @@ export class ViewerBatches {
   }
 
   dispose() {
+    for (const mesh of this.transparentParts.values()) mesh.removeFromParent();
     for (const batch of this.batches) {
       batch.mesh.removeFromParent();
       disposeViewerMesh(batch.mesh);
@@ -177,5 +204,7 @@ export class ViewerBatches {
     this.batches.clear();
     this.sources.clear();
     this.dirty.clear();
+    this.transparentParts.clear();
+    this.maskedMaterial.dispose();
   }
 }
