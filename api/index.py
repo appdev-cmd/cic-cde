@@ -83,11 +83,15 @@ class Cancelled(Exception):
 
 
 def run_worker(cloud: Cloud, job_id: str, folder: Path, operation: str, inputs: dict, deadline: float):
-    env = {**os.environ, 'QABIM_DATA_DIR': str(folder), 'PYTHONPATH': str(ROOT / 'workers/bim/src')}
+    # Vercel adds its vendored dependencies to the handler's sys.path at startup.
+    # Forward those paths when starting a separate, cancellable Python worker.
+    python_paths = [str(ROOT / 'workers/bim/src'), *(path for path in sys.path if path)]
+    env = {**os.environ, 'QABIM_DATA_DIR': str(folder), 'PYTHONPATH': os.pathsep.join(python_paths)}
     output = folder / 'result.json'
-    with output.open('wb') as stream, subprocess.Popen(
+    diagnostics = folder / 'worker.stderr'
+    with output.open('wb') as stream, diagnostics.open('wb') as stderr, subprocess.Popen(
         [sys.executable, '-m', 'qabim_worker.main', '--once', operation, json.dumps(inputs)],
-        env=env, stdout=stream, stderr=subprocess.DEVNULL,
+        env=env, stdout=stream, stderr=stderr,
     ) as worker:
         try:
             while worker.poll() is None:
@@ -102,6 +106,12 @@ def run_worker(cloud: Cloud, job_id: str, folder: Path, operation: str, inputs: 
             if worker.poll() is None:
                 worker.kill()
                 worker.wait()
+    if worker.returncode:
+        lines = diagnostics.read_text(encoding='utf-8', errors='replace').splitlines()
+        # Keep native dependency errors useful without logging model contents or credentials.
+        module_error = next((line for line in reversed(lines) if line.startswith(('ModuleNotFoundError:', 'ImportError:'))), '')
+        logger.warning('IfcOpenShell child exit=%s %s', worker.returncode, module_error[:200])
+        raise RuntimeError('IfcOpenShell worker exited')
     reply = json.loads(output.read_text(encoding='utf-8'))
     if 'error' in reply:
         raise ValueError('IfcOpenShell không thể xử lý mô hình này')
