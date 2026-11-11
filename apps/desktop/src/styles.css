@@ -2392,6 +2392,9 @@ table {
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
 }
+.check-modal {
+  width: min(760px, calc(100vw - 32px));
+}
 
 .app-shell {
   min-width: 960px;
@@ -2404,11 +2407,12 @@ table {
 
 .check-model-groups {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 15px 0;
 }
 .check-model-groups fieldset {
+  min-width: 0;
   margin: 0;
   padding: 10px;
   border: 1px solid #e3e8ee;
@@ -2430,12 +2434,19 @@ table {
   color: #77889c;
 }
 .check-model-groups label span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .check-model-groups input {
+  flex: 0 0 auto;
   accent-color: var(--accent);
+}
+@media (max-width: 520px) {
+  .check-modal {
+    padding: 20px;
+  }
+  .check-model-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .alignment-fields {
   display: grid;

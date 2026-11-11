@@ -2005,7 +2005,7 @@ export default function App({ project, account }: WorkspaceControls) {
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <section
-            className="modal"
+            className={modal === "check" ? "modal check-modal" : "modal"}
             role="dialog"
             aria-modal="true"
             aria-labelledby="dialog-title"
