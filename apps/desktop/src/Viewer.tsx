@@ -27,6 +27,7 @@ interface Props {
   onMeasure: (distance: number) => void;
 }
 type SelectionFade = {
+  includesFullModel: boolean;
   startOpacity: Map<THREE.Mesh, number>;
   meshes: Set<THREE.Mesh>;
   startedAt: number | null;
@@ -310,7 +311,6 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       lastSelection = { floor: next.floor, room: next.room, request: next.fitRequest };
       if (previous.floor === next.floor && previous.room === next.room) return;
       if (
-        previous.floor !== "all" &&
         previous.request !== next.fitRequest &&
         hasFramed &&
         !reducedMotion.matches
@@ -320,7 +320,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           if (mesh.visible) startOpacity.set(mesh, mesh.userData.scopeOpacity);
         }
         if (startOpacity.size) {
-          r.selectionFade = { startOpacity, meshes: new Set(), startedAt: null, progress: 0 };
+          r.selectionFade = {
+            includesFullModel: previous.floor === "all" || next.floor === "all",
+            startOpacity,
+            meshes: new Set(),
+            startedAt: null,
+            progress: 0,
+          };
           return;
         }
       }
@@ -462,7 +468,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const render = (now: number) => {
       if (disposed) return;
       const fade = r.selectionFade;
-      if (fade?.startedAt != null && callbacks.current.floor === "all") {
+      if (fade?.includesFullModel && fade.startedAt != null) {
         // Keep intermediate frames when rendering the full model takes longer.
         const frameDelay = now - Math.max(lastFrameAt, fade.startedAt) - fitDuration / 4;
         if (frameDelay > 0) {
