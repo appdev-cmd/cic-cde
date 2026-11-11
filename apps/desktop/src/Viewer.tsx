@@ -783,7 +783,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       denseMotion = moving && (denseMotion || dense);
       setResolution(denseMotion ? motionPixelRatio : fullPixelRatio);
       batches.setMoving(
-        denseMotion && !callbacks.current.section && !r.selectionFade && !renderer.shadowMap.needsUpdate,
+        denseMotion && callbacks.current.mode === "solid" && !callbacks.current.section &&
+          !r.selectionFade && !renderer.shadowMap.needsUpdate,
       );
       if (dirty || changed) {
         const section = callbacks.current.section;

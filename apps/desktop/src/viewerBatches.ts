@@ -3,7 +3,7 @@ import type { MotionRange } from "./viewerMotion.worker";
 
 type Surface = {
   source: THREE.Mesh;
-  material: THREE.MeshStandardMaterial;
+  color: string;
   start: number;
   count: number;
 };
@@ -40,6 +40,7 @@ export class ViewerBatches {
   private readonly dirty = new Set<Batch>();
   private readonly sources = new Map<THREE.Mesh, { batch: Batch; entry: Entry }[]>();
   private readonly transparentParts = new Map<THREE.Mesh, THREE.Mesh>();
+  private readonly transparentMaterials = new Map<THREE.Mesh, THREE.MeshStandardMaterial[]>();
   private readonly maskedMaterial = new THREE.MeshBasicMaterial({ visible: false });
   private readonly motionQueue: Batch[] = [];
   private motionWorker?: Worker;
@@ -67,21 +68,27 @@ export class ViewerBatches {
       const groups = source.geometry.groups.length
         ? source.geometry.groups
         : [{ start: 0, count: index.count, materialIndex: 0 }];
+      // Each streamed asset is already a bounded chunk. Floor and room filters
+      // keep using the index ranges of individual source meshes within it.
+      const key = JSON.stringify([
+        source.userData.modelId, source.userData.relativeGeometry, slab,
+      ]);
       for (const { start, count, materialIndex } of groups) {
         const material = materials[materialIndex ?? 0];
         if (!isOpaque(material)) continue;
         eligible.add(source);
-        const key = JSON.stringify([
-          source.userData.modelId, source.userData.storey,
-          source.userData.relativeGeometry, slab, material.userData.surfaceColor,
-        ]);
-        const surface = { source, material, start, count };
+        const surface = { source, color: material.userData.surfaceColor, start, count };
         const bucket = grouped.get(key);
         if (bucket) bucket.push(surface);
         else grouped.set(key, [surface]);
       }
-      if (eligible.has(source) && materials.some((material) => !isOpaque(material))) {
-        mixed.set(source, materials.map((material) => isOpaque(material) ? this.maskedMaterial : material));
+      const translucent = materials.filter((material) => !isOpaque(material));
+      if (translucent.length) {
+        this.transparentMaterials.set(source, translucent);
+        for (const material of translucent) material.forceSinglePass = this.moving;
+        if (eligible.has(source)) {
+          mixed.set(source, materials.map((material) => isOpaque(material) ? this.maskedMaterial : material));
+        }
       }
     }
     const opaqueSurfaces = [...grouped.values()].reduce((sum, surfaces) => sum + surfaces.length, 0);
@@ -103,14 +110,21 @@ export class ViewerBatches {
     const indexCount = surfaces.reduce((sum, { count }) => sum + count, 0);
     const positions = new Float32Array(vertices * 3);
     const normals = new Float32Array(vertices * 3);
+    const colors = new Float32Array(vertices * 3);
     const indices = new Uint32Array(indexCount);
     const entries = new Set<Entry>();
+    const color = new THREE.Color();
     let vertexOffset = 0;
     let indexOffset = 0;
-    for (const { source, start, count } of surfaces) {
+    for (const { source, color: surfaceColor, start, count } of surfaces) {
       const { attributes, index } = source.geometry;
       positions.set(attributes.position.array, vertexOffset * 3);
       normals.set(attributes.normal.array, vertexOffset * 3);
+      color.set(surfaceColor);
+      const colorEnd = (vertexOffset + attributes.position.count) * 3;
+      for (let i = vertexOffset * 3; i < colorEnd; i += 3) {
+        color.toArray(colors, i);
+      }
       for (let i = 0; i < count; i++) {
         indices[indexOffset + i] = index!.array[start + i] + vertexOffset;
       }
@@ -124,21 +138,24 @@ export class ViewerBatches {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     const drawIndex = new THREE.BufferAttribute(new Uint32Array(indexCount), 1).setUsage(THREE.DynamicDrawUsage);
     geometry.setIndex(drawIndex);
     geometry.setDrawRange(0, 0);
     geometry.computeBoundingSphere();
-    const first = surfaces[0];
-    const material = first.material.clone();
-    material.clippingPlanes = first.material.clippingPlanes;
-    material.color.set(first.material.userData.surfaceColor);
+    const { source } = surfaces[0];
+    const originalMaterial = (Array.isArray(source.material) ? source.material[0] : source.material) as THREE.MeshStandardMaterial;
+    const material = originalMaterial.clone();
+    material.clippingPlanes = originalMaterial.clippingPlanes;
+    material.color.set(0xffffff);
+    material.vertexColors = true;
     material.emissive.set(0);
     material.transparent = false;
     material.opacity = 1;
     material.depthWrite = true;
     material.wireframe = false;
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = first.source.userData.ifcClass !== "IfcSlab";
+    mesh.castShadow = source.userData.ifcClass !== "IfcSlab";
     mesh.receiveShadow = true;
     mesh.visible = false;
     this.group.add(mesh);
@@ -167,6 +184,11 @@ export class ViewerBatches {
     if (this.moving === moving) return;
     this.moving = moving;
     for (const batch of this.batches) this.useMotionGeometry(batch);
+    // Avoid a second draw per translucent surface during motion. Keep alpha
+    // blending and restore the back-then-front pass order at full quality.
+    for (const materials of this.transparentMaterials.values()) {
+      for (const material of materials) material.forceSinglePass = moving;
+    }
     this.invalidate();
   }
 
@@ -221,6 +243,7 @@ export class ViewerBatches {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", batch.full.geometry.attributes.position);
       geometry.setAttribute("normal", batch.full.geometry.attributes.normal);
+      geometry.setAttribute("color", batch.full.geometry.attributes.color);
       geometry.boundingSphere = batch.full.geometry.boundingSphere;
       const drawIndex = new THREE.BufferAttribute(new Uint32Array(data.indices.length), 1).setUsage(THREE.DynamicDrawUsage);
       geometry.setIndex(drawIndex);
@@ -303,6 +326,7 @@ export class ViewerBatches {
   }
 
   remove(source: THREE.Mesh) {
+    this.transparentMaterials.delete(source);
     const links = this.sources.get(source);
     if (!links) return;
     this.transparentParts.get(source)?.removeFromParent();
@@ -331,6 +355,7 @@ export class ViewerBatches {
     this.sources.clear();
     this.dirty.clear();
     this.transparentParts.clear();
+    this.transparentMaterials.clear();
     this.maskedMaterial.dispose();
   }
 }
