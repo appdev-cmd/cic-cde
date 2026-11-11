@@ -40,6 +40,8 @@ export interface BimElement {
   discipline: Discipline;
   storey: string;
   color: string;
+  surfaceOpacity?: number;
+  surfaceMaterials?: { start: number; count: number; color: string; opacity: number }[];
   vertices?: number[];
   indices?: number[];
   geometry?: GeometryRef;

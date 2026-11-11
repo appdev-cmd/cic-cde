@@ -63,51 +63,44 @@ function styleMesh(mesh: THREE.Mesh, props: Props, model: BimModel | undefined, 
   mesh.visible =
     !props.hidden.has(mesh.userData.modelId) &&
     (props.floor === "all" || mesh.userData.storey === props.floor);
-  const material = mesh.material as THREE.MeshStandardMaterial;
   const selected = id === props.selected;
   const a = props.focusIds[0] === id,
     b = props.focusIds[1] === id;
-  material.color.set(
-    selected
-      ? "#dc8950"
-      : a
-        ? "#d96957"
-        : b
-          ? "#e3af44"
-          : mesh.userData.color,
-  );
-  material.emissive.set(
-    selected ? "#47210e" : a || b ? "#351c0a" : "#000000",
-  );
-  material.emissiveIntensity = 0.18;
-  material.wireframe = props.mode === "wireframe";
-  material.opacity =
-    props.mode === "xray"
-      ? selected || a || b
-        ? 1
-        : mesh.userData.ifcClass === "IfcSlab"
-          ? 0.2
-          : mesh.userData.ifcClass === "IfcWall"
-            ? 0.4
-            : 0.9
-      : mesh.userData.ifcClass === "IfcSlab"
-        ? 0.78
-        : 1;
-  material.transparent = material.opacity < 1;
-  material.depthWrite = material.opacity >= 0.5;
-  material.clippingPlanes = props.section ? [plane] : [];
-  if (
-    material.userData.mode !== props.mode ||
-    material.userData.section !== props.section ||
-    material.userData.transparent !== material.transparent
-  ) {
-    material.needsUpdate = true;
-    material.userData = {
-      mode: props.mode,
-      section: props.section,
-      transparent: material.transparent,
-    };
+  const highlight = selected ? "#dc8950" : a ? "#d96957" : b ? "#e3af44" : undefined;
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const material of materials as THREE.MeshStandardMaterial[]) {
+    const slab = mesh.userData.ifcClass === "IfcSlab";
+    const xrayOpacity = slab ? 0.2 : mesh.userData.ifcClass === "IfcWall" ? 0.4 : 0.9;
+    const surfaceOpacity = material.userData.surfaceOpacity ?? (slab ? 0.78 : 1);
+    material.color.set(highlight ?? material.userData.surfaceColor);
+    material.emissive.set(selected ? "#47210e" : highlight ? "#351c0a" : "#000000");
+    material.emissiveIntensity = 0.18;
+    material.wireframe = props.mode === "wireframe";
+    material.opacity = props.mode === "xray" ? (highlight ? 1 : xrayOpacity) : surfaceOpacity;
+    material.transparent = material.opacity < 1;
+    material.depthWrite = material.opacity >= 0.5;
+    material.clippingPlanes = props.section ? [plane] : [];
+    if (
+      material.userData.mode !== props.mode ||
+      material.userData.section !== props.section ||
+      material.userData.transparent !== material.transparent
+    ) {
+      material.needsUpdate = true;
+      Object.assign(material.userData, {
+        mode: props.mode,
+        section: props.section,
+        transparent: material.transparent,
+      });
+    }
   }
+}
+
+function surfaceMaterial(color: string, opacity?: number) {
+  const material = new THREE.MeshStandardMaterial({
+    color, roughness: 0.82, metalness: 0, side: THREE.DoubleSide,
+  });
+  material.userData = { surfaceColor: color, surfaceOpacity: opacity };
+  return material;
 }
 
 function focusView(r: Runtime, props: Props) {
@@ -374,6 +367,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         e.geometry.vertexCount,
         e.geometry.indexOffset,
         e.geometry.indexCount,
+        e.color,
+        e.surfaceOpacity,
+        JSON.stringify(e.surfaceMaterials),
       ].join(":");
     };
     const keys = new Map(props.elements.map((e) => [e.id, geometryKey(e)]));
@@ -381,7 +377,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       if (mesh.userData.geometryKey !== keys.get(id)) {
         r.group.remove(mesh);
         mesh.geometry.dispose();
-        (mesh.material as THREE.Material).dispose();
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach((material) => material.dispose());
         r.meshes.delete(id);
       }
     }
@@ -456,19 +453,18 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           );
           geometry.setIndex(new THREE.BufferAttribute(raw.indices, 1));
           geometry.computeVertexNormals();
-          const material = new THREE.MeshStandardMaterial({
-            color: e.color,
-            roughness: 0.82,
-            metalness: 0,
-            side: THREE.DoubleSide,
-          });
+          const material = e.surfaceMaterials?.length
+            ? e.surfaceMaterials.map(({ start, count, color, opacity }, index) => {
+                geometry.addGroup(start, count, index);
+                return surfaceMaterial(color, opacity);
+              })
+            : surfaceMaterial(e.color, e.surfaceOpacity);
           const mesh = new THREE.Mesh(geometry, material);
           mesh.userData = {
             elementId: e.id,
             modelId: e.modelId,
             storey: e.storey,
             ifcClass: e.ifcClass,
-            color: e.color,
             relativeGeometry: Boolean(e.geometry),
             geometryKey: keys.get(e.id),
           };

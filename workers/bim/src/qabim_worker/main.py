@@ -5,6 +5,7 @@ import json
 import os
 import math
 import pathlib
+import shutil
 import sys
 
 import ifcopenshell
@@ -20,6 +21,7 @@ from federation import run_federation
 COLORS = {"STR": "#c7cbd2", "HVAC": "#56a7ae", "PLUM": "#7291ce", "ARC": "#d9cbb8"}
 MAX_PREVIEW_PRODUCTS = 4000
 MAX_PREVIEW_COORDINATES_AND_INDICES = 2_000_000
+MAX_IFC_BYTES = 500_000_000
 
 
 class PreviewLimitError(ValueError):
@@ -28,21 +30,66 @@ class PreviewLimitError(ValueError):
         self.details = {"reason": reason, **details}
 
 
+def file_hash(path):
+    with path.open("rb") as file:
+        return hashlib.file_digest(file, "sha256").hexdigest()
+
+
+def apply_surface_styles(element, mesh, faces):
+    styles = []
+    for style in mesh.materials:
+        color = element["color"]
+        rgb = style.get_color()
+        channels = (rgb.r(), rgb.g(), rgb.b())
+        if all(math.isfinite(channel) for channel in channels):
+            color = "#" + "".join(f"{round(255 * min(1, max(0, channel))):02x}" for channel in channels)
+        transparency = style.transparency if style.has_transparency() else 0
+        opacity = round(1 - min(1, max(0, transparency)), 4) if math.isfinite(transparency) else 1
+        styles.append((color, opacity))
+
+    material_ids = mesh.material_ids
+    if not styles or not faces or len(material_ids) * 3 != len(faces):
+        return faces
+    fallback = (element["color"], 1)
+    groups = {}
+    for triangle, index in enumerate(material_ids):
+        style = styles[index] if 0 <= index < len(styles) else fallback
+        groups.setdefault(style, []).extend(faces[triangle * 3:triangle * 3 + 3])
+    if len(groups) == 1:
+        color, opacity = next(iter(groups))
+        if any(index >= 0 for index in material_ids):
+            element.update(color=color, surfaceOpacity=opacity)
+        return faces
+
+    grouped_faces = []
+    ranges = []
+    for (color, opacity), indices in groups.items():
+        ranges.append({"start": len(grouped_faces), "count": len(indices), "color": color, "opacity": opacity})
+        grouped_faces.extend(indices)
+    element["surfaceMaterials"] = ranges
+    return grouped_faces
+
+
 def import_model(path: str, display_name=None):
     import time
     started=time.perf_counter()
     source=pathlib.Path(path).resolve()
-    if source.suffix.lower() != ".ifc" or source.stat().st_size > 100*1024*1024:
-        raise ValueError("G1 supports IFC STEP files up to 100 MB")
-    source_bytes=source.read_bytes()
-    digest=hashlib.sha256(source_bytes).hexdigest()
+    if source.suffix.lower() != ".ifc" or source.stat().st_size > MAX_IFC_BYTES:
+        raise ValueError("IFC STEP files must be at most 500 MB")
+    digest=file_hash(source)
     model_id=digest[:16]
     store=DATA/"models"/digest
     store.mkdir(parents=True,exist_ok=True)
     snapshot=store/"source.ifc"
     if not snapshot.exists():
-        temp=store/"source.staging.ifc";temp.write_bytes(source_bytes);temp.replace(snapshot)
-    if hashlib.sha256(snapshot.read_bytes()).hexdigest()!=digest:
+        temp = store / "source.staging.ifc"
+        if source.parent == DATA.resolve():
+            # The cloud worker owns this temporary download on the same volume.
+            os.link(source, temp)
+        else:
+            shutil.copyfile(source, temp)
+        temp.replace(snapshot)
+    if file_hash(snapshot)!=digest:
         raise ValueError("Snapshot hash mismatch")
     manifest=store/"preview.json"
     if manifest.exists():
@@ -56,6 +103,7 @@ def import_model(path: str, display_name=None):
             pass
     model=ifcopenshell.open(str(snapshot))
     settings=ifcopenshell.geom.settings();settings.set("use-world-coords",True)
+    settings.set("apply-default-materials", False)
     products=[p for p in model.by_type("IfcProduct") if getattr(p,"Representation",None)]
     if len(products) > MAX_PREVIEW_PRODUCTS:
         raise PreviewLimitError(
@@ -82,13 +130,14 @@ def import_model(path: str, display_name=None):
                     "ifcClass":kind,"modelId":model_id,"discipline":discipline,"storey":container.Name if container else "Unassigned",
                     "color":COLORS[discipline],"properties":{"IFC GUID":product.GlobalId,"STEP ID":str(product.id()),
                     "IFC Class":kind,"Name":product.Name or kind,"Schema":model.schema}}
+                faces = apply_surface_styles(element, shape.geometry, faces)
                 writer.add(element,vertices,faces);elements.append(element);generated.add(product.id())
                 if not iterator.next():break
     assets=writer.finish()
     failures=[{"stepId":p.id(),"message":"Geometry iterator did not produce this represented product"} for p in products if p.id() not in generated]
     result={"model":{"id":model_id,"name":display_name or source.name,"discipline":"IFC","schema":model.schema,
         "count":len(elements),"hash":digest,"status":"warnings" if failures else "ready","geometryAssets":assets,
-        "renderOrigin":writer.origin or [0,0,0],"transform":{"translation":[0,0,0],"rotationZDegrees":0,"revision":0}},
+        "renderOrigin":writer.origin or [0,0,0],"previewVersion":VERSION,"transform":{"translation":[0,0,0],"rotationZDegrees":0,"revision":0}},
         "elements":elements,"coverage":{"expected":len(products),"generated":len(elements),"failed":failures},
         "coordinateSystem":"IFC world coordinates, metres, Z-up","previewFormat":"QBM1 little-endian chunks",
         "cacheVersion":VERSION,"engineVersion":ifcopenshell.version,"geometrySettings":SETTINGS,

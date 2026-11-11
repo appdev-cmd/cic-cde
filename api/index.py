@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-MAX_IFC_BYTES = 100 * 1024 * 1024
+MAX_IFC_BYTES = 500_000_000
 WORKER_SECONDS = 255
 logger = logging.getLogger(__name__)
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -55,7 +55,7 @@ class Cloud:
             for chunk in response.iter_bytes():
                 length += len(chunk)
                 if length > MAX_IFC_BYTES:
-                    raise ValueError('IFC vượt quá 100 MB')
+                    raise ValueError('IFC vượt quá 500 MB')
                 file.write(chunk)
 
     def upload_geometry(self, path: str, source: Path):

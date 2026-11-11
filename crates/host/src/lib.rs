@@ -10,7 +10,10 @@ use qabim_application::{
     Application,
 };
 use serde_json::{json, Value};
+use tokio::io::AsyncWriteExt;
 use tower_http::cors::CorsLayer;
+
+const MAX_IFC_BYTES: usize = 500_000_000;
 
 fn session_token(request: &axum::extract::Request) -> String {
     if let Some(token) = request
@@ -320,7 +323,7 @@ async fn upload(
         if principal.as_ref().is_some_and(|u| u.role == "viewer") {
             return Err("FORBIDDEN".into());
         }
-        let field = multipart
+        let mut field = multipart
             .next_field()
             .await
             .map_err(|e| e.to_string())?
@@ -332,18 +335,40 @@ async fn upload(
             .chars()
             .take(200)
             .collect::<String>();
-        let bytes = field.bytes().await.map_err(|e| e.to_string())?;
-        if !bytes.starts_with(b"ISO-10303-21") {
-            return Err("Only IFC STEP files are supported in this spike".into());
-        }
         let dir = workspace.workspace_root().join(".local/uploads");
         tokio::fs::create_dir_all(&dir)
             .await
             .map_err(|e| e.to_string())?;
         let path = dir.join(format!("{}.ifc", uuid::Uuid::new_v4()));
-        tokio::fs::write(&path, bytes)
-            .await
-            .map_err(|e| e.to_string())?;
+        let written: Result<(), String> = async {
+            let mut output = tokio::fs::File::create(&path)
+                .await
+                .map_err(|e| e.to_string())?;
+            let signature = b"ISO-10303-21";
+            let mut size = 0;
+            while let Some(chunk) = field.chunk().await.map_err(|e| e.to_string())? {
+                if size < signature.len() {
+                    let length = chunk.len().min(signature.len() - size);
+                    if chunk[..length] != signature[size..size + length] {
+                        return Err("Only IFC STEP files are supported".into());
+                    }
+                }
+                size += chunk.len();
+                if size > MAX_IFC_BYTES {
+                    return Err("IFC exceeds 500 MB".into());
+                }
+                output.write_all(&chunk).await.map_err(|e| e.to_string())?;
+            }
+            if size < signature.len() {
+                return Err("Only IFC STEP files are supported".into());
+            }
+            output.flush().await.map_err(|e| e.to_string())
+        }
+        .await;
+        if let Err(error) = written {
+            let _ = tokio::fs::remove_file(&path).await;
+            return Err(error);
+        }
         let operation = if background {
             "model.import.start"
         } else {
@@ -414,7 +439,7 @@ async fn serve_with(
         .route("/rpc", post(rpc))
         .route("/import", post(upload))
         .route("/geometry/{id}", get(geometry))
-        .layer(DefaultBodyLimit::max(100 * 1024 * 1024))
+        .layer(DefaultBodyLimit::max(MAX_IFC_BYTES + 64 * 1024))
         .layer(axum::middleware::from_fn(authenticate))
         .layer(cors)
         .layer(axum::middleware::from_fn(local_origin))

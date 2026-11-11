@@ -8,6 +8,7 @@ export const API = remoteDesktop
   ? (import.meta.env.VITE_CDE_REMOTE_API || "http://127.0.0.1:18420/api")
   : (import.meta.env.VITE_QABIM_API_BASE ?? "http://127.0.0.1:4318");
 export const localDesktop = desktop && !remoteDesktop;
+export const MAX_IFC_BYTES = 500_000_000;
 export const selectedProject =
   localStorage.getItem("ciccde.project") || "demo-project";
 let bearer = "";
@@ -141,11 +142,16 @@ export async function importIfc(
   signal: AbortSignal,
   progress: (phase: ImportPhase) => void,
 ) {
+  if (!/\.ifc$/i.test(file.name) || !file.size || file.size > MAX_IFC_BYTES) {
+    throw new Error("Chọn file IFC tối đa 500 MB.");
+  }
   if (cloudEnabled && !localDesktop) {
     const cloud = await import("./cloud");
     if (signal.aborted) throw new Error("Đã hủy tải mô hình");
     progress({ label: "Đang tải IFC lên Supabase Storage...", cancellable: true });
-    const job = await cloud.uploadCloudIfc(file);
+    const job = await cloud.uploadCloudIfc(file, signal, (uploaded, total) =>
+      progress({ label: `Đang tải IFC · ${Math.floor(100 * uploaded / total)}%`, cancellable: true }),
+    );
     let processingError: unknown;
     if (!signal.aborted) {
       void cloud.startCloudJob(API, job.jobId).catch((error) => { processingError = error; });

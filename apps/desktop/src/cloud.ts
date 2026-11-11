@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { selectedProject } from "./bridge";
+import { MAX_IFC_BYTES, selectedProject } from "./bridge";
 import type { DocumentDraft, DocumentMetadataInput } from "./documentMetadata";
 
 export const supabase = createClient(
@@ -77,13 +77,48 @@ export async function startCloudJob(api: string, jobId: string) {
   }
 }
 
-export async function uploadCloudIfc(file: File) {
-  if (!file.name.toLowerCase().endsWith(".ifc") || file.size > 100 * 1024 * 1024) {
-    throw new Error("Chọn file IFC tối đa 100 MB");
+export async function uploadCloudIfc(
+  file: File,
+  signal: AbortSignal,
+  onProgress: (uploaded: number, total: number) => void,
+) {
+  if (!file.name.toLowerCase().endsWith(".ifc") || !file.size || file.size > MAX_IFC_BYTES) {
+    throw new Error("Chọn file IFC tối đa 500 MB.");
   }
   const path = `${selectedProject}/uploads/${crypto.randomUUID()}.ifc`;
-  const { error } = await supabase.storage.from("cde-files").upload(path, file, { upsert: false, contentType: "application/octet-stream" });
-  if (error) throw new Error(error.message);
+  const { Upload } = await import("tus-js-client");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Vui lòng đăng nhập lại.");
+  signal.throwIfAborted();
+  const endpoint = new URL(import.meta.env.VITE_SUPABASE_URL);
+  if (endpoint.hostname.endsWith(".supabase.co")) {
+    endpoint.hostname = endpoint.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co");
+  }
+  endpoint.pathname = "/storage/v1/upload/resumable";
+  await new Promise<void>((resolve, reject) => {
+    function finish(error?: unknown) {
+      signal.removeEventListener("abort", abort);
+      if (error) reject(error);
+      else resolve();
+    }
+    function abort() {
+      void upload.abort();
+      finish(signal.reason);
+    }
+    const upload = new Upload(file, {
+      endpoint: endpoint.href,
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      retryDelays: [0, 1000, 3000, 5000, 10000],
+      chunkSize: 6 * 1024 * 1024,
+      storeFingerprintForResuming: false,
+      metadata: { bucketName: "cde-files", objectName: path, contentType: "application/octet-stream" },
+      onError: finish,
+      onSuccess: () => finish(),
+      onProgress,
+    });
+    signal.addEventListener("abort", abort, { once: true });
+    upload.start();
+  });
   return cloudRpc<{ jobId: string }>("jobs.create", { kind: "import", path, name: file.name });
 }
 

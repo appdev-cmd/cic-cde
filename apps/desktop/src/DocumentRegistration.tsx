@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { call, cloudEnabled, importIfc, localDesktop } from "./bridge";
+import { call, cloudEnabled, importIfc, localDesktop, MAX_IFC_BYTES } from "./bridge";
 import {
   documentSuggestionBatchSize,
   readIfcDescription,
@@ -134,14 +134,14 @@ export default function DocumentRegistration({
     const added: DraftRow[] = [];
     let skipped = 0;
     for (const file of files) {
-      if (!/\.ifc$/i.test(file.name) || !file.size || file.size > 100 * 1024 * 1024 ||
+      if (!/\.ifc$/i.test(file.name) || !file.size || file.size > MAX_IFC_BYTES ||
           [...rows, ...added].some((row) => row.file && sameFile(row.file, file))) {
         skipped++;
       } else {
         added.push(makeRow(file.name, { file }));
       }
     }
-    setNotice(skipped ? `Đã bỏ qua ${skipped} file trùng, rỗng, sai định dạng hoặc vượt 100 MB.` : "");
+    setNotice(skipped ? `Đã bỏ qua ${skipped} file trùng, rỗng, sai định dạng hoặc vượt 500 MB.` : "");
     setRows((previous) => [...previous, ...added]);
     void suggestRows(added);
   }

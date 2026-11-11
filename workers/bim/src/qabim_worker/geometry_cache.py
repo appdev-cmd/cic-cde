@@ -6,8 +6,8 @@ import pathlib
 import struct
 import sys
 
-VERSION = 2
-SETTINGS = "world-metres;float32-relative;uint32-local;chunk-256;indexed-content-v4"
+VERSION = 3
+SETTINGS = "world-metres;float32-relative;uint32-local;chunk-256;indexed-content-v4;surface-styles"
 
 
 def raw_array(kind, values):
