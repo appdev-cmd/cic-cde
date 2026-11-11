@@ -26,6 +26,13 @@ interface Props {
   onSelect: (id: string | null) => void;
   onMeasure: (distance: number) => void;
 }
+type RoomFade = {
+  startOpacity: Map<THREE.Mesh, number>;
+  meshes: Set<THREE.Mesh>;
+  startedAt: number | null;
+  progress: number;
+};
+
 interface Runtime {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -34,12 +41,15 @@ interface Runtime {
   group: THREE.Group;
   marker: THREE.Mesh;
   meshes: Map<string, THREE.Mesh>;
+  roomFade: RoomFade | null;
+  prepareRoomFade: (props: Props) => void;
   fit: (mode?: "selection") => void;
   cancelFit: () => void;
   invalidate: () => void;
 }
 
 function applyAppearance(r: Runtime, props: Props) {
+  r.prepareRoomFade(props);
   const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
   const models = new Map(props.models.map((model) => [model.id, model]));
   const elements = new Map(props.elements.map((element) => [element.id, element]));
@@ -49,13 +59,60 @@ function applyAppearance(r: Runtime, props: Props) {
       mesh.userData.storey = element.storey;
       mesh.userData.spaceKey = spaceKey(element);
     }
-    styleMesh(mesh, props, models.get(mesh.userData.modelId), plane);
+    styleMesh(r, mesh, props, models.get(mesh.userData.modelId), plane);
   }
   r.renderer.shadowMap.needsUpdate = true;
   r.invalidate();
 }
 
-function styleMesh(mesh: THREE.Mesh, props: Props, model: BimModel | undefined, plane: THREE.Plane) {
+function meshOpacity(r: Runtime, mesh: THREE.Mesh) {
+  const target = mesh.userData.inScope ? 1 : 0;
+  const fade = r.roomFade;
+  const start = fade?.startOpacity.get(mesh) ?? 0;
+  if (fade && !mesh.userData.modelHidden && start !== target) {
+    fade.meshes.add(mesh);
+    return { opacity: THREE.MathUtils.lerp(start, target, fade.progress), fading: true };
+  }
+  return { opacity: target, fading: false };
+}
+
+function applyMeshOpacity(mesh: THREE.Mesh, opacity: number, fading: boolean) {
+  mesh.userData.scopeOpacity = opacity;
+  mesh.visible = opacity > 0;
+  mesh.castShadow = !fading && mesh.userData.ifcClass !== "IfcSlab";
+}
+
+function applyMaterialOpacity(material: THREE.MeshStandardMaterial, opacity: number, fading: boolean) {
+  material.opacity = material.userData.baseOpacity * (fading ? opacity : 1);
+  const transparent = fading || material.opacity < 1;
+  if (material.transparent !== transparent) {
+    material.transparent = transparent;
+    material.needsUpdate = true;
+  }
+  material.depthWrite = !fading && material.opacity >= 0.5;
+}
+
+function updateRoomFade(r: Runtime, progress: number) {
+  const fade = r.roomFade;
+  if (!fade) return;
+  fade.progress = progress;
+  if (progress === 1) {
+    r.roomFade = null;
+    r.renderer.shadowMap.needsUpdate = true;
+  }
+  for (const mesh of fade.meshes) {
+    if (r.meshes.get(mesh.userData.elementId) !== mesh) continue;
+    const { opacity, fading } = meshOpacity(r, mesh);
+    applyMeshOpacity(mesh, opacity, fading);
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const material of materials as THREE.MeshStandardMaterial[]) {
+      applyMaterialOpacity(material, opacity, fading);
+    }
+  }
+  r.invalidate();
+}
+
+function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel | undefined, plane: THREE.Plane) {
   const id = mesh.userData.elementId;
   const origin = mesh.userData.relativeGeometry
     ? (model?.renderOrigin ?? [0, 0, 0])
@@ -70,10 +127,13 @@ function styleMesh(mesh: THREE.Mesh, props: Props, model: BimModel | undefined, 
     origin[2] + offset[2],
   );
   mesh.rotation.z = radians;
-  mesh.visible =
-    !props.hidden.has(mesh.userData.modelId) &&
+  mesh.userData.modelHidden = props.hidden.has(mesh.userData.modelId);
+  mesh.userData.inScope =
+    !mesh.userData.modelHidden &&
     (props.floor === "all" || mesh.userData.storey === props.floor) &&
     (props.room === null || mesh.userData.spaceKey === props.room);
+  const { opacity, fading } = meshOpacity(r, mesh);
+  applyMeshOpacity(mesh, opacity, fading);
   const selected = id === props.selected;
   const a = props.focusIds[0] === id,
     b = props.focusIds[1] === id;
@@ -87,20 +147,17 @@ function styleMesh(mesh: THREE.Mesh, props: Props, model: BimModel | undefined, 
     material.emissive.set(selected ? "#47210e" : highlight ? "#351c0a" : "#000000");
     material.emissiveIntensity = 0.18;
     material.wireframe = props.mode === "wireframe";
-    material.opacity = props.mode === "xray" ? (highlight ? 1 : xrayOpacity) : surfaceOpacity;
-    material.transparent = material.opacity < 1;
-    material.depthWrite = material.opacity >= 0.5;
+    material.userData.baseOpacity = props.mode === "xray" ? (highlight ? 1 : xrayOpacity) : surfaceOpacity;
+    applyMaterialOpacity(material, opacity, fading);
     material.clippingPlanes = props.section ? [plane] : [];
     if (
       material.userData.mode !== props.mode ||
-      material.userData.section !== props.section ||
-      material.userData.transparent !== material.transparent
+      material.userData.section !== props.section
     ) {
       material.needsUpdate = true;
       Object.assign(material.userData, {
         mode: props.mode,
         section: props.section,
-        transparent: material.transparent,
       });
     }
   }
@@ -242,7 +299,31 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const meshes = new Map<string, THREE.Mesh>();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const fitDuration = 400;
+    const easedProgress = (now: number, startedAt: number) => {
+      const progress = THREE.MathUtils.clamp((now - startedAt) / fitDuration, 0, 1);
+      return progress * progress * (3 - 2 * progress);
+    };
     let hasFramed = false;
+    let lastSelection = { floor: callbacks.current.floor, room: callbacks.current.room, request: callbacks.current.fitRequest };
+    const prepareRoomFade = (next: Props) => {
+      const previous = lastSelection;
+      lastSelection = { floor: next.floor, room: next.room, request: next.fitRequest };
+      if (previous.floor === next.floor && previous.room === next.room) return;
+      if (
+        previous.room && next.room && previous.room !== next.room &&
+        previous.request !== next.fitRequest && hasFramed && !reducedMotion.matches
+      ) {
+        const startOpacity = new Map<THREE.Mesh, number>();
+        for (const mesh of meshes.values()) {
+          if (mesh.visible) startOpacity.set(mesh, mesh.userData.scopeOpacity);
+        }
+        if (startOpacity.size) {
+          r.roomFade = { startOpacity, meshes: new Set(), startedAt: null, progress: 0 };
+          return;
+        }
+      }
+      updateRoomFade(r, 1);
+    };
     let flight: {
       startedAt: number;
       fromTarget: THREE.Vector3;
@@ -255,14 +336,21 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     } | null = null;
     const cancelFit = () => {
       flight = null;
+      updateRoomFade(r, 1);
     };
     const fit = (mode?: "selection") => {
-      cancelFit();
+      if (mode !== "selection") cancelFit();
+      const startedAt = performance.now();
+      const startingFade = r.roomFade?.startedAt === null;
+      if (r.roomFade && startingFade) r.roomFade.startedAt = startedAt;
       const bounds = new THREE.Box3();
       for (const mesh of meshes.values()) {
-        if (mesh.visible) bounds.union(new THREE.Box3().setFromObject(mesh));
+        if (mesh.userData.inScope) bounds.union(new THREE.Box3().setFromObject(mesh));
       }
-      if (bounds.isEmpty()) return;
+      if (bounds.isEmpty()) {
+        flight = null;
+        return;
+      }
       const center = bounds.getCenter(new THREE.Vector3());
       const size = bounds.getSize(new THREE.Vector3()).length();
       const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov / 2);
@@ -281,6 +369,11 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       const far = Math.max(1000, maxDistance * 2);
 
       if (mode === "selection" && hasFramed && !reducedMotion.matches) {
+        if (
+          !startingFade && flight && flight.toTarget.equals(center) &&
+          flight.toPosition.distanceToSquared(position) < 1e-8
+        ) return;
+
         const fromTarget = controls.target.clone();
         const fromPosition = camera.position.clone();
 
@@ -293,7 +386,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         camera.position.copy(fromPosition);
 
         flight = {
-          startedAt: performance.now(),
+          startedAt,
           fromTarget,
           fromPosition,
           toTarget: center,
@@ -306,6 +399,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         camera.near = Math.min(camera.near, near);
         camera.far = Math.max(camera.far, far);
       } else {
+        flight = null;
         controls.maxDistance = maxDistance;
         controls.target.copy(center);
         camera.position.copy(position);
@@ -335,7 +429,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     };
     controls.addEventListener("change", invalidate);
     controls.addEventListener("start", cancelFit);
-    runtime.current = {
+    const r: Runtime = {
       scene,
       camera,
       renderer,
@@ -343,10 +437,13 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       group,
       marker,
       meshes,
+      roomFade: null,
+      prepareRoomFade,
       fit,
       cancelFit,
       invalidate,
     };
+    runtime.current = r;
     const resize = new ResizeObserver(() => {
       const w = host.clientWidth,
         h = host.clientHeight;
@@ -362,11 +459,10 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const render = (now: number) => {
       if (disposed) return;
       if (flight) {
-        const progress = THREE.MathUtils.clamp((now - flight.startedAt) / fitDuration, 0, 1);
-        const eased = progress * progress * (3 - 2 * progress);
+        const eased = easedProgress(now, flight.startedAt);
         controls.target.lerpVectors(flight.fromTarget, flight.toTarget, eased);
         camera.position.lerpVectors(flight.fromPosition, flight.toPosition, eased);
-        if (progress === 1) {
+        if (eased === 1) {
           camera.near = flight.near;
           camera.far = flight.far;
           controls.maxDistance = flight.maxDistance;
@@ -375,6 +471,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         }
         invalidate();
       }
+      const fadeStart = r.roomFade?.startedAt;
+      if (fadeStart != null) updateRoomFade(r, easedProgress(now, fadeStart));
       const changed = controls.update();
       if (dirty || changed) {
         renderer.render(scene, camera);
@@ -406,7 +504,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         camera,
       );
       const hits = raycaster.intersectObjects(
-        [...meshes.values()].filter((m) => m.visible),
+        [...meshes.values()].filter((m) => m.visible && m.userData.inScope),
         false,
       );
       const hit = hits.find(
@@ -577,9 +675,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
             relativeGeometry: Boolean(e.geometry),
             geometryKey: keys.get(e.id),
           };
-          mesh.castShadow = e.ifcClass !== "IfcSlab";
           mesh.receiveShadow = true;
-          styleMesh(mesh, callbacks.current, models.get(e.modelId), plane);
+          styleMesh(r, mesh, callbacks.current, models.get(e.modelId), plane);
           r.group.add(mesh);
           r.meshes.set(e.id, mesh);
           done++;
