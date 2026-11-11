@@ -12,8 +12,8 @@ const titles: Record<Mode, string> = {
   remove: "Xóa thư mục CAD",
 };
 
-export default function CadFolderDialog({ folder, folders, onClose, onSaved }: {
-  folder: CadFolder | null; folders: CadFolder[]; onClose: () => void; onSaved: () => void;
+export default function CadFolderDialog({ folder, folders, onClose, onSaved, onSelectSubtree }: {
+  folder: CadFolder | null; folders: CadFolder[]; onClose: () => void; onSaved: () => void; onSelectSubtree?: () => void;
 }) {
   const [mode, setMode] = useState<Mode>(folder ? "menu" : "create");
   const [name, setName] = useState("");
@@ -68,6 +68,11 @@ export default function CadFolderDialog({ folder, folders, onClose, onSaved }: {
       {currentPath && <p className="cad-folder-dialog-path">{currentPath}</p>}
       {mode === "menu" ? (
         <div className="cad-folder-dialog-actions">
+          {onSelectSubtree && (
+            <button type="button" className="button secondary" onClick={onSelectSubtree}>
+              Chọn tất cả, kể cả thư mục con
+            </button>
+          )}
           <button type="button" className="button secondary" onClick={() => choose("create")}>Tạo thư mục con</button>
           <button type="button" className="button secondary" onClick={() => choose("rename")}>Đổi tên</button>
           <button type="button" className="button secondary" onClick={() => choose("move")}>Di chuyển</button>
