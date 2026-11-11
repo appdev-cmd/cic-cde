@@ -1125,14 +1125,42 @@ textarea::placeholder {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.section-controls-reading output {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+.section-controls-position {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 8px;
 }
-.section-controls input {
+.section-controls-position input[type="range"] {
   width: 100%;
   margin: 0;
   accent-color: var(--accent);
+}
+.section-controls-coordinate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.section-controls-coordinate input {
+  width: 16ch;
+  min-width: 0;
+  padding: 5px 4px;
+  border: 1px solid #dce5ed;
+  border-radius: 5px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.section-controls-coordinate input[aria-invalid="true"] {
+  border-color: #b3413c;
+}
+.section-controls-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #a5322f;
+  font-size: 10px;
 }
 .section-controls-side {
   color: #65788b;
