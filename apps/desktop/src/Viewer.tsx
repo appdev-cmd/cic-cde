@@ -277,6 +277,26 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     const sectionPlane = new THREE.Plane();
     const sectionPlanes = [sectionPlane];
+    const previewGeometry = new THREE.PlaneGeometry(1, 1);
+    const sectionPreview = new THREE.Mesh(previewGeometry, new THREE.MeshBasicMaterial({
+      color: 0xc77742,
+      opacity: 0.24,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+    sectionPreview.name = "section-plane-preview";
+    sectionPreview.visible = false;
+    sectionPreview.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(previewGeometry),
+      new THREE.LineBasicMaterial({
+        color: 0xad5729,
+        opacity: 0.85,
+        transparent: true,
+        depthWrite: false,
+      }),
+    ));
+    scene.add(sectionPreview);
     let sectionBounds: SectionBounds | null = null;
     let sectionComponent = 1;
     let sectionCoordinate = 0;
@@ -299,6 +319,17 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         sectionAnchor
           .set((x[0] + x[1]) / 2, (z[0] + z[1]) / 2, -(y[0] + y[1]) / 2)
           .setComponent(sectionComponent, sectionCoordinate);
+        const width = section.axis === "x" ? y[1] - y[0] : x[1] - x[0];
+        const height = section.axis === "z" ? y[1] - y[0] : z[1] - z[0];
+        sectionPreview.position.copy(sectionAnchor);
+        sectionPreview.rotation.set(
+          section.axis === "z" ? -Math.PI / 2 : 0,
+          section.axis === "x" ? Math.PI / 2 : 0,
+          0,
+        );
+        // Extend the border past the model so it remains visible beside the cut.
+        const margin = Math.max(width, height, 0.1) * 0.035;
+        sectionPreview.scale.set(width + 2 * margin, height + 2 * margin, 1);
         handle.setAttribute("aria-valuemin", String(min));
         handle.setAttribute("aria-valuemax", String(max));
         handle.setAttribute("aria-valuenow", String(coordinate));
@@ -640,6 +671,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       sectionDrag = { pointerId: event.pointerId, range, position: section.position, startY: event.clientY, axis, projection };
       handle.dataset.dragging = "true";
       handle.setPointerCapture(event.pointerId);
+      invalidate();
     };
     const setSectionPosition = (position: number) => {
       callbacks.current.onSectionPositionChange(THREE.MathUtils.clamp(position, 0, 1));
@@ -711,6 +743,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       if (fadeStart != null) updateSelectionFade(r, easedProgress(now, fadeStart));
       const changed = planRotation === null && controls.update();
       if (dirty || changed) {
+        const section = callbacks.current.section;
+        sectionPreview.visible = planRotation === null && sectionDrag !== null && section !== null &&
+          sectionBounds?.[section.axis] === sectionDrag.range;
         renderer.render(scene, activeCamera());
         updateHandle();
         if (planRotation !== null) callbacks.current.onPlanViewport(plan.viewport());
