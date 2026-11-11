@@ -185,8 +185,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     controls.dampingFactor = 0.09;
     controls.maxDistance = 180;
     controls.minDistance = 1;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x9daac1, 2.7));
-    const light = new THREE.DirectionalLight(0xffffff, 3.2);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xaeb2b8, 1.35));
+    const light = new THREE.DirectionalLight(0xffffff, 1.65);
     light.position.set(12, 50, 22);
     light.castShadow = true;
     light.shadow.mapSize.set(2048, 2048);
@@ -199,7 +199,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     });
     light.shadow.bias = -0.001;
     scene.add(light);
-    const fill = new THREE.DirectionalLight(0xd8e6ff, 1.3);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.55);
     fill.position.set(-30, 15, -10);
     scene.add(fill);
     const ground = new THREE.Mesh(
@@ -225,12 +225,19 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       if (bounds.isEmpty()) return;
       const center = bounds.getCenter(new THREE.Vector3());
       const size = bounds.getSize(new THREE.Vector3()).length();
+      const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+      const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * camera.aspect);
+      const distance = Math.max(
+        1,
+        (size * 0.55) / Math.sin(Math.min(verticalHalfFov, horizontalHalfFov)),
+      );
+      controls.maxDistance = Math.max(180, distance * 5);
       controls.target.copy(center);
       camera.position
         .copy(center)
-        .add(new THREE.Vector3(size * 0.94, size * 0.63, size * 1.02));
+        .add(new THREE.Vector3(0.94, 0.63, 1.02).setLength(distance));
       camera.near = Math.max(0.01, size / 2000);
-      camera.far = Math.max(1000, size * 20);
+      camera.far = Math.max(1000, controls.maxDistance * 2);
       camera.updateProjectionMatrix();
       controls.update();
     };

@@ -19,8 +19,8 @@ from geometry_cache import ChunkWriter, cache_valid, decode_element, VERSION, SE
 from federation import run_federation
 
 COLORS = {"STR": "#c7cbd2", "HVAC": "#56a7ae", "PLUM": "#7291ce", "ARC": "#d9cbb8"}
-MAX_PREVIEW_PRODUCTS = 4000
-MAX_PREVIEW_COORDINATES_AND_INDICES = 2_000_000
+MAX_PREVIEW_PRODUCTS = 12_000
+MAX_PREVIEW_COORDINATES_AND_INDICES = 8_000_000
 MAX_IFC_BYTES = 500_000_000
 
 
