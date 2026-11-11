@@ -30,10 +30,16 @@ Deno.serve(async (request: Request) => {
     const action = input.action;
     const username = String(input.username || "").trim().toLowerCase();
     const password = String(input.password || "");
-    if (!/^[a-z0-9._-]{3,64}$/.test(username) || password.length < 12 || password.length > 128) {
+    const shortUsername = /^[a-z0-9._-]{3,64}$/.test(username);
+    const emailUsername = action === "create" && username.length <= 80 &&
+      /^[a-z0-9][a-z0-9._+-]*@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(username);
+    if ((!shortUsername && !emailUsername) || password.length < 12 || password.length > 128) {
       throw new Error("Invalid credentials");
     }
-    const identity = { email: `${username}@pilot.cde.cic.com.vn`, password };
+    const identity = {
+      email: emailUsername ? username : `${username}@pilot.cde.cic.com.vn`,
+      password,
+    };
     const manage = (step: string, payload: Record<string, unknown>) =>
       upstream("/rest/v1/rpc/cde_manage_account", serviceKey, "POST", { action: step, payload });
     let actor: string | undefined;

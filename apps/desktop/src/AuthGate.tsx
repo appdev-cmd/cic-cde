@@ -16,6 +16,7 @@ import {
   type WorkspaceControls,
 } from "./AuthContext";
 import AccessDialog from "./AccessDialog";
+import LoginScreen from "./LoginScreen";
 import ProjectGate from "./ProjectGate";
 export { useCdeUser } from "./AuthContext";
 export default function AuthGate({
@@ -81,7 +82,7 @@ export default function AuthGate({
       setSessionToken(result.token);
       setUser(result.user);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -138,52 +139,18 @@ export default function AuthGate({
   if (checking) return <p role="status">Đang kiểm tra phiên CIC CDE…</p>;
   if (required && !user)
     return (
-      <main className="login-page">
-        <section className="cde-card">
-          <h1>CIC CDE</h1>
-          <p>Đăng nhập không gian phối hợp BIM</p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void signIn(event.currentTarget);
-            }}
-          >
-            <fieldset disabled={busy}>
-              <label>
-                Tên đăng nhập
-                <input
-                  name="username"
-                  autoComplete="username"
-                  required
-                  maxLength={80}
-                />
-              </label>
-              <label>
-                Mật khẩu
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  maxLength={128}
-                />
-              </label>
-              <button className="button primary">
-                {joining ? "Tạo tài khoản và tham gia" : "Đăng nhập"}
-              </button>
-            </fieldset>
-          </form>
-          {inviteToken && (
-            <button onClick={() => setJoining((value) => !value)}>
-              {joining
-                ? "Đăng nhập bằng tài khoản có sẵn"
-                : "Tạo tài khoản theo lời mời"}
-            </button>
-          )}
-          {error && <p role="alert">{error}</p>}
-          {connection}
-        </section>
-      </main>
+      <LoginScreen
+        busy={busy}
+        joining={joining}
+        hasInvite={Boolean(inviteToken)}
+        error={error}
+        connection={connection}
+        onSubmit={(form) => { void signIn(form); }}
+        onToggleJoin={() => {
+          setError("");
+          setJoining((value) => !value);
+        }}
+      />
     );
   const account = (user || connection) && (
     <details
@@ -276,7 +243,7 @@ export default function AuthGate({
           >
             <fieldset disabled={busy}>
               <label>
-                Tên đăng nhập
+                {cloudEnabled ? "Email hoặc tên đăng nhập" : "Tên đăng nhập"}
                 <input name="username" required minLength={3} maxLength={80} />
               </label>
               <label>
