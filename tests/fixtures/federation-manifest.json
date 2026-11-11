@@ -1,0 +1,18 @@
+{
+  "sources": [
+    {
+      "file": "riverside-structure.ifc",
+      "sha256": "47be41b553771da7c4e8080868efea5029731d4a30030e304ac230d1030e8913",
+      "elements": 280,
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "riverside-services.ifc",
+      "sha256": "1aa7da3e35481f2596d20e1ec70de1a7a00811284204d12def39ffee6e2d06f4",
+      "elements": 105,
+      "license": "CC0-1.0"
+    }
+  ],
+  "expectedDuctBeamIntersections": 42,
+  "expectedL05": 6
+}

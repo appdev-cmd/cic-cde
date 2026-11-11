@@ -1,0 +1,13 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"QA BIM worker request v1",
+  "type":"object",
+  "required":["jsonrpc","id","method"],
+  "properties":{
+    "jsonrpc":{"const":"2.0"},
+    "id":{"type":["integer","string"]},
+    "method":{"enum":["worker.hello","model.import","checks.run"]},
+    "params":{"type":"object"}
+  },
+  "additionalProperties":false
+}

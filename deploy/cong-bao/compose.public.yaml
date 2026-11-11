@@ -1,0 +1,15 @@
+services:
+  api:
+    environment:
+      QABIM_PUBLIC_ORIGIN: https://cde.cic.com.vn
+  web:
+    networks:
+      default:
+      edge:
+        aliases:
+          - ciccde-web
+
+networks:
+  edge:
+    external: true
+    name: ciccde-edge

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "path": "synthetic/riverside-demo.ifc",
+      "sha256": "599fad0acb6c2b3b0fc71c4b13b5a869171deba10cc9db2d311487cac5d32627",
+      "license": "CC0-1.0",
+      "generatedBy": "workers/bim/scripts/create_fixture.py",
+      "schema": "IFC4",
+      "expectedElements": 399,
+      "purpose": "Viewer geometry and identity. Finding rows are explicitly synthetic UX examples, not clash engine output."
+    }
+  ]
+}

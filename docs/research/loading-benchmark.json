@@ -1,0 +1,18 @@
+{
+  "fixture": "tests\\fixtures\\synthetic\\riverside-demo.ifc",
+  "sourceHash": "599fad0acb6c2b3b0fc71c4b13b5a869171deba10cc9db2d311487cac5d32627",
+  "products": 399,
+  "python": "3.12.10",
+  "engine": "0.8.5",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "logicalCpus": 20,
+  "repeats": 3,
+  "legacyPerElementGeometryAndJsonMedianMs": 467.1364999958314,
+  "newColdImportMedianMs": 236.63609998766333,
+  "warmCacheReadMedianMs": 29.540499963331968,
+  "legacyGeometryJSONBytes": 134767,
+  "binaryGeometryBytes": 95792,
+  "metadataBytes": 196504,
+  "chunks": 2,
+  "scope": "In-process worker timings on synthetic 399-product IFC. Legacy measures geometry + JSON only; new cold includes metadata and cache write. Excludes process startup, HTTP, GPU upload and real project datasets."
+}

@@ -1,0 +1,7 @@
+[project]
+name = "qabim-worker"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["ifcopenshell==0.8.5"]
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]

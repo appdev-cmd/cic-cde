@@ -1,0 +1,11 @@
+[package]
+name = "qabim-host"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+qabim-application.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+axum = { version = "0.8", features = ["multipart"] }
+tower-http = { version = "0.6", features = ["cors"] }
+uuid = { version = "1", features = ["v4"] }

@@ -1,0 +1,33 @@
+name: qabim-pilot
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/cong-bao/Dockerfile
+      target: api
+    environment:
+      QABIM_AUTH_REQUIRED: "1"
+      QABIM_BIND: 0.0.0.0:4318
+      QABIM_PILOT_ORIGIN: http://127.0.0.1:18420
+    volumes:
+      - workspace:/app/.local
+    tmpfs:
+      - /app/.local/uploads:size=256m,uid=10001,gid=10001,mode=0700
+    cpus: 1.5
+    mem_limit: 2g
+    pids_limit: 128
+    restart: unless-stopped
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/cong-bao/Dockerfile
+      target: web
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:18420:8080"
+    cpus: 0.25
+    mem_limit: 128m
+    restart: unless-stopped
+volumes:
+  workspace:
