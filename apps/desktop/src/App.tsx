@@ -1178,7 +1178,7 @@ export default function App() {
                 </>
               )}
               {(loading || geometryLoading) && (
-                <div className="loading-overlay">
+                <div className={loading ? "loading-overlay" : "loading-overlay loading-progress"}>
                   <LoaderCircle className="spin" size={28} />
                   <span>
                     Đang dựng hình học · {geometryProgress.done}/
@@ -1201,7 +1201,7 @@ export default function App() {
                 </div>
               )}
               {geometryStopped && !geometryLoading && (
-                <div className="loading-overlay">
+                <div className="loading-overlay loading-progress">
                   <span>
                     Đã dừng tải hình học. Các mô hình đã tải được giữ lại.
                   </span>

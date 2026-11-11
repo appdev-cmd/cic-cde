@@ -37,71 +37,101 @@ interface Runtime {
 
 function applyAppearance(r: Runtime, props: Props) {
   const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
-  for (const [id, mesh] of r.meshes) {
-    const model = props.models.find((m) => m.id === mesh.userData.modelId);
-    const origin = mesh.userData.relativeGeometry
-      ? (model?.renderOrigin ?? [0, 0, 0])
-      : [0, 0, 0];
-    const offset = model?.transform?.translation ?? [0, 0, 0];
-    const radians = ((model?.transform?.rotationZDegrees ?? 0) * Math.PI) / 180;
-    const c = Math.cos(radians),
-      s = Math.sin(radians);
-    mesh.position.set(
-      c * origin[0] - s * origin[1] + offset[0],
-      s * origin[0] + c * origin[1] + offset[1],
-      origin[2] + offset[2],
-    );
-    mesh.rotation.z = radians;
-    mesh.visible =
-      !props.hidden.has(mesh.userData.modelId) &&
-      (props.floor === "all" || mesh.userData.storey === props.floor);
-    const material = mesh.material as THREE.MeshStandardMaterial;
-    const selected = id === props.selected;
-    const a = props.focusIds[0] === id,
-      b = props.focusIds[1] === id;
-    material.color.set(
-      selected
-        ? "#dc8950"
-        : a
-          ? "#d96957"
-          : b
-            ? "#e3af44"
-            : mesh.userData.color,
-    );
-    material.emissive.set(
-      selected ? "#47210e" : a || b ? "#351c0a" : "#000000",
-    );
-    material.emissiveIntensity = 0.18;
-    material.wireframe = props.mode === "wireframe";
-    material.opacity =
-      props.mode === "xray"
-        ? selected || a || b
-          ? 1
-          : mesh.userData.ifcClass === "IfcSlab"
-            ? 0.2
-            : mesh.userData.ifcClass === "IfcWall"
-              ? 0.4
-              : 0.9
-        : mesh.userData.ifcClass === "IfcSlab"
-          ? 0.78
-          : 1;
-    material.transparent = material.opacity < 1;
-    material.depthWrite = material.opacity >= 0.5;
-    material.clippingPlanes = props.section ? [plane] : [];
-    if (
-      material.userData.mode !== props.mode ||
-      material.userData.section !== props.section ||
-      material.userData.transparent !== material.transparent
-    ) {
-      material.needsUpdate = true;
-      material.userData = {
-        mode: props.mode,
-        section: props.section,
-        transparent: material.transparent,
-      };
-    }
+  const models = new Map(props.models.map((model) => [model.id, model]));
+  for (const mesh of r.meshes.values()) {
+    styleMesh(mesh, props, models.get(mesh.userData.modelId), plane);
   }
+  r.renderer.shadowMap.needsUpdate = true;
   r.invalidate();
+}
+
+function styleMesh(mesh: THREE.Mesh, props: Props, model: BimModel | undefined, plane: THREE.Plane) {
+  const id = mesh.userData.elementId;
+  const origin = mesh.userData.relativeGeometry
+    ? (model?.renderOrigin ?? [0, 0, 0])
+    : [0, 0, 0];
+  const offset = model?.transform?.translation ?? [0, 0, 0];
+  const radians = ((model?.transform?.rotationZDegrees ?? 0) * Math.PI) / 180;
+  const c = Math.cos(radians),
+    s = Math.sin(radians);
+  mesh.position.set(
+    c * origin[0] - s * origin[1] + offset[0],
+    s * origin[0] + c * origin[1] + offset[1],
+    origin[2] + offset[2],
+  );
+  mesh.rotation.z = radians;
+  mesh.visible =
+    !props.hidden.has(mesh.userData.modelId) &&
+    (props.floor === "all" || mesh.userData.storey === props.floor);
+  const material = mesh.material as THREE.MeshStandardMaterial;
+  const selected = id === props.selected;
+  const a = props.focusIds[0] === id,
+    b = props.focusIds[1] === id;
+  material.color.set(
+    selected
+      ? "#dc8950"
+      : a
+        ? "#d96957"
+        : b
+          ? "#e3af44"
+          : mesh.userData.color,
+  );
+  material.emissive.set(
+    selected ? "#47210e" : a || b ? "#351c0a" : "#000000",
+  );
+  material.emissiveIntensity = 0.18;
+  material.wireframe = props.mode === "wireframe";
+  material.opacity =
+    props.mode === "xray"
+      ? selected || a || b
+        ? 1
+        : mesh.userData.ifcClass === "IfcSlab"
+          ? 0.2
+          : mesh.userData.ifcClass === "IfcWall"
+            ? 0.4
+            : 0.9
+      : mesh.userData.ifcClass === "IfcSlab"
+        ? 0.78
+        : 1;
+  material.transparent = material.opacity < 1;
+  material.depthWrite = material.opacity >= 0.5;
+  material.clippingPlanes = props.section ? [plane] : [];
+  if (
+    material.userData.mode !== props.mode ||
+    material.userData.section !== props.section ||
+    material.userData.transparent !== material.transparent
+  ) {
+    material.needsUpdate = true;
+    material.userData = {
+      mode: props.mode,
+      section: props.section,
+      transparent: material.transparent,
+    };
+  }
+}
+
+function focusView(r: Runtime, props: Props) {
+  r.marker.visible = Boolean(props.focusPoint && props.focusIds.length);
+  if (!props.focusIds.length) return;
+  if (props.focusPoint) {
+    const point = r.group.localToWorld(new THREE.Vector3(...props.focusPoint));
+    r.marker.position.copy(point);
+    r.controls.target.copy(point);
+    r.camera.position.copy(point).add(new THREE.Vector3(7, 4, 7));
+    r.controls.update();
+    return;
+  }
+  const box = new THREE.Box3();
+  for (const id of props.focusIds) {
+    const mesh = r.meshes.get(id);
+    if (mesh) box.expandByObject(mesh);
+  }
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const distance = Math.max(7, box.getSize(new THREE.Vector3()).length() * 0.8);
+  r.controls.target.copy(center);
+  r.camera.position.copy(center).add(new THREE.Vector3(distance * 0.8, distance * 0.55, distance * 0.9));
+  r.controls.update();
 }
 
 export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
@@ -151,6 +181,8 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.localClippingEnabled = true;
@@ -328,13 +360,16 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       cancelled = true;
       callbacks.current.onGeometryLoading(false);
     };
-    const wanted = new Set(props.elements.map((e) => e.id));
+    const models = new Map(props.models.map((model) => [model.id, model]));
+    const assets = new Map(props.models.flatMap((model) =>
+      (model.geometryAssets ?? []).map((asset) => [asset.id, { asset, synthetic: model.synthetic }] as const),
+    ));
+    const assetIdOf = (e: BimElement) =>
+      e.geometry?.assetId ?? models.get(e.modelId)?.geometryAssets?.[e.geometry?.assetIndex ?? 0]?.id;
     const geometryKey = (e: BimElement) => {
       if (!e.geometry) return "legacy";
-      const model = props.models.find((m) => m.id === e.modelId);
       return [
-        e.geometry.assetId ??
-          model?.geometryAssets?.[e.geometry.assetIndex ?? 0]?.id,
+        assetIdOf(e),
         e.geometry.vertexOffset,
         e.geometry.vertexCount,
         e.geometry.indexOffset,
@@ -343,14 +378,14 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     };
     const keys = new Map(props.elements.map((e) => [e.id, geometryKey(e)]));
     for (const [id, mesh] of r.meshes) {
-      if (!wanted.has(id) || mesh.userData.geometryKey !== keys.get(id)) {
+      if (mesh.userData.geometryKey !== keys.get(id)) {
         r.group.remove(mesh);
         mesh.geometry.dispose();
         (mesh.material as THREE.Material).dispose();
         r.meshes.delete(id);
       }
     }
-    const fresh = props.elements.filter((e) => !r.meshes.has(e.id));
+    const fresh = props.elements.filter((e) => !props.hidden.has(e.modelId) && !r.meshes.has(e.id));
     if (!fresh.length) {
       applyAppearance(r, callbacks.current);
       callbacks.current.onGeometryLoading(false);
@@ -360,13 +395,29 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     let done = 0;
     callbacks.current.onGeometryProgress({ done, total: fresh.length });
     const started = performance.now();
+    const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
+    const fitInitial = ![...r.meshes.values()].some((mesh) => mesh.visible);
+    let lastProgress = started;
+    let published = false;
+    let movedCamera = false;
+    const markCameraMoved = () => { movedCamera = true; };
+    r.controls.addEventListener("start", markCameraMoved);
+    const publish = () => {
+      lastProgress = performance.now();
+      callbacks.current.onGeometryProgress({ done, total: fresh.length });
+      if (!published) {
+        published = true;
+        if (fitInitial && !movedCamera && !callbacks.current.focusIds.length) r.fit();
+        requestAnimationFrame(() => {
+          if (!cancelled) performance.measure("qabim-geometry-first-frame", { start: started });
+        });
+      }
+      r.invalidate();
+    };
     const groups = new Map<string, BimElement[]>();
     for (const e of fresh) {
-      const model = props.models.find((m) => m.id === e.modelId);
       const key = e.geometry
-        ? (e.geometry.assetId ??
-          model?.geometryAssets?.[e.geometry.assetIndex ?? 0]?.id ??
-          "missing-asset")
+        ? assetIdOf(e) ?? "missing-asset"
         : "legacy";
       const group = groups.get(key);
       if (group) group.push(e);
@@ -377,18 +428,17 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const load = async () => {
       while (!cancelled && cursor < tasks.length) {
         const [assetId, elements] = tasks[cursor++];
-        const model = props.models.find((m) =>
-          m.geometryAssets?.some((a) => a.id === assetId),
-        );
-        const asset = model?.geometryAssets?.find((a) => a.id === assetId);
+        const entry = assets.get(assetId);
         const buffer =
           assetId === "legacy"
             ? null
             : await geometryBuffer(
                 assetId,
-                model?.synthetic ? asset?.file : undefined,
+                entry?.synthetic ? entry.asset.file : undefined,
+                entry?.asset.storagePath,
               );
         if (cancelled) return;
+        let sliceStarted = performance.now();
         for (const e of elements) {
           if (cancelled) return;
           if (r.meshes.has(e.id)) continue;
@@ -424,34 +474,33 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           };
           mesh.castShadow = e.ifcClass !== "IfcSlab";
           mesh.receiveShadow = true;
+          styleMesh(mesh, callbacks.current, models.get(e.modelId), plane);
           r.group.add(mesh);
           r.meshes.set(e.id, mesh);
           done++;
-          if (done % 32 === 0) {
-            applyAppearance(r, callbacks.current);
-            callbacks.current.onGeometryProgress({ done, total: fresh.length });
-            await new Promise<void>((resolve) =>
-              requestAnimationFrame(() => resolve()),
-            );
-            if (cancelled) return;
+          if ((!published && done >= 64) || performance.now() - lastProgress >= 150) publish();
+          if (performance.now() - sliceStarted >= 12) {
+            // Let input and painting run without waiting on a refresh frame for each batch.
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            sliceStarted = performance.now();
           }
         }
-        callbacks.current.onGeometryProgress({ done, total: fresh.length });
-        applyAppearance(r, callbacks.current);
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => resolve()),
-        );
+        if (!cancelled && !published && done) publish();
       }
     };
     Promise.allSettled(
-      Array.from({ length: Math.min(3, tasks.length) }, () => load()),
+      Array.from({ length: Math.min(4, tasks.length) }, () => load()),
     )
       .then((results) => {
         const failure = results.find((result) => result.status === "rejected");
         if (failure?.status === "rejected") throw failure.reason;
         if (cancelled) return;
-        applyAppearance(r, callbacks.current);
-        r.fit();
+        publish();
+        r.renderer.shadowMap.needsUpdate = true;
+        if (!movedCamera) {
+          if (callbacks.current.focusIds.length) focusView(r, callbacks.current);
+          else if (fitInitial) r.fit();
+        }
         performance.measure("qabim-geometry-load", {
           start: started,
           end: performance.now(),
@@ -466,12 +515,14 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         if (!cancelled) callbacks.current.onGeometryError(String(error));
       })
       .finally(() => {
+        r.controls.removeEventListener("start", markCameraMoved);
         if (!cancelled) callbacks.current.onGeometryLoading(false);
       });
     return () => {
       cancelled = true;
+      r.controls.removeEventListener("start", markCameraMoved);
     };
-  }, [props.elements, props.models, props.loadAttempt]);
+  }, [props.elements, props.models, props.hidden, props.loadAttempt]);
 
   useEffect(() => {
     const r = runtime.current;
@@ -490,32 +541,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
 
   useEffect(() => {
     const r = runtime.current;
-    if (!r) return;
-    r.marker.visible = Boolean(props.focusPoint && props.focusIds.length);
-    if (!props.focusIds.length) return;
-    if (props.focusPoint) {
-      const point = r.group.localToWorld(
-        new THREE.Vector3(...props.focusPoint),
-      );
-      r.marker.position.copy(point);
-      r.controls.target.copy(point);
-      r.camera.position.copy(point).add(new THREE.Vector3(7, 4, 7));
-      r.controls.update();
-      return;
-    }
-    const box = new THREE.Box3();
-    for (const id of props.focusIds) {
-      const m = r.meshes.get(id);
-      if (m) box.union(new THREE.Box3().setFromObject(m));
-    }
-    if (box.isEmpty()) return;
-    const c = box.getCenter(new THREE.Vector3());
-    const d = Math.max(7, box.getSize(new THREE.Vector3()).length() * 0.8);
-    r.controls.target.copy(c);
-    r.camera.position
-      .copy(c)
-      .add(new THREE.Vector3(d * 0.8, d * 0.55, d * 0.9));
-    r.controls.update();
+    if (r) focusView(r, props);
   }, [props.focusIds, props.focusPoint]);
 
   return (

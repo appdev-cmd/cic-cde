@@ -21,6 +21,7 @@ export interface GeometryAsset {
   file: string;
   bytes: number;
   sha256: string;
+  storagePath?: string;
 }
 export interface GeometryRef {
   assetId?: string;

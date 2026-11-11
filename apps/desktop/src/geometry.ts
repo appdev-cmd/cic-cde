@@ -3,8 +3,10 @@ const buffers = new Map<string, Promise<ArrayBuffer>>();
 export async function geometryBuffer(
   id: string,
   publicFile?: string,
+  storagePath?: string,
 ): Promise<ArrayBuffer> {
-  let value = buffers.get(id);
+  const key = storagePath ?? id;
+  let value = buffers.get(key);
   if (!value) {
     value = (async () => {
       if (publicFile) {
@@ -21,8 +23,8 @@ export async function geometryBuffer(
       }
       if (cloudEnabled) {
         const { cloudRpc, supabase } = await import("./cloud");
-        const asset = await cloudRpc<{ storagePath: string }>("geometry.get", { id });
-        const { data, error } = await supabase.storage.from("cde-files").download(asset.storagePath);
+        const path = storagePath ?? (await cloudRpc<{ storagePath: string }>("geometry.get", { id })).storagePath;
+        const { data, error } = await supabase.storage.from("cde-files").download(path);
         if (error) throw error;
         return data.arrayBuffer();
       }
@@ -33,8 +35,8 @@ export async function geometryBuffer(
       if (!response.ok) throw new Error(`Geometry asset unavailable: ${id}`);
       return response.arrayBuffer();
     })();
-    buffers.set(id, value);
-    value.catch(() => buffers.delete(id));
+    buffers.set(key, value);
+    value.catch(() => buffers.delete(key));
     // Evict lookup references; resident Three.js attributes retain their own buffers.
     if (buffers.size > 32) buffers.delete(buffers.keys().next().value!);
   }
