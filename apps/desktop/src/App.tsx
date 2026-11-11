@@ -25,7 +25,6 @@ import {
   Focus,
   Grid2X2,
   Layers3,
-  ListFilter,
   LoaderCircle,
   Maximize2,
   MessageSquare,
@@ -46,6 +45,7 @@ import {
   X,
 } from "lucide-react";
 import Viewer from "./Viewer";
+import { groupByStorey, spaceKey, spaceLabel, storeyLabel } from "./spatial";
 import {
   call,
   importIfc,
@@ -154,7 +154,15 @@ export default function App({ project, account }: WorkspaceControls) {
       : "models",
   );
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [floor, setFloor] = useState("all");
+  const [floor, setFloorValue] = useState("all");
+  const [room, setRoom] = useState<string | null>(null);
+  const [expandedStoreys, setExpandedStoreys] = useState<Set<string>>(
+    new Set(),
+  );
+  const setFloor = useCallback((value: string) => {
+    setFloorValue(value);
+    setRoom(null);
+  }, []);
   const [selected, setSelected] = useState<string | null>(null);
   const [finding, setFinding] = useState<Finding | null>(null);
   const focusPoint = useMemo<[number, number, number] | null>(
@@ -356,32 +364,54 @@ export default function App({ project, account }: WorkspaceControls) {
       previous?.focus();
     };
   }, [modal]);
-  const element = data.elements.find((e) => e.id === selected);
-  const floors = [...new Set(data.elements.map((e) => e.storey))].sort();
-  const filteredElements = data.elements.filter(
+  const elementsById = useMemo(
+    () => new Map(data.elements.map((element) => [element.id, element])),
+    [data.elements],
+  );
+  const element = selected ? elementsById.get(selected) : undefined;
+  const storeys = useMemo(() => groupByStorey(data.elements), [data.elements]);
+  const currentRoom = storeys
+    .find((storey) => storey.name === floor)
+    ?.rooms.find(([key]) => key === room)?.[1];
+  const scopeLabel =
+    currentRoom?.label ??
+    (floor === "all" ? "Tất cả các tầng" : storeyLabel(floor));
+  const scopedElements = data.elements.filter(
     (e) =>
       (floor === "all" || e.storey === floor) &&
-      (!search ||
-        `${e.name} ${e.ifcClass} ${e.globalId}`
-          .toLowerCase()
-          .includes(search.toLowerCase())),
+      (room === null || spaceKey(e) === room),
   );
-  const findings = data.findings.filter(
-    (f) =>
-      (floor === "all" || f.storey === floor) &&
-      (status === "all" || f.status === status),
+  const filteredElements = scopedElements.filter(
+    (e) =>
+      !search ||
+      `${e.name} ${e.ifcClass} ${e.globalId}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
+  const findings = data.findings.filter((f) => {
+    const source = elementsById.get(f.a);
+    return (
+      (floor === "all" || (source?.storey ?? f.storey) === floor) &&
+      (room === null || (source && spaceKey(source) === room)) &&
+      (status === "all" || f.status === status)
+    );
+  });
+  function chooseSpace(storey: string, key: string | null = null) {
+    setFloorValue(storey);
+    setRoom(key);
+    setSelected(null);
+    setFocusIds([]);
+    setFinding(null);
+  }
   const openFinding = useCallback(
     (f: Finding) => {
       setFinding(f);
       setSelected(f.a);
-      setFloor(f.storey);
+      setFloor(elementsById.get(f.a)?.storey ?? f.storey);
       setHidden((previous) => {
         const next = new Set(previous);
         for (const id of [f.a, f.b]) {
-          const modelId = data.elements.find(
-            (element) => element.id === id,
-          )?.modelId;
+          const modelId = elementsById.get(id)?.modelId;
           if (modelId) next.delete(modelId);
         }
         return next;
@@ -389,7 +419,7 @@ export default function App({ project, account }: WorkspaceControls) {
       setFocusIds([f.a, f.b]);
       setMode("xray");
     },
-    [data.elements],
+    [elementsById, setFloor],
   );
   const selectElement = useCallback((id: string | null) => setSelected(id), []);
   const handleMeasure = useCallback(
@@ -589,6 +619,7 @@ export default function App({ project, account }: WorkspaceControls) {
       setData((prev) => ({ ...prev, findings: result.findings }));
       setFinding(null);
       setSelected(null);
+      setRoom(null);
       setFocusIds([]);
       setStatus("all");
       setNav("checks");
@@ -901,41 +932,79 @@ export default function App({ project, account }: WorkspaceControls) {
               </button>
               <div className="panel-section-header storey-header">
                 <span>CẤU TRÚC KHÔNG GIAN</span>
-                <ListFilter size={14} />
               </div>
               <button
                 className={`tree-root ${floor === "all" ? "active" : ""}`}
-                onClick={() => setFloor("all")}
+                onClick={() => chooseSpace("all")}
               >
                 <ChevronDown size={13} />
                 <Layers3 size={15} />
                 <span>{projectName}</span>
                 <small>{data.elements.length}</small>
               </button>
-              <div className="storey-list">
-                {floors.map((level) => (
-                  <button
-                    key={level}
-                    className={`storey-row ${floor === level ? "active" : ""}`}
-                    onClick={() => {
-                      setFloor(level);
-                      setFocusIds([]);
-                      setFinding(null);
-                    }}
-                  >
-                    <ChevronRight size={12} />
-                    <Layers3 size={14} />
-                    <span>
-                      {level === "Unassigned"
-                        ? "Chưa phân tầng"
-                        : `Tầng ${level.replace("L", "")}`}
-                    </span>
-                    <small>
-                      {data.elements.filter((e) => e.storey === level).length}
-                    </small>
-                  </button>
+              <ul className="storey-list">
+                {storeys.map(({ name, count, rooms }) => (
+                  <li key={name}>
+                    <div className="storey-line">
+                      {rooms.length > 0 && (
+                        <button
+                          className="storey-toggle"
+                          aria-label={`Danh sách phòng · ${storeyLabel(name)}`}
+                          aria-expanded={expandedStoreys.has(name)}
+                          onClick={() =>
+                            setExpandedStoreys((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(name)) next.delete(name);
+                              else next.add(name);
+                              return next;
+                            })
+                          }
+                        >
+                          {expandedStoreys.has(name) ? (
+                            <ChevronDown size={12} />
+                          ) : (
+                            <ChevronRight size={12} />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        className={`storey-row ${floor === name && room === null ? "active" : ""}`}
+                        aria-pressed={floor === name && room === null}
+                        title={storeyLabel(name)}
+                        onClick={() => {
+                          chooseSpace(name);
+                          if (rooms.length)
+                            setExpandedStoreys((previous) =>
+                              new Set(previous).add(name),
+                            );
+                        }}
+                      >
+                        <Layers3 size={14} />
+                        <span>{storeyLabel(name)}</span>
+                        <small>{count}</small>
+                      </button>
+                    </div>
+                    {expandedStoreys.has(name) && rooms.length > 0 && (
+                      <ul className="room-list">
+                        {rooms.map(([key, entry]) => (
+                          <li key={key}>
+                            <button
+                              className={`storey-row ${room === key ? "active" : ""}`}
+                              aria-pressed={room === key}
+                              title={entry.label}
+                              onClick={() => chooseSpace(name, key)}
+                            >
+                              <Box size={12} />
+                              <span>{entry.label}</span>
+                              <small>{entry.count}</small>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
                 ))}
-              </div>
+              </ul>
               {search && (
                 <div className="search-matches">
                   <span>{filteredElements.length} kết quả</span>
@@ -968,7 +1037,7 @@ export default function App({ project, account }: WorkspaceControls) {
                 )}
                 <Box size={14} />
                 <span>
-                  {floor === "all" ? "Phối cảnh tổng thể" : `Mặt bằng ${floor}`}
+                  {floor === "all" ? "Phối cảnh tổng thể" : scopeLabel}
                 </span>
                 <ChevronDown size={12} />
               </div>
@@ -1063,6 +1132,7 @@ export default function App({ project, account }: WorkspaceControls) {
                   onGeometryReady={setGeometryStats}
                   hidden={hidden}
                   floor={floor}
+                  room={room}
                   selected={selected}
                   focusIds={focusIds}
                   focusPoint={focusPoint}
@@ -1077,7 +1147,7 @@ export default function App({ project, account }: WorkspaceControls) {
                 <>
                   <div className="view-badge">
                     <span className="green-dot" /> LIVE VIEW <span>·</span>{" "}
-                    {floor === "all" ? "Tất cả các tầng" : floor}
+                    {scopeLabel}
                   </div>
                   <div className="orientation">
                     <button
@@ -1158,7 +1228,13 @@ export default function App({ project, account }: WorkspaceControls) {
                 </>
               )}
               {(loading || geometryLoading) && (
-                <div className={loading ? "loading-overlay" : "loading-overlay loading-progress"}>
+                <div
+                  className={
+                    loading
+                      ? "loading-overlay"
+                      : "loading-overlay loading-progress"
+                  }
+                >
                   <LoaderCircle className="spin" size={28} />
                   <span>
                     Đang dựng hình học · {geometryProgress.done}/
@@ -1221,13 +1297,7 @@ export default function App({ project, account }: WorkspaceControls) {
               </span>
               <span>
                 m <i /> Z-up <i />{" "}
-                {
-                  data.elements.filter(
-                    (e) =>
-                      !hidden.has(e.modelId) &&
-                      (floor === "all" || e.storey === floor),
-                  ).length
-                }{" "}
+                {scopedElements.filter((e) => !hidden.has(e.modelId)).length}{" "}
                 đối tượng hiển thị
                 {geometryStats && (
                   <>
@@ -1350,7 +1420,7 @@ export default function App({ project, account }: WorkspaceControls) {
                         >
                           {element.discipline}
                         </span>
-                        <span>{element.storey}</span>
+                        <span>{storeyLabel(element.storey)}</span>
                       </div>
                     </div>
                     <div className="property-section">
@@ -1370,8 +1440,14 @@ export default function App({ project, account }: WorkspaceControls) {
                       </h4>
                       <div className="property-row">
                         <span>Tầng</span>
-                        <strong>{element.storey}</strong>
+                        <strong>{storeyLabel(element.storey)}</strong>
                       </div>
+                      {element.space && (
+                        <div className="property-row">
+                          <span>Không gian</span>
+                          <strong>{spaceLabel(element.space)}</strong>
+                        </div>
+                      )}
                       <div className="property-row">
                         <span>Bộ môn</span>
                         <strong>{element.discipline}</strong>
@@ -1500,7 +1576,7 @@ export default function App({ project, account }: WorkspaceControls) {
                           ISS-{String(i.id).padStart(3, "0")}
                         </button>
                         <span>{i.finding.title}</span>
-                        <span>{i.finding.storey}</span>
+                        <span>{storeyLabel(elementsById.get(i.finding.a)?.storey ?? i.finding.storey)}</span>
                         <small>
                           {issueLabels[i.state]} · {i.assignee || "Chưa giao"} ·{" "}
                           {i.comments.length} bình luận
@@ -1625,8 +1701,7 @@ export default function App({ project, account }: WorkspaceControls) {
                     </div>
                     <div className="filter-controls">
                       <span>
-                        <Filter size={12} />{" "}
-                        {floor === "all" ? "Tất cả các tầng" : floor}
+                        <Filter size={12} /> {scopeLabel}
                       </span>
                       <button onClick={() => setModal("check")}>
                         <Settings2 size={13} /> Quy tắc
@@ -1675,7 +1750,7 @@ export default function App({ project, account }: WorkspaceControls) {
                                   : ""}
                               </small>
                             </td>
-                            <td>{f.storey}</td>
+                            <td>{storeyLabel(elementsById.get(f.a)?.storey ?? f.storey)}</td>
                             <td>
                               <span className={`severity ${f.severity}`}>
                                 <i />
@@ -1907,8 +1982,10 @@ export default function App({ project, account }: WorkspaceControls) {
                     onChange={(e) => setFloor(e.target.value)}
                   >
                     <option value="all">Toàn bộ công trình</option>
-                    {floors.map((f) => (
-                      <option key={f}>{f}</option>
+                    {storeys.map(({ name }) => (
+                      <option key={name} value={name}>
+                        {storeyLabel(name)}
+                      </option>
                     ))}
                   </select>
                 </label>

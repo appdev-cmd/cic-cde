@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { geometryBuffer, geometryViews } from "./geometry";
+import { spaceKey } from "./spatial";
 import type { BimModel, BimElement, ViewerApi, ViewMode } from "./types";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
   onGeometryReady: (stats: { durationMs: number; added: number }) => void;
   hidden: Set<string>;
   floor: string;
+  room: string | null;
   selected: string | null;
   focusIds: string[];
   focusPoint: [number, number, number] | null;
@@ -38,7 +40,13 @@ interface Runtime {
 function applyAppearance(r: Runtime, props: Props) {
   const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 17.8);
   const models = new Map(props.models.map((model) => [model.id, model]));
+  const elements = new Map(props.elements.map((element) => [element.id, element]));
   for (const mesh of r.meshes.values()) {
+    const element = elements.get(mesh.userData.elementId);
+    if (element) {
+      mesh.userData.storey = element.storey;
+      mesh.userData.spaceKey = spaceKey(element);
+    }
     styleMesh(mesh, props, models.get(mesh.userData.modelId), plane);
   }
   r.renderer.shadowMap.needsUpdate = true;
@@ -62,7 +70,8 @@ function styleMesh(mesh: THREE.Mesh, props: Props, model: BimModel | undefined, 
   mesh.rotation.z = radians;
   mesh.visible =
     !props.hidden.has(mesh.userData.modelId) &&
-    (props.floor === "all" || mesh.userData.storey === props.floor);
+    (props.floor === "all" || mesh.userData.storey === props.floor) &&
+    (props.room === null || mesh.userData.spaceKey === props.room);
   const selected = id === props.selected;
   const a = props.focusIds[0] === id,
     b = props.focusIds[1] === id;
@@ -472,6 +481,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
             elementId: e.id,
             modelId: e.modelId,
             storey: e.storey,
+            spaceKey: spaceKey(e),
             ifcClass: e.ifcClass,
             relativeGeometry: Boolean(e.geometry),
             geometryKey: keys.get(e.id),
@@ -537,6 +547,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     props.models,
     props.hidden,
     props.floor,
+    props.room,
     props.selected,
     props.focusIds,
     props.mode,

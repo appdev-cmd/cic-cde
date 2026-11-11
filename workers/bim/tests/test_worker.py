@@ -32,6 +32,32 @@ def test_fixture_has_complete_geometry_and_unique_identity(tmp_path, monkeypatch
     assert {e["storey"] for e in result["elements"]} == {f"L{i:02d}" for i in range(1, 8)}
 
 
+def test_room_containment_keeps_the_ifc_storey(tmp_path, monkeypatch):
+    monkeypatch.setattr(worker, "DATA", tmp_path / "cache")
+    model = ifcopenshell.open(str(ROOT / "tests/fixtures/synthetic/riverside-demo.ifc"))
+    product = model.by_type("IfcColumn")[0]
+    relation = product.ContainedInStructure[0]
+    storey = relation.RelatingStructure
+    space = model.create_entity("IfcSpace", GlobalId=ifcopenshell.guid.new(),
+                                Name="106", LongName="WC VĐV NAM")
+    model.create_entity("IfcRelAggregates", GlobalId=ifcopenshell.guid.new(),
+                        RelatingObject=storey, RelatedObjects=[space])
+    remaining = [element for element in relation.RelatedElements if element != product]
+    if remaining:
+        relation.RelatedElements = remaining
+    else:
+        model.remove(relation)
+    model.create_entity("IfcRelContainedInSpatialStructure", GlobalId=ifcopenshell.guid.new(),
+                        RelatingStructure=space, RelatedElements=[product])
+    path = tmp_path / "with-room.ifc"
+    model.write(str(path))
+
+    result = worker.import_model(str(path))
+    element = next(element for element in result["elements"] if element["globalId"] == product.GlobalId)
+    assert element["storey"] == storey.Name
+    assert element["space"] == {"id": space.GlobalId, "number": "106", "name": "WC VĐV NAM"}
+
+
 def test_protocol_errors_and_capabilities_are_explicit():
     response = worker.respond("worker.hello", {})
     assert response["result"]["protocolVersion"] == 1

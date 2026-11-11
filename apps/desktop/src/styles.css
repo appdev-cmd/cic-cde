@@ -595,6 +595,8 @@ textarea::placeholder {
 }
 .storey-list {
   padding: 2px 8px 13px 25px;
+  margin: 0;
+  list-style: none;
   position: relative;
 }
 .storey-list:before {
@@ -614,6 +616,32 @@ textarea::placeholder {
   font-size: 9px;
   gap: 8px;
   border-radius: 4px;
+  min-width: 0;
+}
+.storey-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.storey-line {
+  display: flex;
+}
+.storey-line > .storey-row {
+  flex: 1;
+}
+.storey-toggle {
+  flex: 0 0 23px;
+  padding: 0;
+  color: #8793a3;
+}
+.storey-line:not(:has(.storey-toggle)) {
+  padding-left: 23px;
+}
+.room-list {
+  list-style: none;
+  margin: 0 0 4px 38px;
+  padding: 0 0 0 5px;
+  border-left: 1px solid var(--border);
 }
 .storey-row.active {
   color: #a46544;

@@ -10,7 +10,8 @@ from collections import Counter
 
 import ifcopenshell
 import ifcopenshell.geom
-import ifcopenshell.util.element
+
+from spatial import spatial_location
 
 
 def transform_point(point, transform):
@@ -51,8 +52,8 @@ def run_federation(params):
         a=model.by_type(class_a) if source["modelId"] in scope_a else []
         b=model.by_type(class_b) if source["modelId"] in scope_b else []
         def eligible(p):
-            level=ifcopenshell.util.element.get_container(p)
-            return getattr(p,"Representation",None) and (params.get("floor","all")=="all" or (level.Name if level else "Unassigned")==params["floor"])
+            floor = params.get("floor", "all")
+            return getattr(p,"Representation",None) and (floor == "all" or spatial_location(p)[0] == floor)
         a={p.id() for p in a if eligible(p)};b={p.id() for p in b if eligible(p)}
         products=[model.by_id(i) for i in sorted(a|b)];expected+=len(products)
         if expected>2000:raise ValueError("Federation check is limited to 2,000 scoped products")
@@ -77,9 +78,9 @@ def run_federation(params):
                 rep=merged.createIfcShapeRepresentation(context,"Body","Tessellation",[mesh])
                 proxy=merged.create_entity("IfcBuildingElementProxy",GlobalId=ifcopenshell.guid.new(),Name=p.Name,
                     Representation=merged.createIfcProductDefinitionShape(None,None,[rep]))
-                level=ifcopenshell.util.element.get_container(p)
+                storey, _ = spatial_location(p)
                 refs[proxy.id()]={"id":source.get("idPrefix","")+digest[:16]+":"+str(p.id()),"name":p.Name or p.is_a(),
-                    "storey":level.Name if level else "Unassigned","modelId":source["modelId"]}
+                    "storey":storey,"modelId":source["modelId"]}
                 if p.id() in a:group_a.append(proxy)
                 if p.id() in b:group_b.append(proxy)
                 if not iterator.next():break

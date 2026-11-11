@@ -6,7 +6,7 @@ import pathlib
 import struct
 import sys
 
-VERSION = 3
+VERSION = 4
 SETTINGS = "world-metres;float32-relative;uint32-local;chunk-256;indexed-content-v4;surface-styles"
 
 

@@ -39,6 +39,7 @@ export interface BimElement {
   modelId: string;
   discipline: Discipline;
   storey: string;
+  space?: { id: string; number: string; name: string };
   color: string;
   surfaceOpacity?: number;
   surfaceMaterials?: { start: number; count: number; color: string; opacity: number }[];

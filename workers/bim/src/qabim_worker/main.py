@@ -10,13 +10,13 @@ import sys
 
 import ifcopenshell
 import ifcopenshell.geom
-import ifcopenshell.util.element
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 DATA = pathlib.Path(os.environ.get("QABIM_DATA_DIR", str(ROOT / ".local")))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from geometry_cache import ChunkWriter, cache_valid, decode_element, VERSION, SETTINGS
 from federation import run_federation
+from spatial import spatial_location
 from terrain_preview import SVDSP_GRADE_ID, SVDSP_PREVIEW_VERSION, SVDSP_TERRAIN_HASH, pavement_footprint, trim_grade
 
 COLORS = {"STR": "#c7cbd2", "HVAC": "#56a7ae", "PLUM": "#7291ce", "ARC": "#d9cbb8"}
@@ -131,11 +131,13 @@ def import_model(path: str, display_name=None):
                     raise PreviewLimitError("Preview geometry budget exceeded", "preview_geometry")
                 kind=product.is_a()
                 discipline="HVAC" if "Duct" in kind else "PLUM" if "Pipe" in kind else "ARC" if "Wall" in kind else "STR"
-                container=ifcopenshell.util.element.get_container(product)
+                storey, space = spatial_location(product)
                 element={"id":f"{model_id}:{product.id()}","globalId":product.GlobalId,"name":product.Name or kind,
-                    "ifcClass":kind,"modelId":model_id,"discipline":discipline,"storey":container.Name if container else "Unassigned",
+                    "ifcClass":kind,"modelId":model_id,"discipline":discipline,"storey":storey,
                     "color":COLORS[discipline],"properties":{"IFC GUID":product.GlobalId,"STEP ID":str(product.id()),
                     "IFC Class":kind,"Name":product.Name or kind,"Schema":model.schema}}
+                if space is not None:
+                    element["space"] = space
                 faces = apply_surface_styles(element, shape.geometry.materials, material_ids, faces)
                 writer.add(element,vertices,faces);elements.append(element);generated.add(product.id())
                 if not iterator.next():break
@@ -179,8 +181,7 @@ def run_check(params):
     model = ifcopenshell.open(str(source))
     floor = params.get("floor", "all")
     def in_scope(product):
-        container = ifcopenshell.util.element.get_container(product)
-        return bool(getattr(product,"Representation",None)) and (floor == "all" or (container.Name if container else "Unassigned") == floor)
+        return bool(getattr(product,"Representation",None)) and (floor == "all" or spatial_location(product)[0] == floor)
     group_a = [p for p in model.by_type(class_a) if in_scope(p)]
     group_b = [p for p in model.by_type(class_b) if in_scope(p)]
     products = {p.id():p for p in group_a + group_b}
@@ -212,9 +213,9 @@ def run_check(params):
         if clash.clash_type not in (0,1):
             continue
         a,b=products[aid],products[bid]
-        container=ifcopenshell.util.element.get_container(a)
+        storey, _ = spatial_location(a)
         findings.append({"id":f"H-{len(findings)+1:04d}","a":prefix+str(aid),"b":prefix+str(bid),
-            "title":f"{a.Name or class_a} × {b.Name or class_b}","storey":container.Name if container else "Unassigned",
+            "title":f"{a.Name or class_a} × {b.Name or class_b}","storey":storey,
             "severity":"high","status":"new","rule":f"{class_a} × {class_b}","demo":False,
             "distance":clash.distance,"measurementKind":"protrusion" if clash.clash_type==0 else "pierce",
             "pointA":list(clash.p1),"pointB":list(clash.p2)})
