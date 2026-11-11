@@ -4,23 +4,13 @@ import { call, cloudEnabled, desktop } from "./bridge";
 import DocumentRegistration from "./DocumentRegistration";
 import DeleteFileDialog from "./DeleteFileDialog";
 import type { BimModel } from "./types";
+import ProjectBepSettings, { type BepSettings } from "./ProjectBepSettings";
+import { documentRevision, type DocumentVersion, type Stage } from "./documentVersion";
 
 const CadDrawings = lazy(() => import("./CadDrawings"));
 const ProjectFiles = lazy(() => import("./ProjectFiles"));
 type FileView = "documents" | "cad" | "ifc";
 
-type Stage =
-  "WIP" | "Shared" | "Review" | "Approved" | "Published" | "Archived";
-export type DocumentVersion = {
-  id: number;
-  code: string;
-  title: string;
-  discipline: string;
-  modelId: string;
-  revision: number;
-  state: Stage;
-  history: { state: Stage; note: string; createdAt: string }[];
-};
 const stageLabels: Record<Stage, string> = {
   WIP: "Đang thực hiện (WIP)",
   Shared: "Đã chia sẻ",
@@ -61,11 +51,16 @@ export default function Cde() {
   const [stage, setStage] = useState("");
   const [selectedId, setSelectedId] = useState<number>();
   const [note, setNote] = useState("");
+  const [bep, setBep] = useState<BepSettings | null>(null);
+  const [suitability, setSuitability] = useState<Partial<Record<Stage, string>>>({});
   const selected = documents.find((document) => document.id === selectedId);
+  const selectedSuitability = selected?.state === "Archived"
+    ? selected.suitabilityOptions?.Published.find((option) => option.code === selected.suitabilityCode)
+    : selected?.suitabilityOptions?.[selected.state]?.find((option) => option.code === selected.suitabilityCode);
   const visible = documents.filter(
     (document) =>
       (!stage || document.state === stage) &&
-      (document.code + " " + document.title + " " + document.discipline)
+      [document.code, document.title, document.discipline, documentRevision(document), document.suitabilityCode].join(" ")
         .toLocaleLowerCase()
         .includes(filter.trim().toLocaleLowerCase()),
   );
@@ -73,10 +68,12 @@ export default function Cde() {
   async function reload() {
     setBusy(true);
     try {
-      const [versions, imported] = await Promise.all([
+      const [versions, imported, settings] = await Promise.all([
         call<DocumentVersion[]>("documents.list"),
         call<BimModel[]>("models.list"),
+        cloudFiles && isAdmin ? call<BepSettings | null>("bep.get") : Promise.resolve(null),
       ]);
+      setBep(settings);
       setDocuments(versions);
       setModels(imported.filter((model) => !model.synthetic && model.hash));
       setReady(true);
@@ -93,7 +90,7 @@ export default function Cde() {
     if (openedIfc) void reload();
   }, [openedIfc]);
 
-  async function transition(document: DocumentVersion, state: Stage) {
+  async function transition(document: DocumentVersion, state: Stage, suitabilityCode?: string) {
     setBusy(true);
     setMessage("");
     try {
@@ -102,10 +99,12 @@ export default function Cde() {
           id: document.id,
           expectedState: document.state,
           state,
+          suitabilityCode,
           note,
         }),
       );
       setNote("");
+      setSuitability({});
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -125,6 +124,7 @@ export default function Cde() {
           </a>
           <a href="?cde=issues">Vấn đề phối hợp</a>
           <a href="/">Phối hợp mô hình</a>
+          <a href="?cde=knowledge">Tra cứu BIM &amp; CDE</a>
         </nav>
       </header>
       <main>
@@ -190,6 +190,7 @@ export default function Cde() {
               </strong>
             </div>
           </div>
+          {cloudFiles && isAdmin && ready && <ProjectBepSettings settings={bep} onSave={setBep} />}
           {user?.role !== "viewer" && (
             <DocumentRegistration
               documents={documents}
@@ -210,7 +211,7 @@ export default function Cde() {
             <div className="cde-filters">
               <input
                 aria-label="Tìm phiên bản IFC"
-                placeholder="Tìm theo mã, tên hoặc bộ môn"
+                placeholder="Tìm theo mã, tên, bộ môn hoặc phiên bản"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
               />
@@ -235,6 +236,7 @@ export default function Cde() {
                       <th>Mã mô hình IFC</th>
                       <th>Tên mô hình</th>
                       <th>Phiên bản</th>
+                      <th>Mã trạng thái sử dụng</th>
                       <th>Trạng thái quy trình</th>
                       {canDelete && <th>Thao tác</th>}
                     </tr>
@@ -249,6 +251,7 @@ export default function Cde() {
                             onClick={() => {
                               setSelectedId(document.id);
                               setNote("");
+                              setSuitability({});
                             }}
                           >
                             {document.code}
@@ -257,7 +260,8 @@ export default function Cde() {
                         <td>
                           {document.title} <small>{document.discipline}</small>
                         </td>
-                        <td>R{String(document.revision).padStart(2, "0")}</td>
+                        <td>{documentRevision(document)}</td>
+                        <td>{document.suitabilityCode ?? "—"}</td>
                         <td>
                           <span
                             className="cde-state"
@@ -270,7 +274,7 @@ export default function Cde() {
                           <td>
                             {document.state === "WIP" && (
                               <button type="button" className="button cde-delete-link"
-                                aria-label={`Xóa phiên bản ${document.code} R${document.revision}`}
+                                aria-label={"Xóa phiên bản " + document.code + " " + documentRevision(document)}
                                 disabled={busy} onClick={() => setToDelete(document)}>Xóa</button>
                             )}
                           </td>
@@ -298,12 +302,14 @@ export default function Cde() {
               <div className="cde-intro">
                 <div>
                   <h2>
-                    {selected.code} · R
-                    {String(selected.revision).padStart(2, "0")}
+                    {selected.code} · {documentRevision(selected)}
                   </h2>
                   <p>
                     {selected.title} · {stageLabels[selected.state]}
+                    {selected.suitabilityCode && " · " + selected.suitabilityCode}
+                    {selectedSuitability && " — " + selectedSuitability.label}
                   </p>
+                  {selected.bepReference && <small>{selected.bepReference} · Cấu hình lần {selected.bepVersion}</small>}
                 </div>
                 <a
                   className="button secondary"
@@ -331,16 +337,28 @@ export default function Cde() {
                         (user?.role !== "viewer" &&
                           ["Shared", "Review"].includes(next)),
                     )
-                    .map(([next, label]) => (
-                      <button
-                        key={next}
-                        className="button secondary"
-                        disabled={busy || (next === "WIP" && !note.trim())}
-                        onClick={() => void transition(selected, next)}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                    .map(([next, label]) => {
+                      const options = next === "Archived" || next === "WIP" ? [] : selected.suitabilityOptions?.[next] ?? [];
+                      const code = suitability[next] ?? (options.length === 1 ? options[0].code : "");
+                      return (
+                        <div className="cde-transition" key={next}>
+                          {!!options.length && (
+                            <label>Mã sử dụng khi {label.toLocaleLowerCase()}
+                              <select disabled={busy} value={code}
+                                onChange={(event) => setSuitability({ ...suitability, [next]: event.target.value })}>
+                                {options.length > 1 && <option value="">Chọn mã trạng thái sử dụng</option>}
+                                {options.map(({ code, label }) => <option key={code} value={code}>{code} · {label}</option>)}
+                              </select>
+                            </label>
+                          )}
+                          <button className="button secondary"
+                            disabled={busy || (next === "WIP" && !note.trim()) || (options.length > 0 && !code)}
+                            onClick={() => void transition(selected, next, code || undefined)}>
+                            {label}
+                          </button>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
               <h3>Lịch sử chuyển trạng thái</h3>
@@ -348,6 +366,8 @@ export default function Cde() {
                 {selected.history.map((event, index) => (
                   <li key={index}>
                     <strong>{stageLabels[event.state]}</strong> ·{" "}
+                    {event.revisionCode && <span>{event.revisionCode} · </span>}
+                    {event.suitabilityCode && <span>{event.suitabilityCode} · </span>}
                     {event.createdAt} UTC{" "}
                     {event.note && <span> · {event.note}</span>}
                   </li>
@@ -358,7 +378,7 @@ export default function Cde() {
         </div>}
         {toDelete && (
           <DeleteFileDialog title="Xóa phiên bản IFC"
-            name={`${toDelete.code} · R${String(toDelete.revision).padStart(2, "0")}`}
+            name={toDelete.code + " · " + documentRevision(toDelete)}
             description="Phiên bản đang thực hiện (WIP) sẽ bị xóa khỏi sổ đăng ký. Bạn vẫn có thể xem mô hình IFC trong khung nhìn 3D và đăng ký lại."
             onClose={() => setToDelete(undefined)}
             onDelete={async () => {

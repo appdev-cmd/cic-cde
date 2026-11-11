@@ -794,6 +794,7 @@ export default function App({ project, account }: WorkspaceControls) {
         <a className="top-ai" href="?cde=1">
           Hồ sơ CDE
         </a>
+        <a className="top-ai" href="?cde=knowledge">Tra cứu BIM &amp; CDE</a>
         <button className="top-ai" onClick={() => setAssistant((v) => !v)}>
           <Sparkles size={15} /> Trợ lý BIM <span>Ctrl J</span>
         </button>

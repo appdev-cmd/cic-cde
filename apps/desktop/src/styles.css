@@ -2741,3 +2741,26 @@ table {
 .project-panel form { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin:14px 0; }
 .project-panel h2, .project-panel h3 { width:100%; }
 .membership-row { padding:10px 0; border-bottom:1px solid var(--border); }
+
+.cde-bep { margin-bottom: 14px; }
+.cde-bep summary { cursor: pointer; font-weight: 600; }
+.cde-bep form { margin-top: 16px; }
+.cde-bep form :is(h3, p) { margin: 0; }
+.cde-bep-grid, .bim-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+}
+.cde-bep textarea { width: 100%; padding: 8px; border: 1px solid #dde3e9; border-radius: 5px; font: inherit; }
+.cde-bep button[type="submit"] { justify-self: start; }
+.cde-transition { display: grid; justify-items: start; gap: 6px; }
+.bim-library .cde-header { flex-wrap: wrap; }
+.bim-library-search { display: grid; gap: 6px; margin-bottom: 14px; font-weight: 500; }
+.bim-library-search input { width: min(100%, 560px); padding: 10px 12px; border: 1px solid #d9e2ec; border-radius: 6px; font: inherit; }
+.bim-library-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 410px), 1fr)); align-items: start; }
+.bim-library-grid article p { line-height: 1.6; }
+.bim-library-grid ul { margin-bottom: 0; padding-left: 18px; }
+.bim-library-grid li + li { margin-top: 5px; }
+.bim-library-grid a { color: var(--accent-strong); }
+.bim-library-grid table tbody th { font-weight: 600; }
+.bim-library .cde-file-views { flex-wrap: wrap; }
