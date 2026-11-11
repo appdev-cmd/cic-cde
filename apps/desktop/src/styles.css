@@ -906,6 +906,32 @@ textarea::placeholder {
   display: flex;
   align-items: center;
 }
+.cad-drawing-check {
+  flex: none;
+  margin: 0 3px 0 2px;
+  accent-color: #35699c;
+  cursor: pointer;
+}
+.cad-drawing-row[data-cad-checked] {
+  background: #eaf3fb;
+}
+.cad-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 10px;
+  font-size: 11px;
+}
+.cad-selection button {
+  padding: 3px 5px;
+  border-radius: 4px;
+  color: #285985;
+  background: #edf4fa;
+}
+.cad-selection button:disabled {
+  opacity: 0.5;
+}
 .cad-directory-folders .cad-drawing-move {
   flex: 0 0 25px;
   justify-content: center;
