@@ -37,11 +37,12 @@ Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
   if (request.method !== "POST") return new Response(null, { status: 405, headers });
   let createdId: string | undefined;
+  let action: string | undefined;
   try {
     const raw = await request.text();
     if (raw.length > 4096) throw new Error("Body too large");
     const input = JSON.parse(raw);
-    const action = input.action;
+    action = input.action;
     const username = typeof input.username === "string" ? input.username.trim().toLowerCase() : "";
     const password = typeof input.password === "string" ? input.password : "";
     const shortUsername = /^[a-z0-9._-]{3,64}$/.test(username);
@@ -69,7 +70,12 @@ Deno.serve(async (request: Request) => {
       const authorization = request.headers.get("authorization");
       if (!authorization?.startsWith("Bearer ")) return reply({ error: "Vui lòng đăng nhập lại." }, 401);
       const profile = await upstream("/rest/v1/rpc/cde_api", publicKey, "POST", { operation: "profile" }, authorization);
-      if (!profile.siteAdmin) return reply({ error: "Bạn cần quyền quản trị hệ thống để tạo tài khoản." }, 403);
+      if (action === "create" && !profile.siteAdmin) {
+        return reply({ error: "Bạn cần quyền quản trị hệ thống để tạo tài khoản." }, 403);
+      }
+      if (!profile.siteAdmin && !shortUsername) {
+        return reply({ error: "Dùng tên đăng nhập từ 3 đến 64 ký tự để cấp tài khoản dự án." }, 400);
+      }
       if (!payload.organization || payload.organization.length > 120) {
         return reply({ error: "Nhập tên đơn vị từ 1 đến 120 ký tự." }, 400);
       }
@@ -113,6 +119,9 @@ Deno.serve(async (request: Request) => {
       }
       if (failure.code === "28000" || failure.status === 401) {
         return reply({ error: "Phiên đã hết hạn. Vui lòng đăng nhập lại." }, 401);
+      }
+      if (failure.code === "42501" && action === "project.create") {
+        return reply({ error: "Bạn cần quyền quản trị của dự án này để cấp tài khoản." }, 403);
       }
     }
     return reply({ error: "Không thể tạo tài khoản hoặc nhận lời mời. Hãy kiểm tra thông tin và quyền tham gia dự án." }, 400);

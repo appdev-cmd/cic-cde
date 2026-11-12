@@ -19,6 +19,7 @@ pub struct Principal {
     pub role: String,
     pub username: String,
     pub site_admin: bool,
+    pub project_limit: Option<String>,
     pub project_id: String,
     pub project_name: String,
     pub workspace: std::path::PathBuf,
@@ -134,8 +135,8 @@ pub fn authenticate(token: &str) -> Result<Principal, String> {
         return Err("UNAUTHORIZED".into());
     }
     super::database()?.query_row(
-        "SELECT u.id,u.organization,u.role,u.username FROM security_sessions s JOIN security_users u ON u.id=s.user_id WHERE s.digest=?1 AND s.expires>?2 AND u.enabled=1",
-        params![digest(token),now()],|r|Ok(Principal{id:r.get(0)?,organization:r.get(1)?,role:r.get(2)?,username:r.get(3)?,site_admin:r.get::<_,String>(2)?=="admin",project_id:String::new(),project_name:String::new(),workspace:super::root()})
+        "SELECT u.id,u.organization,u.role,u.username,u.project_limit FROM security_sessions s JOIN security_users u ON u.id=s.user_id WHERE s.digest=?1 AND s.expires>?2 AND u.enabled=1",
+        params![digest(token),now()],|r|Ok(Principal{id:r.get(0)?,organization:r.get(1)?,role:r.get(2)?,username:r.get(3)?,site_admin:r.get::<_,String>(2)?=="admin",project_limit:r.get(4)?,project_id:String::new(),project_name:String::new(),workspace:super::root()})
     ).map_err(|_|"UNAUTHORIZED".into())
 }
 pub fn logout(token: &str) -> Result<(), String> {

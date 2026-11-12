@@ -101,7 +101,16 @@ with tempfile.TemporaryDirectory(prefix='ciccde-auth-') as temporary:
         rpc('workspace.get',b,403,project=p1['id'])
         rpc('projects.create',a,403,name='Escalation')
         rpc('users.list',a,403,project=p1['id'])
-        rpc('projects.accounts.create',a,403,projectId=p1['id'],organization='ARC',role='admin',username='forbidden',password=password)
+        rpc('projects.accounts.create',a,403,projectId=p2['id'],organization='ARC',role='admin',username='forbidden',password=password)
+        rpc('projects.accounts.create',a,projectId=p1['id'],organization='ARC',role='viewer',username='arc-project-account',password=password)
+        scoped_account=request('/auth/login',json.dumps(dict(username='arc-project-account',password=password)).encode())['token']
+        assert rpc('projects.current',scoped_account,projectId=p1['id'])['role']=='admin'
+        assert [project['id'] for project in rpc('projects.list',scoped_account)]==[p1['id']]
+        rpc('projects.current',scoped_account,403,projectId=p2['id'])
+        third=rpc('projects.create',admin,name='Dự án kiểm thử lời mời')
+        pending_other=rpc('projects.invite',admin,projectId=third['id'],organization='ARC',role='viewer')
+        rpc('projects.accept',scoped_account,403,token=pending_other['token'])
+        rpc('users.create',scoped_account,403,project=p1['id'],organization='ARC',role='admin',username='forbidden',password=password)
         rpc('projects.invitations',a,403,projectId=p2['id'])
         invite=rpc('projects.invite',a,projectId=p1['id'],organization='STRUCTURE',role='reviewer')
         pending=rpc('projects.invitations',a,projectId=p1['id'])

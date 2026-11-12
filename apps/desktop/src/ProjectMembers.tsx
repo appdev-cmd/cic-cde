@@ -65,8 +65,6 @@ export default function ProjectMembers({
   const [error, setError] = useState("");
   const canManage = profile.role === "admin";
   const isoReady = profile.isoRole !== undefined || members?.some(({ isoRole }) => isoRole !== undefined);
-  // The production API may precede the optional project-account migration.
-  const accountApiReady = !cloudEnabled || profile.isoRole !== undefined;
   const accountMembership = members?.find((member) => member.organization === accountUnit.trim());
 
   const loadMembers = useCallback(async () => {
@@ -184,15 +182,15 @@ export default function ProjectMembers({
         <section className="project-surface project-panel" aria-labelledby="project-organizations">
           <div className="project-members-heading">
             <h2 id="project-organizations">Đơn vị tham gia</h2>
-            {profile.siteAdmin && accountApiReady && <button type="button" className="button project-primary" disabled={busy || !members}
+            <button type="button" className="button project-primary" disabled={busy || !members}
               onClick={() => { setError(""); setMessage(""); setAccountUnit(""); setShowAccount(true); }}>
-              <UserPlus size={16} /> Tạo tài khoản
-            </button>}
+              <UserPlus size={16} /> Tạo tài khoản cho đơn vị
+            </button>
           </div>
           <p>Chọn vai trò theo nhiệm vụ của đơn vị. Quyền trên CIC CDE áp dụng cho mọi tài khoản thuộc đơn vị đó.</p>
           <details><summary>Hướng dẫn phân quyền</summary>
             <p>Quản trị dự án quản lý đơn vị, BEP và phát hành hồ sơ. Người xem xét được duyệt hoặc trả lại hồ sơ; người phối hợp tạo và trình hồ sơ thuộc đơn vị; người xem chỉ đọc dữ liệu được chia sẻ.</p>
-            <p>Quyền thao tác được đặt ở ô “Quyền trên CIC CDE”. Bỏ chọn “Đang tham gia” thu hồi quyền của cả đơn vị trong dự án; phải giữ ít nhất một đơn vị quản trị. Chỉ quản trị hệ thống tạo tài khoản mới.</p>
+            <p>Bỏ chọn “Đang tham gia” để thu hồi quyền của cả đơn vị trong dự án. Dự án cần ít nhất một đơn vị quản trị.</p>
           </details>
           {members ? members.map((member) => (
             <form className="membership-row" key={member.organization + member.revision} onSubmit={(event) => save(event, member)}>
@@ -247,6 +245,7 @@ export default function ProjectMembers({
           {error && <p role="alert" className="cde-message">{error}</p>}
           <form onSubmit={createAccount}>
             <fieldset className="project-account-form" disabled={busy}>
+              {!profile.siteAdmin && <p>Tài khoản được cấp chỉ có quyền truy cập dự án này.</p>}
               <label>Đơn vị
                 <input name="organization" required maxLength={120} list={unitsId} value={accountUnit}
                   onChange={(event) => setAccountUnit(event.target.value)} />
@@ -254,8 +253,11 @@ export default function ProjectMembers({
                   {members?.map(({ organization }) => <option key={organization} value={organization} />)}
                 </datalist>
               </label>
-              <label>{cloudEnabled ? "Email hoặc tên đăng nhập" : "Tên đăng nhập"}
-                <input name="username" required minLength={3} maxLength={80} autoComplete="off" />
+              <label>{cloudEnabled && profile.siteAdmin ? "Email hoặc tên đăng nhập" : "Tên đăng nhập"}
+                <input name="username" required minLength={3} maxLength={profile.siteAdmin ? 80 : 64}
+                  pattern={profile.siteAdmin ? undefined : "[A-Za-z0-9._\\-]{3,64}"}
+                  title={profile.siteAdmin ? undefined : "Dùng chữ cái, chữ số, dấu chấm, gạch dưới hoặc gạch ngang."}
+                  autoComplete="off" />
               </label>
               <label>Mật khẩu ban đầu
                 <input name="password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" />

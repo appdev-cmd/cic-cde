@@ -49,6 +49,9 @@ pub fn scope(user: &Principal, project: &str) -> Result<Principal, String> {
     scope_at(&conn, user, project)
 }
 fn scope_at(conn: &Connection, user: &Principal, project: &str) -> Result<Principal, String> {
+    if user.project_limit.as_deref().is_some_and(|limit| limit != project) {
+        return Err("FORBIDDEN".into());
+    }
     let name: String = conn
         .query_row(
             "SELECT name FROM cde_projects WHERE id=?1 AND deleted_at IS NULL",
@@ -74,8 +77,8 @@ fn scope_at(conn: &Connection, user: &Principal, project: &str) -> Result<Princi
 }
 fn list(user: &Principal) -> Result<Value, String> {
     let conn = super::database()?;
-    let mut query=conn.prepare("SELECT p.id,p.name,CASE WHEN ?1 THEN 'admin' ELSE o.role END FROM cde_projects p LEFT JOIN project_organizations o ON o.project_id=p.id AND o.organization=?2 AND o.active=1 WHERE p.deleted_at IS NULL AND (?1 OR o.organization IS NOT NULL) ORDER BY p.created_at,p.id").map_err(error)?;
-    let rows=query.query_map(params![user.site_admin,user.organization],|r|Ok(json!({"id":r.get::<_,String>(0)?,"name":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?}))).map_err(error)?;
+    let mut query=conn.prepare("SELECT p.id,p.name,CASE WHEN ?1 THEN 'admin' ELSE o.role END FROM cde_projects p LEFT JOIN project_organizations o ON o.project_id=p.id AND o.organization=?2 AND o.active=1 WHERE p.deleted_at IS NULL AND (?1 OR o.organization IS NOT NULL) AND (?3 IS NULL OR p.id=?3) ORDER BY p.created_at,p.id").map_err(error)?;
+    let rows=query.query_map(params![user.site_admin,user.organization,user.project_limit],|r|Ok(json!({"id":r.get::<_,String>(0)?,"name":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?}))).map_err(error)?;
     Ok(json!(rows.collect::<Result<Vec<_>, _>>().map_err(error)?))
 }
 struct Invitation {
@@ -110,7 +113,7 @@ fn accept(
     invite: Invitation,
 ) -> Result<(), String> {
     let Invitation { id, project, organization, role, iso_role } = invite;
-    if user.organization != organization {
+    if user.organization != organization || user.project_limit.as_ref().is_some_and(|limit| limit != &project) {
         return Err("FORBIDDEN".into());
     }
     if conn.query_row(
@@ -157,6 +160,7 @@ pub fn join(input: Value) -> Result<Value, String> {
         role: "member".into(),
         username: created["username"].as_str().unwrap().into(),
         site_admin: false,
+        project_limit: None,
         project_id: String::new(),
         project_name: String::new(),
         workspace: super::root(),
@@ -260,8 +264,10 @@ pub fn execute(user: &Principal, operation: &str, input: Value) -> Result<Value,
     }
     let result = match operation {
         "projects.accounts.create" => {
-            if !user.site_admin {
-                return Err("FORBIDDEN".into());
+            let username = input["username"].as_str().unwrap_or("").trim();
+            if !user.site_admin && (!(3..=64).contains(&username.len()) ||
+                !username.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'-'))) {
+                return Err("Dùng tên đăng nhập từ 3 đến 64 ký tự để cấp tài khoản dự án.".into());
             }
             let organization = input["organization"].as_str().unwrap_or("").trim();
             let membership = tx.query_row(
@@ -276,6 +282,13 @@ pub fn execute(user: &Principal, operation: &str, input: Value) -> Result<Value,
             let created = security::create_user_at(&tx, &json!({
                 "username": input["username"], "password": input["password"], "organization": organization, "role": "member",
             }))?;
+            let project_limit = (!user.site_admin).then_some(project);
+            if let Some(limit) = project_limit {
+                tx.execute(
+                    "UPDATE security_users SET project_limit=?1 WHERE id=?2",
+                    params![limit, created["id"].as_str()],
+                ).map_err(error)?;
+            }
             if membership.is_none() {
                 tx.execute(
                     "INSERT INTO project_organizations(project_id,organization,role,iso_role) VALUES (?1,?2,?3,?4)",
@@ -286,7 +299,7 @@ pub fn execute(user: &Principal, operation: &str, input: Value) -> Result<Value,
                 "UPDATE project_invitations SET used=1 WHERE project_id=?1 AND organization=?2 AND used=0",
                 params![project, organization],
             ).map_err(error)?;
-            audit(&tx, project, &user.id, operation, json!({"userId":created["id"],"organization":organization,"role":role}))?;
+            audit(&tx, project, &user.id, operation, json!({"userId":created["id"],"organization":organization,"role":role,"projectLimit":project_limit}))?;
             json!({"user":created})
         }
         "projects.invitations.revoke" => {
