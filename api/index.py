@@ -122,6 +122,8 @@ def run_worker(cloud: Cloud, job_id: str, folder: Path, operation: str, inputs: 
             raise ValueError(f'Mô hình có {count} đối tượng hình học, vượt giới hạn {limit}. Hãy chia mô hình rồi tải lại.')
         if reason == 'preview_geometry':
             raise ValueError('Hình học của mô hình vượt giới hạn xử lý. Hãy chia mô hình rồi tải lại.')
+        if reason == 'clash_products':
+            raise ValueError(reply['error']['message'])
         raise ValueError('IfcOpenShell không thể đọc hoặc tạo hình học từ file này.')
     return reply['result']
 

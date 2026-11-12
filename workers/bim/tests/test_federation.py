@@ -58,6 +58,52 @@ def test_multiple_models_in_each_group(tmp_path):
     assert len(result["findings"])==1 and result["coverage"]["generated"]==3
 
 
+@pytest.mark.parametrize("include_unrepresented_beam", [False, True])
+def test_check_with_no_measurable_target_is_incomplete(tmp_path, include_unrepresented_beam):
+    path = tmp_path / "no-target-geometry.ifc"
+    source_file(path, "Column", [0, 0, 0])
+    if include_unrepresented_beam:
+        model = ifcopenshell.open(str(path))
+        model.create_entity("IfcBeam", GlobalId=ifcopenshell.guid.new(), Name="Beam without geometry")
+        model.write(str(path))
+
+    classes = {"classA": "IfcColumn", "classB": "IfcBeam"}
+    results = [
+        worker.run_check({"path": str(path), **classes}),
+        worker.run_federation({
+            "sources": [{"modelId": "a", "path": str(path)}],
+            "modelIdsA": ["a"], "modelIdsB": ["a"], **classes,
+        }),
+    ]
+    for result in results:
+        coverage = result["coverage"]
+        assert not result["findings"]
+        assert not coverage["complete"] and not coverage["hasCandidateGroups"]
+        assert (coverage["groupA"], coverage["groupB"]) == (1, 0)
+        assert coverage["expected"] == 1 + include_unrepresented_beam
+        assert coverage["generated"] == 1
+
+
+def test_oversized_clash_scope_returns_actionable_error(tmp_path):
+    path = tmp_path / "large-scope.ifc"
+    model = ifcopenshell.file(schema="IFC4")
+    for _ in range(worker.MAX_CLASH_PRODUCTS + 1):
+        model.create_entity("IfcBeam", GlobalId=ifcopenshell.guid.new())
+    model.write(str(path))
+
+    reply = worker.respond("checks.run", {
+        "sources": [{"modelId": "a", "path": str(path)}],
+        "modelIdsA": ["a"], "modelIdsB": ["a"],
+        "classA": "IfcBeam", "classB": "IfcBeam",
+    })
+    assert reply["error"]["data"] == {
+        "reason": "clash_products",
+        "count": worker.MAX_CLASH_PRODUCTS + 1,
+        "limit": worker.MAX_CLASH_PRODUCTS,
+    }
+    assert "chọn một tầng" in reply["error"]["message"]
+
+
 def test_warm_cache_and_corrupt_binary_rebuild(tmp_path,monkeypatch):
     monkeypatch.setattr(worker,"DATA",tmp_path/"cache")
     path=tmp_path/"cache-source.ifc";source_file(path,"Cache",[6000000,1000000,0])

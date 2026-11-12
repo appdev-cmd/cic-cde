@@ -13,6 +13,19 @@ import ifcopenshell.geom
 
 from spatial import spatial_location
 
+MAX_CLASH_PRODUCTS = 5_000
+
+
+class ClashScopeLimitError(ValueError):
+    def __init__(self, count):
+        formatted_count = f"{count:,}".replace(",", ".")
+        formatted_limit = f"{MAX_CLASH_PRODUCTS:,}".replace(",", ".")
+        super().__init__(
+            f"Phạm vi có ít nhất {formatted_count} đối tượng, vượt giới hạn {formatted_limit}. "
+            "Hãy chọn một tầng hoặc giảm số mô hình rồi chạy lại."
+        )
+        self.details = {"reason": "clash_products", "count": count, "limit": MAX_CLASH_PRODUCTS}
+
 
 def transform_point(point, transform):
     offset=transform.get("translation",[0,0,0]);angle=math.radians(transform.get("rotationZDegrees",0))
@@ -33,6 +46,7 @@ def run_federation(params):
     if not math.isfinite(tolerance) or not .0001<=tolerance<=1:raise ValueError("Invalid tolerance")
     scope_a=set(params["modelIdsA"]);scope_b=set(params["modelIdsB"])
     if not scope_a or not scope_b or not (scope_a|scope_b)<=set(s["modelId"] for s in sources):raise ValueError("Invalid model scope")
+    floor = params.get("floor", "all")
     merged=ifcopenshell.file(schema="IFC4")
     origin=merged.createIfcAxis2Placement3D(merged.createIfcCartesianPoint((0.,0.,0.)),None,None)
     context=merged.createIfcGeometricRepresentationContext(None,"Model",3,1.e-6,origin,None)
@@ -52,13 +66,14 @@ def run_federation(params):
         a=model.by_type(class_a) if source["modelId"] in scope_a else []
         b=model.by_type(class_b) if source["modelId"] in scope_b else []
         def eligible(p):
-            floor = params.get("floor", "all")
-            return getattr(p,"Representation",None) and (floor == "all" or spatial_location(p)[0] == floor)
+            return floor == "all" or spatial_location(p)[0] == floor
         a={p.id() for p in a if eligible(p)};b={p.id() for p in b if eligible(p)}
         products=[model.by_id(i) for i in sorted(a|b)];expected+=len(products)
-        if expected>2000:raise ValueError("Federation check is limited to 2,000 scoped products")
+        if expected > MAX_CLASH_PRODUCTS:
+            raise ClashScopeLimitError(expected)
         generated=set();settings=ifcopenshell.geom.settings();settings.set("use-world-coords",True)
-        iterator=ifcopenshell.geom.iterator(settings,model,1,include=products) if products else None
+        represented = [p for p in products if p.Representation is not None]
+        iterator=ifcopenshell.geom.iterator(settings,model,1,include=represented) if represented else None
         if iterator and iterator.initialize():
             while True:
                 shape=iterator.get();p=model.by_id(shape.id);generated.add(p.id())
@@ -92,7 +107,10 @@ def run_federation(params):
             shape=it.get();tree.add_element(shape);check_generated.add(shape.id)
             if not it.next():break
     missing.extend({"transientId":i,"message":"Check mesh conversion failed"} for i in refs if i not in check_generated)
-    clashes=tree.clash_intersection_many(group_a,group_b,tolerance=tolerance,check_all=True) if group_a and group_b else []
+    group_a = [p for p in group_a if p.id() in check_generated]
+    group_b = [p for p in group_b if p.id() in check_generated]
+    has_candidate_groups = bool(group_a and group_b)
+    clashes=tree.clash_intersection_many(group_a,group_b,tolerance=tolerance,check_all=True) if has_candidate_groups else []
     findings=[];seen=set();unmeasured=0
     for clash in clashes:
         a,b=refs[clash.a.id()],refs[clash.b.id()];pair=tuple(sorted([a["id"],b["id"]]))
@@ -108,8 +126,8 @@ def run_federation(params):
     import json
     return {"findings":findings[:1000],"snapshots":snapshots,"sourceHash":hashlib.sha256(json.dumps(snapshots,sort_keys=True).encode()).hexdigest(),
         "engineVersion":ifcopenshell.version,"method":"IfcOpenShell triangle intersection; float64 canonical geometry; rigid transforms",
-        "rule":{"classA":class_a,"classB":class_b,"floor":params.get("floor","all"),"toleranceMetres":tolerance,
+        "rule":{"classA":class_a,"classB":class_b,"floor":floor,"toleranceMetres":tolerance,
             "modelIdsA":sorted(scope_a),"modelIdsB":sorted(scope_b)},
         "coverage":{"expected":expected,"generated":len(check_generated),"missing":missing,"groupA":len(group_a),"groupB":len(group_b),
-            "limitReached":len(findings)>1000,"complete":not missing and not unmeasured and len(findings)<=1000,
-            "hasCandidateGroups":bool(group_a and group_b),"unmeasuredCollisionPairs":unmeasured}}
+            "limitReached":len(findings)>1000,"complete":has_candidate_groups and not missing and not unmeasured and len(findings)<=1000,
+            "hasCandidateGroups":has_candidate_groups,"unmeasuredCollisionPairs":unmeasured}}

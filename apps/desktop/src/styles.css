@@ -2508,6 +2508,15 @@ table {
   margin: 12px 0 0;
   color: #8b4e24;
 }
+.check-modal > .check-model-error {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border: 1px solid #f0caca;
+  border-radius: 6px;
+  background: #fff4f4;
+  color: #8b2e2e;
+  overflow-wrap: anywhere;
+}
 .check-model-groups legend {
   font-size: 9px;
   color: #8493a6;

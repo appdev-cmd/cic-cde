@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[4]
 DATA = pathlib.Path(os.environ.get("QABIM_DATA_DIR", str(ROOT / ".local")))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from geometry_cache import ChunkWriter, cache_valid, decode_element, VERSION, SETTINGS
-from federation import run_federation
+from federation import ClashScopeLimitError, MAX_CLASH_PRODUCTS, run_federation
 from spatial import spatial_location
 from terrain_preview import SVDSP_GRADE_ID, SVDSP_PREVIEW_VERSION, SVDSP_TERRAIN_HASH, pavement_footprint, trim_grade
 
@@ -192,18 +192,19 @@ def run_check(params):
     model = ifcopenshell.open(str(source))
     floor = params.get("floor", "all")
     def in_scope(product):
-        return bool(getattr(product,"Representation",None)) and (floor == "all" or spatial_location(product)[0] == floor)
+        return floor == "all" or spatial_location(product)[0] == floor
     group_a = [p for p in model.by_type(class_a) if in_scope(p)]
     group_b = [p for p in model.by_type(class_b) if in_scope(p)]
     products = {p.id():p for p in group_a + group_b}
-    if len(products) > 2000:
-        raise ValueError("G1 check is limited to 2,000 represented products")
+    if len(products) > MAX_CLASH_PRODUCTS:
+        raise ClashScopeLimitError(len(products))
     settings = ifcopenshell.geom.settings()
     settings.set("use-world-coords",True)
     tree = ifcopenshell.geom.tree()
     generated = set()
-    if products:
-        iterator = ifcopenshell.geom.iterator(settings, model, 1, include=list(products.values()))
+    represented = [product for product in products.values() if product.Representation is not None]
+    if represented:
+        iterator = ifcopenshell.geom.iterator(settings, model, 1, include=represented)
         if iterator.initialize():
             while True:
                 shape = iterator.get()
@@ -211,7 +212,10 @@ def run_check(params):
                 generated.add(shape.id)
                 if not iterator.next():
                     break
-    clashes = tree.clash_intersection_many(group_a,group_b,tolerance=tolerance,check_all=True) if group_a and group_b else []
+    group_a = [product for product in group_a if product.id() in generated]
+    group_b = [product for product in group_b if product.id() in generated]
+    has_candidate_groups = bool(group_a and group_b)
+    clashes = tree.clash_intersection_many(group_a,group_b,tolerance=tolerance,check_all=True) if has_candidate_groups else []
     prefix = params.get("idPrefix", "") + digest[:16] + ":"
     findings,seen = [],set()
     for clash in clashes:
@@ -239,8 +243,8 @@ def run_check(params):
         "rule":{"classA":class_a,"classB":class_b,"floor":floor,"toleranceMetres":tolerance},
         "coverage":{"expected":len(products),"generated":len(generated),"missingStepIds":missing,
                     "groupA":len(group_a),"groupB":len(group_b),"limitReached":len(findings)>1000,
-                    "complete":not missing and len(findings)<=1000 and unmeasured==0,
-                    "hasCandidateGroups":bool(group_a and group_b),"unmeasuredCollisionPairs":unmeasured}}
+                    "complete":has_candidate_groups and not missing and len(findings)<=1000 and unmeasured==0,
+                    "hasCandidateGroups":has_candidate_groups,"unmeasuredCollisionPairs":unmeasured}}
 
 
 def respond(method, params, request_id=1):
@@ -248,7 +252,7 @@ def respond(method, params, request_id=1):
         return {"jsonrpc":"2.0","id":request_id,"result":dispatch(method,params)}
     except Exception as error:
         detail = {"code": -32000, "message": str(error)}
-        if isinstance(error, PreviewLimitError):
+        if isinstance(error, (PreviewLimitError, ClashScopeLimitError)):
             detail["data"] = error.details
         return {"jsonrpc": "2.0", "id": request_id, "error": detail}
 

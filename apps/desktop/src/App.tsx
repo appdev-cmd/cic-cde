@@ -258,6 +258,7 @@ export default function App({ project, account }: WorkspaceControls) {
   const [geometryStopped, setGeometryStopped] = useState(false);
   const [geometryAttempt, setGeometryAttempt] = useState(0);
   const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState("");
   const cloudClashChecks = cloudEnabled && !localDesktop;
   const [checkModelsA, setCheckModelsA] = useState<string[]>(cloudClashChecks ? [] : ["demo"]);
   const [checkModelsB, setCheckModelsB] = useState<string[]>(cloudClashChecks ? [] : ["demo"]);
@@ -673,6 +674,7 @@ export default function App({ project, account }: WorkspaceControls) {
   };
   const runCheck = async () => {
     if (checking || checkModelLimitExceeded) return;
+    setCheckError("");
     setChecking(true);
     try {
       const result = await call<CheckRun>("checks.run", {
@@ -697,9 +699,10 @@ export default function App({ project, account }: WorkspaceControls) {
         `${result.findings.length} va chạm · ${result.coverage.generated}/${result.coverage.expected} đối tượng có hình học · ${result.coverage.complete ? "Độ bao phủ đầy đủ" : "Độ bao phủ chưa đầy đủ"}`,
       );
     } catch (error) {
-      notify(
-        `Kiểm tra va chạm thất bại: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const detail = error instanceof Error ? error.message : String(error);
+      const message = "Kiểm tra va chạm thất bại. " + (detail || "Hãy thử lại.");
+      setCheckError(message);
+      notify(message);
     } finally {
       setChecking(false);
     }
@@ -2157,6 +2160,7 @@ export default function App({ project, account }: WorkspaceControls) {
                     {" "}Bỏ chọn bớt mô hình để chạy kiểm tra.
                   </p>
                 )}
+                {checkError && <p className="check-model-error" role="alert">{checkError}</p>}
                 <button
                   className="button primary full"
                   disabled={
