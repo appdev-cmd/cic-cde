@@ -28,7 +28,6 @@ import {
   LoaderCircle,
   Maximize2,
   MessageSquare,
-  Minimize2,
   MousePointer2,
   PanelLeftClose,
   Plus,
@@ -46,6 +45,7 @@ import {
   X,
 } from "lucide-react";
 import Viewer from "./Viewer";
+import CoordinationResultsPanel from "./CoordinationResultsPanel";
 import ClashCheckGuide from "./ClashCheckGuide";
 import { clashClasses, clashCoverageLabel, countClashCandidates, type ClashClass } from "./clashChecks";
 import { openProjectIssues } from "./projectRoute";
@@ -255,7 +255,7 @@ export default function App({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [bottom, setBottom] = useState(true);
-  const [resultsExpanded, setResultsExpanded] = useState(false);
+  const workspaceBody = useRef<HTMLDivElement>(null);
   const [left, setLeft] = useState(true);
   const [assistant, setAssistant] = useState(false);
   const [modal, setModal] = useState<
@@ -997,6 +997,7 @@ export default function App({
         </div>
 
         <div
+          ref={workspaceBody}
           className={`workspace-body ${left ? "" : "no-left"} ${assistant ? "assistant-open" : ""}`}
         >
           {left && (
@@ -1759,9 +1760,12 @@ export default function App({
           </aside>
         </div>
 
-        <section className={`results-panel${bottom ? (resultsExpanded ? " expanded" : "") : " collapsed"}`}>
-          <div className="results-heading">
-            <div className="results-tabs">
+        <CoordinationResultsPanel
+          open={bottom}
+          onToggle={() => setBottom((value) => !value)}
+          viewer={workspaceBody}
+          tabs={
+            <>
               <button
                 className={nav !== "issues" ? "active" : ""}
                 onClick={() => {
@@ -1781,38 +1785,21 @@ export default function App({
               >
                 <MessageSquare size={14} /> Vấn đề phối hợp <span>{issues.length}</span>
               </button>
-            </div>
-            <div className="results-actions">
-              <span
-                className={"sample-label " + (checkRun
-                  ? checkRun.coverage.complete && checkRun.coverage.groupA && checkRun.coverage.groupB
-                    ? "computed" : "incomplete"
-                  : "")}
-              >
-                {checkRun
-                  ? checkCoverage
-                  : data.synthetic ? "Dữ liệu mẫu" : "Chưa kiểm tra"}
-              </span>
-              {bottom && (
-                <button
-                  type="button"
-                  className="results-size-button"
-                  onClick={() => setResultsExpanded((expanded) => !expanded)}
-                >
-                  {resultsExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
-                  {resultsExpanded ? "Về kích thước mặc định" : "Mở rộng bảng"}
-                </button>
-              )}
-              <button
-                className="icon-button small"
-                aria-label={bottom ? "Thu gọn kết quả" : "Mở kết quả"}
-                aria-expanded={bottom}
-                onClick={() => setBottom((v) => !v)}
-              >
-                <ChevronDown className={bottom ? "" : "flipped"} size={16} />
-              </button>
-            </div>
-          </div>
+            </>
+          }
+          coverage={
+            <span
+              className={"sample-label " + (checkRun
+                ? checkRun.coverage.complete && checkRun.coverage.groupA && checkRun.coverage.groupB
+                  ? "computed" : "incomplete"
+                : "")}
+            >
+              {checkRun
+                ? checkCoverage
+                : data.synthetic ? "Dữ liệu mẫu" : "Chưa kiểm tra"}
+            </span>
+          }
+        >
           {bottom && (
             <>
               {nav === "issues" ? (
@@ -2100,7 +2087,7 @@ export default function App({
               </div>
             </>
           )}
-        </section>
+        </CoordinationResultsPanel>
         <footer className="app-status">
           <span>
             <span className={connected ? "green-dot" : "amber-dot"} />{" "}

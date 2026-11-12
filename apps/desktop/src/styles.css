@@ -241,6 +241,7 @@ textarea::placeholder {
   margin-top: 7px;
 }
 .main {
+  --results-viewer-min: 170px;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1829,17 +1830,39 @@ textarea::placeholder {
 .results-panel.expanded {
   height: 60dvh;
 }
-.main:has(> .results-panel.expanded) > .workspace-body {
-  min-height: 170px;
+.main:has(> .results-panel:is(.expanded, .resized)) > .workspace-body {
+  min-height: var(--results-viewer-min);
 }
 @media (max-height: 700px) {
-  .main:has(> .results-panel:not(.collapsed, .expanded)) > .workspace-body {
+  .main:has(> .results-panel:not(.collapsed, .expanded, .resized)) > .workspace-body {
     min-height: 230px;
   }
 }
 .results-panel.collapsed {
   height: 40px;
   min-height: 40px;
+}
+.results-resize-handle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 10px;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+.results-resize-handle::before {
+  content: "";
+  width: 38px;
+  height: 3px;
+  border-radius: 2px;
+  background: #a5b5c6;
+}
+.results-resize-handle:is(:hover, :active, :focus-visible) {
+  background: #eef3f8;
+}
+.results-resize-handle:focus-visible {
+  outline: 2px solid #496079;
+  outline-offset: -2px;
 }
 .results-heading {
   height: 39px;
