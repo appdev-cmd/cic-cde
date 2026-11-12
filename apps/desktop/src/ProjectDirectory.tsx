@@ -35,8 +35,8 @@ type ProjectListProps = {
 };
 
 export default function ProjectDirectory({
-  account, settings, ...list
-}: ProjectListProps & { account: ReactNode; settings: ReactNode }) {
+  account, settings, username, ...list
+}: ProjectListProps & { account: ReactNode; settings: ReactNode; username?: string }) {
   return (
     <div className="project-page directory-page">
       <header className="project-header">
@@ -60,7 +60,7 @@ export default function ProjectDirectory({
         <main className={`project-content directory-content${directoryModule === "dashboard" ? " dashboard-content" : ""}`}>
           {directoryModule === "dashboard" ? (
             <Suspense fallback={<p role="status">Đang mở Dashboard…</p>}>
-              <WorkspaceDashboard projects={list.projects} loading={list.loading} error={list.error} />
+              <WorkspaceDashboard projects={list.projects} loading={list.loading} error={list.error} username={username} />
             </Suspense>
           ) : directoryModule === "knowledge" ? (
             <Suspense fallback={<p role="status">Đang mở Tri thức BIM…</p>}>

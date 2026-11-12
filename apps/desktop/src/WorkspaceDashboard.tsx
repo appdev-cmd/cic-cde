@@ -1,161 +1,68 @@
 import { useState } from "react";
-import { ArrowRight, ArrowUpRight, BookOpen, Box, FileText, FolderOpen, Layers3 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Box, FileText, FolderOpen } from "lucide-react";
 import { projectRoles, type Project } from "./ProjectDirectory";
 import { directoryHrefs, projectHref } from "./projectRoute";
+import { readRecentIfc, recentIfcHref } from "./recentIfc";
 import "./dashboard.css";
 
-const accessRoles = [
-  { id: "admin", color: "#3973ed" },
-  { id: "reviewer", color: "#9472ed" },
-  { id: "member", color: "#35a790" },
-  { id: "viewer", color: "#acbfd8" },
-  { id: "local", color: "#6688af" },
-] as const;
-
-export default function WorkspaceDashboard({ projects, loading, error }: {
+export default function WorkspaceDashboard({ projects, loading, error, username }: {
   projects: Project[];
   loading?: boolean;
   error?: string;
+  username?: string;
 }) {
   const [lastProjectId] = useState(() => localStorage.getItem("ciccde.project"));
+  const [selectedId, setSelectedId] = useState<string>();
   const lastProject = projects.find(({ id }) => id === lastProjectId);
-  const focusProject = lastProject ?? (projects.length === 1 ? projects[0] : undefined);
-  const displayedProjects = (lastProject
+  const project = projects.find(({ id }) => id === selectedId) ?? lastProject ?? projects[0];
+  const recent = username && project ? readRecentIfc(username, project.id) : undefined;
+  const listedProjects = lastProject
     ? [lastProject, ...projects.filter(({ id }) => id !== lastProject.id)]
-    : projects).slice(0, 4);
-
-  const shortcuts = [
-    ...(focusProject ? [
-      { label: "Hồ sơ dự án", description: focusProject.name, href: projectHref(focusProject.id, "files"), icon: FileText },
-      { label: "Phối hợp mô hình", description: focusProject.name, href: projectHref(focusProject.id, "models"), icon: Box },
-    ] : [
-      { label: "Danh sách dự án", description: "Tìm và mở dự án", href: directoryHrefs.projects, icon: FolderOpen },
-    ]),
-    { label: "Tri thức BIM", description: "Tra cứu tiêu chuẩn và thuật ngữ", href: directoryHrefs.knowledge, icon: BookOpen },
-  ];
+    : projects;
 
   return (
-    <div className="dashboard-grid">
-      <section className="dashboard-hero" aria-labelledby="dashboard-title">
-        <div className="dashboard-hero-copy">
-          <h1 id="dashboard-title">Tổng quan<br />không gian dự án</h1>
-          {focusProject && (
-            <p>{lastProject ? "Mở gần nhất" : "Dự án của bạn"} <span aria-hidden="true">·</span> <strong>{focusProject.name}</strong></p>
-          )}
-          <a className="dashboard-primary" href={focusProject ? projectHref(focusProject.id) : directoryHrefs.projects}>
-            {lastProject ? "Mở lại dự án" : focusProject ? "Mở dự án" : "Xem các dự án"}
-            <ArrowUpRight size={17} aria-hidden="true" />
-          </a>
-        </div>
-      </section>
-
-      <AccessSummary projects={projects} loading={loading} error={error} />
-
-      <section className="dashboard-panel dashboard-projects" aria-labelledby="dashboard-projects-title">
-        <div className="dashboard-panel-heading">
+    <div className="dashboard-workspace">
+      <h1>Dashboard</h1>
+      {project && (
+        <section className="dashboard-resume" aria-label="Tiếp tục công việc">
+          <div>
+            <p>{project.id === lastProject?.id ? "Dự án mở gần nhất" : "Dự án đang chọn"}</p>
+            <h2><a href={projectHref(project.id)}>{project.name}</a></h2>
+            <small>{projectRoles[project.role] ?? "Dự án cục bộ"}</small>
+          </div>
+          <div className="dashboard-resume-links">
+            <a href={recent ? recentIfcHref(project.id, recent.id) : projectHref(project.id, "files")}>
+              <FileText size={17} aria-hidden="true" />
+              <span>{recent && <small>Phiên bản IFC xem gần nhất</small>}<strong>{recent?.title ?? "Hồ sơ dự án"}</strong></span>
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </a>
+            <a className="dashboard-model-link" href={projectHref(project.id, "models")}>
+              <Box size={15} aria-hidden="true" /> Phối hợp mô hình <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
+        </section>
+      )}
+      <section className="dashboard-roster" aria-labelledby="dashboard-projects-title">
+        <header>
           <h2 id="dashboard-projects-title">Dự án của bạn</h2>
-          <a className="dashboard-all" href={directoryHrefs.projects}>Tất cả <ArrowRight size={15} aria-hidden="true" /></a>
-        </div>
-        {error && (
-          <p className="dashboard-notice" role="alert">
-            {projects.length ? "Chưa thể làm mới danh sách. Đang hiển thị dữ liệu đã tải." : "Không tải được danh sách dự án."}
-          </p>
-        )}
-        {loading ? (
-          <p className="dashboard-notice" role="status">Đang tải dự án…</p>
-        ) : displayedProjects.length ? (
-          <ul className="dashboard-list">
-            {displayedProjects.map(({ id, name, role }) => (
+          {listedProjects.length > 0 && <a href={directoryHrefs.projects}>{listedProjects.length} dự án <ArrowRight size={15} aria-hidden="true" /></a>}
+        </header>
+        {error && <p className="dashboard-notice" role="alert">{projects.length ? "Chưa thể làm mới danh sách dự án." : "Không tải được danh sách dự án."}</p>}
+        {loading ? <p className="dashboard-notice" role="status">Đang tải dự án…</p> : listedProjects.length ? (
+          <ul className="dashboard-roster-list">
+            {listedProjects.slice(0, 5).map(({ id, name, role }) => (
               <li key={id}>
-                <a href={projectHref(id)} className="dashboard-project-link">
-                  <span className="dashboard-row-icon"><FolderOpen size={19} aria-hidden="true" /></span>
-                  <span className="dashboard-row-copy">
-                    <strong>{name}</strong>
-                    <small>{projectRoles[role] ?? "Dự án cục bộ"}</small>
-                  </span>
-                  {id === lastProject?.id && <span className="dashboard-recent">Mở gần nhất</span>}
-                  <ArrowUpRight size={17} aria-hidden="true" />
-                </a>
+                <button type="button" className="dashboard-project-choice" aria-pressed={project?.id === id} onClick={() => setSelectedId(id)}>
+                  <FolderOpen size={18} aria-hidden="true" />
+                  <strong>{name}</strong>
+                  <small>{projectRoles[role] ?? "Dự án cục bộ"}</small>
+                </button>
+                <a href={projectHref(id)} aria-label={`Mở dự án ${name}`}><ArrowUpRight size={17} aria-hidden="true" /></a>
               </li>
             ))}
           </ul>
-        ) : !error && (
-          <p className="dashboard-notice">Bạn chưa được cấp quyền vào dự án nào.</p>
-        )}
-      </section>
-
-      <section className="dashboard-panel dashboard-shortcuts" aria-labelledby="dashboard-shortcuts-title">
-        <div className="dashboard-panel-heading">
-          <h2 id="dashboard-shortcuts-title">Lối tắt</h2>
-        </div>
-        <ul className="dashboard-list">
-          {shortcuts.map(({ label, description, href, icon: Icon }) => (
-            <li key={label}>
-              <a className="dashboard-shortcut" href={href}>
-                <span className="dashboard-row-icon"><Icon size={19} aria-hidden="true" /></span>
-                <span className="dashboard-row-copy">
-                  <strong>{label}</strong>
-                  <small>{description}</small>
-                </span>
-                <ArrowUpRight size={17} aria-hidden="true" />
-              </a>
-            </li>
-          ))}
-        </ul>
+        ) : !error && <p className="dashboard-notice">Bạn chưa được cấp quyền vào dự án nào.</p>}
       </section>
     </div>
-  );
-}
-
-function AccessSummary({ projects, loading, error }: {
-  projects: Project[];
-  loading?: boolean;
-  error?: string;
-}) {
-  const counts = new Map<string, number>();
-  for (const { role } of projects) {
-    const id = accessRoles.some((entry) => entry.id === role) ? role : "local";
-    counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-  const distribution = accessRoles
-    .map((role) => ({ ...role, count: counts.get(role.id) ?? 0 }))
-    .filter(({ count }) => count > 0);
-  let offset = 0;
-  const stops = distribution.map(({ color, count }) => {
-    const start = offset;
-    offset += count;
-    return `${color} ${start / projects.length * 100}% ${offset / projects.length * 100}%`;
-  });
-
-  return (
-    <section className="dashboard-panel dashboard-access" aria-labelledby="dashboard-access-title">
-      <div className="dashboard-panel-heading">
-        <h2 id="dashboard-access-title">Quyền truy cập</h2>
-        <Layers3 size={20} aria-hidden="true" />
-      </div>
-      <div className="dashboard-access-body">
-        <div className="dashboard-ring" style={stops.length ? { background: `conic-gradient(${stops.join(", ")})` } : undefined}>
-          <div className="dashboard-ring-center">
-            <strong>{loading || (error && !projects.length) ? "–" : projects.length}</strong>
-            <span>Dự án</span>
-          </div>
-        </div>
-        {distribution.length > 0 ? (
-          <ul className="dashboard-legend" aria-label="Số dự án theo quyền truy cập">
-            {distribution.map(({ id, color, count }) => (
-              <li key={id}>
-                <span className="dashboard-dot" style={{ backgroundColor: color }} aria-hidden="true" />
-                <span>{projectRoles[id] ?? "Dự án cục bộ"}</span>
-                <strong>{count}</strong>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="dashboard-access-caption">
-            {loading ? "Đang tải dữ liệu…" : error ? "Chưa có dữ liệu" : "Chưa có dự án"}
-          </p>
-        )}
-      </div>
-    </section>
   );
 }

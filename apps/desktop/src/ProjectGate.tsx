@@ -87,6 +87,7 @@ export default function ProjectGate({
         </UserContext.Provider>
       ) : (
         <ProjectDirectory
+          username={user.username}
           projects={projects ?? []}
           loading={!projects && !loadError}
           error={loadError || (hasProjectRoute && projects ? "Dự án không khả dụng với tài khoản này." : "")}
