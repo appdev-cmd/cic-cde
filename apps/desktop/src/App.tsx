@@ -28,6 +28,7 @@ import {
   LoaderCircle,
   Maximize2,
   MessageSquare,
+  Minimize2,
   MousePointer2,
   PanelLeftClose,
   Plus,
@@ -254,6 +255,7 @@ export default function App({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [bottom, setBottom] = useState(true);
+  const [resultsExpanded, setResultsExpanded] = useState(false);
   const [left, setLeft] = useState(true);
   const [assistant, setAssistant] = useState(false);
   const [modal, setModal] = useState<
@@ -1757,7 +1759,7 @@ export default function App({
           </aside>
         </div>
 
-        <section className={`results-panel ${bottom ? "" : "collapsed"}`}>
+        <section className={`results-panel${bottom ? (resultsExpanded ? " expanded" : "") : " collapsed"}`}>
           <div className="results-heading">
             <div className="results-tabs">
               <button
@@ -1791,9 +1793,20 @@ export default function App({
                   ? checkCoverage
                   : data.synthetic ? "Dữ liệu mẫu" : "Chưa kiểm tra"}
               </span>
+              {bottom && (
+                <button
+                  type="button"
+                  className="results-size-button"
+                  onClick={() => setResultsExpanded((expanded) => !expanded)}
+                >
+                  {resultsExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+                  {resultsExpanded ? "Về kích thước mặc định" : "Mở rộng bảng"}
+                </button>
+              )}
               <button
                 className="icon-button small"
                 aria-label={bottom ? "Thu gọn kết quả" : "Mở kết quả"}
+                aria-expanded={bottom}
                 onClick={() => setBottom((v) => !v)}
               >
                 <ChevronDown className={bottom ? "" : "flipped"} size={16} />
