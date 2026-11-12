@@ -4,6 +4,7 @@ import type { CadWindow } from "@qabim/cad-viewer/overlay";
 import {
   Activity,
   ArrowDownToLine,
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Bell,
@@ -46,6 +47,9 @@ import {
 } from "lucide-react";
 import Viewer from "./Viewer";
 import CoordinationResultsPanel from "./CoordinationResultsPanel";
+import MobileCoordinationIssues from "./MobileCoordinationIssues";
+import { findingDistance, findingTitle, issueCode, issueLabels } from "./coordinationPresentation";
+import "./coordination.css";
 import ClashCheckGuide from "./ClashCheckGuide";
 import { clashClasses, clashCoverageLabel, countClashCandidates, type ClashClass } from "./clashChecks";
 import { openProjectIssues } from "./projectRoute";
@@ -80,12 +84,6 @@ import type {
 const CadOverlay = lazy(() => import("./CadOverlay"));
 const CadFilePreview = lazy(() => import("./CadFilePreview"));
 
-const issueLabels: Record<IssueState, string> = {
-  Open: "Mới",
-  InProgress: "Đang xử lý",
-  Review: "Chờ kiểm lại",
-  Closed: "Đã đóng",
-};
 const issueTransitions: Record<IssueState, IssueState[]> = {
   Open: ["InProgress"],
   InProgress: ["Review"],
@@ -173,7 +171,18 @@ export default function App({
 }) {
   const projectUser = useCdeUser();
   const registeredOnly = Boolean(projectUser);
-  const loadWhileVisible = !registeredOnly || active;
+  const workspaceActive = !registeredOnly || active;
+  const [narrow, setNarrow] = useState(() => matchMedia("(max-width: 760px)").matches);
+  const [showMobileModel, setShowMobileModel] = useState(() =>
+    Boolean(initialModelId || new URLSearchParams(location.search).has("job")));
+  const mobileIssues = narrow && !showMobileModel;
+  const loadWhileVisible = workspaceActive && !mobileIssues;
+  useEffect(() => {
+    const query = matchMedia("(max-width: 760px)");
+    const sync = () => setNarrow(query.matches);
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
   const registerRevision = registeredOnly ? ifcRegisterRevision : 0;
   const projectName = projectUser?.projectName || "Riverside Tower";
   const readOnly = projectUser?.role === "viewer";
@@ -254,6 +263,7 @@ export default function App({
   const [distance, setDistance] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [clashSearch, setClashSearch] = useState("");
   const [bottom, setBottom] = useState(true);
   const workspaceBody = useRef<HTMLDivElement>(null);
   const [left, setLeft] = useState(true);
@@ -310,6 +320,11 @@ export default function App({
   const activeIssue = issues.find((issue) => issue.id === activeIssueId);
   const [comment, setComment] = useState("");
   const [issueSaving, setIssueSaving] = useState(false);
+  const [mobileIssueId, setMobileIssueId] = useState<number | null>(null);
+  const [mobileIssuesReady, setMobileIssuesReady] = useState(false);
+  const [mobileIssuesError, setMobileIssuesError] = useState("");
+  const [mobileIssuesRetry, setMobileIssuesRetry] = useState(0);
+  const pendingMobileView = useRef<CoordinationIssue | null>(null);
   const issueRequest = useRef(0);
   const loadIssues = useCallback(
     async (operation = "issues.list", input = {}) => {
@@ -326,14 +341,28 @@ export default function App({
     [],
   );
   useEffect(() => {
-    if (nav !== "issues" || !connected) return;
+    if (mobileIssues || nav !== "issues" || !connected) return;
     const refresh = () => {
       void loadIssues().catch(() => {});
     };
     refresh();
     const timer = setInterval(refresh, 3000);
     return () => clearInterval(timer);
-  }, [nav, connected, loadIssues]);
+  }, [nav, connected, loadIssues, mobileIssues]);
+  useEffect(() => {
+    if (!mobileIssues || !workspaceActive) return;
+    let cancelled = false;
+    const refresh = () => {
+      void loadIssues().then(() => {
+        if (!cancelled) { setMobileIssuesReady(true); setMobileIssuesError(""); }
+      }).catch(() => {
+        if (!cancelled) setMobileIssuesError("Không tải được vấn đề phối hợp.");
+      });
+    };
+    refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [loadIssues, mobileIssues, mobileIssuesRetry, workspaceActive]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [prompt, setPrompt] = useState("");
   const inputFile = useRef<HTMLInputElement>(null);
@@ -543,12 +572,15 @@ export default function App({
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+  const findingQuery = clashSearch.trim().toLocaleLowerCase("vi");
   const findings = data.findings.filter((f) => {
     const source = elementsById.get(f.a);
     return (
       (floor === "all" || (source?.storey ?? f.storey) === floor) &&
       (room === null || (source && spaceKey(source) === room)) &&
-      (status === "all" || f.status === status)
+      (status === "all" || f.status === status) &&
+      (!findingQuery || [f.id, f.title, findingTitle(f), source?.storey ?? f.storey]
+        .join(" ").toLocaleLowerCase("vi").includes(findingQuery))
     );
   });
   function chooseSpace(storey: string, key: string | null = null) {
@@ -731,6 +763,14 @@ export default function App({
       notify(String(e));
     }
   };
+  useEffect(() => {
+    if (!narrow || !showMobileModel || !pendingMobileView.current) return;
+    if (loading || !connected) return;
+    const issue = pendingMobileView.current;
+    pendingMobileView.current = null;
+    void reviewIssue(issue);
+  }, [narrow, showMobileModel, loading, connected, reviewIssue]);
+
   const updateIssue = async (
     issue: CoordinationIssue,
     assignee: string,
@@ -752,12 +792,12 @@ export default function App({
       setIssueSaving(false);
     }
   };
-  const postIssueComment = async () => {
-    if (!activeIssue || !comment.trim() || issueSaving) return;
+  const postIssueComment = async (issue = activeIssue) => {
+    if (!issue || !comment.trim() || issueSaving) return;
     setIssueSaving(true);
     try {
       await loadIssues("issues.comment", {
-        issueId: activeIssue.id,
+        issueId: issue.id,
         body: comment,
       });
       setComment("");
@@ -875,8 +915,51 @@ export default function App({
     }
   };
 
+  if (mobileIssues) {
+    const issue = issues.find((item) => item.id === mobileIssueId);
+    return (
+      <MobileCoordinationIssues projectName={projectName} issues={issues} selected={issue}
+        ready={mobileIssuesReady} error={mobileIssuesError}
+        onRetry={() => { setMobileIssuesError(""); setMobileIssuesRetry((attempt) => attempt + 1); }}
+        onSelect={(id) => { setMobileIssueId(id); setComment(""); }}
+        onView={(next) => {
+          pendingMobileView.current = next ?? null;
+          setLoading(true);
+          setNav("models");
+          setShowMobileModel(true);
+        }}>
+        {issue && !readOnly && (
+          <details className="coordination-elements mobile-coordination-form">
+            <summary>Cập nhật phân công</summary>
+            <form key={issue.id + ":" + issue.revision} onSubmit={(event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+              void updateIssue(issue, String(form.get("assignee") ?? ""), form.get("state") as IssueState);
+            }}>
+              <label>Đơn vị phụ trách<input name="assignee" defaultValue={issue.assignee} maxLength={120} /></label>
+              <label>Trạng thái<select name="state" defaultValue={issue.state}>
+                {[issue.state, ...issueTransitions[issue.state]].map((state) => <option key={state} value={state}>{issueLabels[state]}</option>)}
+              </select></label>
+              <button className="button secondary" disabled={issueSaving}>Lưu phân công</button>
+            </form>
+          </details>
+        )}
+        {issue && (!readOnly || issue.comments.length > 0) && (
+          <details className="coordination-elements mobile-coordination-form"><summary>Bình luận</summary>
+            {issue.comments.length > 0 && <ul>{issue.comments.map((entry) => <li key={entry.id}>{entry.body}</li>)}</ul>}
+            {!readOnly && <form onSubmit={(event) => { event.preventDefault(); void postIssueComment(issue); }}>
+              <label>Nội dung bình luận<textarea value={comment} maxLength={2000} onChange={(event) => setComment(event.target.value)} /></label>
+              <button className="button primary" disabled={issueSaving || !comment.trim()}>Gửi bình luận</button>
+            </form>}
+          </details>
+        )}
+        {toast && <p className="mobile-coordination-notice" role="status">{toast}</p>}
+      </MobileCoordinationIssues>
+    );
+  }
+
   return (
-    <div className="app-shell">
+    <div className="app-shell coordination-shell">
       <header className="topbar" aria-label="Công cụ phối hợp mô hình">
         <div className="top-spacer" />
         <button className="top-ai" onClick={() => setAssistant((v) => !v)}>
@@ -948,6 +1031,10 @@ export default function App({
       </aside>
 
       <main className="main">
+        {narrow && <button type="button" className="mobile-coordination-back coordination-model-back"
+          onClick={() => { pendingMobileView.current = null; setShowMobileModel(false); }}>
+          <ArrowLeft size={17} aria-hidden="true" /> Vấn đề phối hợp
+        </button>}
         <div className="workspace-heading">
           <h1>
             Phối hợp mô hình BIM
@@ -1552,6 +1639,22 @@ export default function App({
           </section>
 
           <aside className="inspector">
+            {finding && !assistant && (
+              <section className="coordination-inspector" aria-label="Chi tiết va chạm">
+                <h2>Chi tiết va chạm</h2>
+                <div className="coordination-inspector-meta">
+                  <span className="coordination-code">{finding.id}</span>
+                  <span className="coordination-badge" data-state="severity">Mức độ {finding.severity === "high" ? "cao" : "trung bình"}</span>
+                </div>
+                <h3>{findingTitle(finding)}</h3>
+                <dl className="coordination-facts">
+                  <div><dt>Tầng</dt><dd>{storeyLabel(elementsById.get(finding.a)?.storey ?? finding.storey)}</dd></div>
+                  {findingDistance(finding) && <div><dt>Độ giao cắt</dt><dd>{findingDistance(finding)}</dd></div>}
+                  <div><dt>Trạng thái</dt><dd>{finding.status === "new" ? "Mới" : "Đã rà soát"}</dd></div>
+                </dl>
+                <details className="coordination-elements"><summary>Cấu kiện IFC</summary><p>{finding.title}</p></details>
+              </section>
+            )}
             {assistant ? (
               <>
                 <div className="panel-title">
@@ -1815,7 +1918,7 @@ export default function App({
                           aria-pressed={activeIssueId === i.id}
                           onClick={() => void reviewIssue(i)}
                         >
-                          ISS-{String(i.id).padStart(3, "0")}
+                          {issueCode(i.id)}
                         </button>
                         <span>{i.finding.title}</span>
                         <span>{storeyLabel(elementsById.get(i.finding.a)?.storey ?? i.finding.storey)}</span>
@@ -1840,7 +1943,7 @@ export default function App({
                       aria-label="Thảo luận vấn đề phối hợp"
                     >
                       <strong>
-                        ISS-{String(activeIssue.id).padStart(3, "0")} ·{" "}
+                        {issueCode(activeIssue.id)} ·{" "}
                         {activeIssue.finding.title}
                       </strong>
                       <form
@@ -1918,6 +2021,11 @@ export default function App({
               ) : (
                 <>
                   <div className="results-filter">
+                    <label className="coordination-search">
+                      <Search size={15} aria-hidden="true" />
+                      <input type="search" value={clashSearch} aria-label="Tìm mã hoặc cấu kiện va chạm"
+                        placeholder="Tìm mã hoặc cấu kiện" onChange={(event) => setClashSearch(event.target.value)} />
+                    </label>
                     <div className="filter-tabs">
                       {[
                         { id: "all", label: "Tất cả" },
@@ -1963,11 +2071,11 @@ export default function App({
                           <th className="check-cell">
                             <Square size={12} />
                           </th>
-                          <th>MÃ</th>
-                          <th>VA CHẠM</th>
-                          <th>TẦNG</th>
-                          <th>MỨC ĐỘ</th>
-                          <th>TRẠNG THÁI</th>
+                          <th scope="col">Mã</th>
+                          <th scope="col">Va chạm</th>
+                          <th scope="col">Tầng</th>
+                          <th scope="col">Mức độ</th>
+                          <th scope="col">Trạng thái</th>
                           <th />
                         </tr>
                       </thead>
@@ -1994,7 +2102,10 @@ export default function App({
                             onClick={() => openFinding(f)}
                             tabIndex={0}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") openFinding(f);
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openFinding(f);
+                              }
                             }}
                             aria-label={`Mở ${f.id}`}
                           >
@@ -2005,7 +2116,10 @@ export default function App({
                             </td>
                             <td className="finding-id">{f.id}</td>
                             <td>
-                              <strong>{f.title}</strong>
+                              <strong>{findingTitle(f)}</strong>
+                              {findingTitle(f) !== f.title && <small className="coordination-row-ids">
+                                {f.title.split(" × ").map((value) => value.split(":").at(-1)).join(" × ")}
+                              </small>}
                               <small>
                                 {f.rule}
                                 {f.distance !== undefined
