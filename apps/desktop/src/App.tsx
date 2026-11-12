@@ -7,9 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  Bell,
   Box,
-  Boxes,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -22,7 +20,6 @@ import {
   Eye,
   EyeOff,
   FileBox,
-  Filter,
   Focus,
   Grid2X2,
   Layers3,
@@ -39,8 +36,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Square,
-  Terminal,
   Upload,
   Workflow,
   X,
@@ -123,12 +118,6 @@ function mergeImported(
     elements: [...previous.elements, ...imported.elements],
   };
 }
-const NAV = [
-  { id: "models", label: "Mô hình", icon: Boxes },
-  { id: "checks", label: "Va chạm", icon: ShieldCheck },
-  { id: "issues", label: "Vấn đề phối hợp", icon: ClipboardList },
-  { id: "data", label: "Dữ liệu", icon: Grid2X2 },
-];
 type Nav = "models" | "plan" | "checks" | "issues" | "data";
 type Message = { role: "user" | "assistant"; text: string };
 function ToolButton({
@@ -918,7 +907,7 @@ export default function App({
   if (mobileIssues) {
     const issue = issues.find((item) => item.id === mobileIssueId);
     return (
-      <MobileCoordinationIssues projectName={projectName} issues={issues} selected={issue}
+      <MobileCoordinationIssues projectName={projectUser ? undefined : projectName} issues={issues} selected={issue}
         ready={mobileIssuesReady} error={mobileIssuesError}
         onRetry={() => { setMobileIssuesError(""); setMobileIssuesRetry((attempt) => attempt + 1); }}
         onSelect={(id) => { setMobileIssueId(id); setComment(""); }}
@@ -945,7 +934,7 @@ export default function App({
           </details>
         )}
         {issue && (!readOnly || issue.comments.length > 0) && (
-          <details className="coordination-elements mobile-coordination-form"><summary>Bình luận</summary>
+          <details className="coordination-elements mobile-coordination-form"><summary>Bình luận ({issue.comments.length})</summary>
             {issue.comments.length > 0 && <ul>{issue.comments.map((entry) => <li key={entry.id}>{entry.body}</li>)}</ul>}
             {!readOnly && <form onSubmit={(event) => { event.preventDefault(); void postIssueComment(issue); }}>
               <label>Nội dung bình luận<textarea value={comment} maxLength={2000} onChange={(event) => setComment(event.target.value)} /></label>
@@ -960,76 +949,6 @@ export default function App({
 
   return (
     <div className="app-shell coordination-shell">
-      <header className="topbar" aria-label="Công cụ phối hợp mô hình">
-        <div className="top-spacer" />
-        <button className="top-ai" onClick={() => setAssistant((v) => !v)}>
-          <Sparkles size={15} /> Trợ lý BIM <span>Ctrl J</span>
-        </button>
-        <button
-          className="icon-button"
-          title="Trợ giúp"
-          aria-label="Trợ giúp"
-          onClick={() => setModal("help")}
-        >
-          <CircleHelp size={18} />
-        </button>
-        <button
-          className="icon-button notification"
-          title="Trạng thái không gian làm việc"
-          aria-label="Trạng thái không gian làm việc"
-          onClick={() => notify("Chưa có thông báo mới")}
-        >
-          <Bell size={18} />
-          <i />
-        </button>
-      </header>
-
-      <aside className="rail">
-        <div className="rail-top">
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              className={`rail-item ${nav === item.id || (planView && item.id === "models") ? "selected" : ""}`}
-              onClick={() => {
-                setNav(item.id as Nav);
-                if (item.id === "checks" || item.id === "issues")
-                  setBottom(true);
-              }}
-              title={item.label}
-            >
-              <item.icon size={21} />
-              <span>{item.label}</span>
-              {item.id === "issues" && issues.length > 0 && (
-                <b>{issues.length}</b>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="rail-bottom">
-          <button
-            className="rail-item"
-            onClick={() => {
-              setAssistant(true);
-              setMessages((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  text: "MCP development bridge có project_get, models_list, elements_search và checks_run. Khởi chạy bằng pnpm mcp sau khi core đã chạy.",
-                },
-              ]);
-            }}
-          >
-            <Workflow size={20} />
-            <span>Agent</span>
-          </button>
-          <button className="rail-item" onClick={() => setModal("settings")}>
-            <Settings2 size={20} />
-            <span>Cài đặt</span>
-          </button>
-          <span className="rail-version">v0.1</span>
-        </div>
-      </aside>
-
       <main className="main">
         {narrow && <button type="button" className="mobile-coordination-back coordination-model-back"
           onClick={() => { pendingMobileView.current = null; setShowMobileModel(false); }}>
@@ -1041,6 +960,16 @@ export default function App({
             {!loading && data.synthetic && <span className="demo-pill">Dự án mẫu</span>}
           </h1>
           <div className="heading-actions">
+            <button type="button" className="top-ai" aria-pressed={assistant} onClick={() => setAssistant((value) => !value)}>
+              <Sparkles size={15} aria-hidden="true" /> Trợ lý BIM
+            </button>
+            <button type="button" className="icon-button" aria-label="Trợ giúp" title="Trợ giúp" onClick={() => setModal("help")}>
+              <CircleHelp size={17} aria-hidden="true" />
+            </button>
+            <button type="button" className="icon-button" aria-label="Cài đặt công cụ phối hợp" title="Cài đặt công cụ phối hợp"
+              onClick={() => setModal("settings")}>
+              <Settings2 size={17} aria-hidden="true" />
+            </button>
             <button
               className="button secondary"
               onClick={() => viewer.current?.capture()}
@@ -1060,7 +989,7 @@ export default function App({
             <button
               className={nav !== "data" && !planView ? "tab active" : "tab"}
               aria-pressed={nav !== "data" && !planView}
-              onClick={() => setNav("models")}
+              onClick={() => { if (nav === "data" || planView) setNav("models"); }}
             >
               <Box size={15} /> Mô hình 3D
             </button>
@@ -1511,7 +1440,7 @@ export default function App({
                         <Layers3 size={18} />
                       </ToolButton>
                     )}
-                    {!cadPlanActive && <ToolButton
+                    {narrow && !cadPlanActive && <ToolButton
                       label="Chụp góc nhìn"
                       onClick={() => viewer.current?.capture()}
                     >
@@ -1603,14 +1532,13 @@ export default function App({
               {finding && (
                 <div className="review-banner">
                   <span className="conflict-dot" />
-                  <strong>{finding.id}</strong>
-                  <span>{finding.title}</span>
+                  <strong>Đang định vị {finding.id}</strong>
                   <button
                     onClick={() => {
                       setFinding(null);
                       setFocusIds([]);
                     }}
-                    aria-label="Đóng chế độ duyệt"
+                    aria-label="Bỏ định vị va chạm"
                   >
                     <X size={14} />
                   </button>
@@ -1898,7 +1826,8 @@ export default function App({
                 : "")}
             >
               {checkRun
-                ? checkCoverage
+                ? checkMissingGeometry > 0 && checkRun.coverage.groupA && checkRun.coverage.groupB && !checkRun.coverage.limitReached
+                    ? `${checkMissingGeometry} cấu kiện thiếu hình học` : checkCoverage
                 : data.synthetic ? "Dữ liệu mẫu" : "Chưa kiểm tra"}
             </span>
           }
@@ -2049,14 +1978,9 @@ export default function App({
                         </button>
                       ))}
                     </div>
-                    <div className="filter-controls">
-                      <span>
-                        <Filter size={12} /> {scopeLabel}
-                      </span>
-                      <button onClick={() => setModal("check")}>
-                        <Settings2 size={13} /> Cấu hình kiểm tra
-                      </button>
-                    </div>
+                    {(floor !== "all" || room !== null) && (
+                      <span className="coordination-display-scope">Đang hiện {scopeLabel}</span>
+                    )}
                   </div>
                   {checkRun?.rule && (
                     <p className="clash-result-summary">
@@ -2068,21 +1992,17 @@ export default function App({
                     <table className="results-table">
                       <thead>
                         <tr>
-                          <th className="check-cell">
-                            <Square size={12} />
-                          </th>
                           <th scope="col">Mã</th>
-                          <th scope="col">Va chạm</th>
+                          <th scope="col">Cặp cấu kiện</th>
                           <th scope="col">Tầng</th>
                           <th scope="col">Mức độ</th>
                           <th scope="col">Trạng thái</th>
-                          <th />
                         </tr>
                       </thead>
                       <tbody>
                         {checkRun && !findings.length && (
                           <tr>
-                            <td colSpan={7} className="clash-results-empty">
+                            <td colSpan={5} className="clash-results-empty">
                               {checkRun.findings.length > 0
                                 ? "Không có va chạm theo bộ lọc hiện tại."
                                 : !checkRun.coverage.groupA || !checkRun.coverage.groupB
@@ -2100,31 +2020,21 @@ export default function App({
                             key={f.id}
                             className={finding?.id === f.id ? "selected" : ""}
                             onClick={() => openFinding(f)}
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                openFinding(f);
-                              }
-                            }}
                             aria-label={`Mở ${f.id}`}
                           >
-                            <td className="check-cell">
-                              <span className={`finding-type ${f.severity}`}>
-                                <Box size={13} />
-                              </span>
+                            <td className="finding-id">
+                              <button type="button" aria-pressed={finding?.id === f.id}
+                                onClick={(event) => { event.stopPropagation(); openFinding(f); }}>
+                                {f.id}
+                              </button>
                             </td>
-                            <td className="finding-id">{f.id}</td>
                             <td>
                               <strong>{findingTitle(f)}</strong>
-                              {findingTitle(f) !== f.title && <small className="coordination-row-ids">
-                                {f.title.split(" × ").map((value) => value.split(":").at(-1)).join(" × ")}
-                              </small>}
                               <small>
-                                {f.rule}
-                                {f.distance !== undefined
-                                  ? ` · Độ giao cắt ${(f.distance * 1000).toFixed(1)} mm`
-                                  : ""}
+                                {findingTitle(f) !== f.title
+                                  ? f.title.split(" × ").map((value) => value.split(":").at(-1)).join(" × ")
+                                  : f.rule === f.title ? "" : f.rule}
+                                {findingDistance(f) && <span className="coordination-row-distance">{findingDistance(f)}</span>}
                               </small>
                             </td>
                             <td>{storeyLabel(elementsById.get(f.a)?.storey ?? f.storey)}</td>
@@ -2139,9 +2049,6 @@ export default function App({
                                 {f.status === "new" ? "Mới" : "Đã rà soát"}
                               </span>
                             </td>
-                            <td>
-                              <ArrowUpRight size={14} />
-                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -2149,14 +2056,11 @@ export default function App({
                   </div>
                 </>
               )}
-              <div className="results-footer">
+              {nav !== "issues" && <div className="results-footer">
                 <span>
-                  {nav === "issues"
-                    ? `${issues.length} vấn đề phối hợp`
-                    : checkRun
+                  {checkRun
                       ? `${findings.length === checkResultCount ? findings.length : findings.length + "/" + checkResultCount} va chạm`
                         + (checkRun.coverage.limitReached ? " · Ưu tiên cặp có độ giao cắt lớn" : "")
-                        + (checkMissingGeometry > 0 ? ` · ${checkMissingGeometry}/${checkRun.coverage.expected} cấu kiện chưa đo được` : "")
                         + (checkRun.coverage.unmeasuredCollisionPairs > 0 ? ` · ${checkRun.coverage.unmeasuredCollisionPairs} cặp chưa đo được` : "")
                       : data.synthetic
                         ? `${findings.length} kết quả mẫu`
@@ -2164,7 +2068,7 @@ export default function App({
                 </span>
                 {finding ? (
                   <div>
-                    <button
+                    {finding.status === "new" && <button
                       className="text-button"
                       onClick={() => {
                         setData((prev) => ({
@@ -2175,13 +2079,14 @@ export default function App({
                               : f,
                           ),
                         }));
+                        setFinding({ ...finding, status: "reviewed" });
                         notify(
                           `${finding.id} đã đánh dấu duyệt trong phiên làm việc`,
                         );
                       }}
                     >
                       <Check size={13} /> Đánh dấu đã rà soát
-                    </button>
+                    </button>}
                     <button
                       className="button tiny primary"
                       disabled={
@@ -2192,29 +2097,11 @@ export default function App({
                       <Plus size={12} /> Tạo vấn đề phối hợp
                     </button>
                   </div>
-                ) : (
-                  <span className="results-tip">
-                    <MousePointer2 size={11} /> Chọn kết quả để định vị trong mô
-                    hình
-                  </span>
-                )}
-              </div>
+                ) : null}
+              </div>}
             </>
           )}
         </CoordinationResultsPanel>
-        <footer className="app-status">
-          <span>
-            <span className={connected ? "green-dot" : "amber-dot"} />{" "}
-            {cloudWorkspace ? "CIC CDE CLOUD" : "LOCAL WORKSPACE"}{" "}
-            <span className="meta-divider" />{" "}
-            {cloudWorkspace ? "Supabase" : connected ? "Rust application core" : "UI preview"}
-          </span>
-          <span>
-            <Terminal size={11} /> MCP · 4 tools{" "}
-            <span className="meta-divider" /> G0 / G1{" "}
-            <span className="meta-divider" /> v0.1.0
-          </span>
-        </footer>
       </main>
       <input
         type="file"

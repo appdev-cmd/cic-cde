@@ -4,7 +4,7 @@ import { findingDistance, findingTitle, issueCode, issueLabels } from "./coordin
 import type { CoordinationIssue, IssueState } from "./types";
 
 type Props = {
-  projectName: string;
+  projectName?: string;
   issues: CoordinationIssue[];
   selected: CoordinationIssue | undefined;
   ready: boolean;
@@ -53,7 +53,6 @@ export default function MobileCoordinationIssues({
             <div><dt>Đơn vị phụ trách</dt><dd>{selected.assignee || "Chưa giao"}</dd></div>
             <div><dt>Tầng</dt><dd>{selected.finding.storey || "Chưa xác định"}</dd></div>
             {findingDistance(selected.finding) && <div><dt>Độ giao cắt</dt><dd>{findingDistance(selected.finding)}</dd></div>}
-            <div><dt>Thảo luận</dt><dd>{selected.comments.length} bình luận</dd></div>
           </dl>
           <details className="coordination-elements"><summary>Cấu kiện IFC</summary><p>{selected.finding.title}</p></details>
           {children}
@@ -61,7 +60,7 @@ export default function MobileCoordinationIssues({
       ) : (
         <>
           <header className="mobile-coordination-title">
-            <div><small>{projectName}</small><h1>Vấn đề phối hợp</h1></div>
+            <div>{projectName && <small>{projectName}</small>}<h1>Vấn đề phối hợp</h1></div>
             <button type="button" className="button secondary" onClick={() => onView()}>
               <Box size={16} aria-hidden="true" /> Mô hình
             </button>

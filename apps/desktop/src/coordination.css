@@ -9,7 +9,18 @@
   --coord-ground: #f2f7f8;
 }
 
-.coordination-shell .main { background: var(--coord-ground); }
+.coordination-shell.app-shell,
+.project-models .coordination-shell.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.coordination-shell > .main { flex: 1; background: var(--coord-ground); }
+.coordination-shell .workspace-heading { min-height: 52px; flex-wrap: wrap; }
+.coordination-shell .heading-actions { flex-wrap: wrap; gap: 7px; }
+.coordination-shell .heading-actions > .icon-button { width: 32px; height: 32px; color: var(--coord-text); }
+.coordination-shell .heading-actions .top-ai { color: var(--coord-accent); }
+.coordination-shell .heading-actions .top-ai[aria-pressed="true"] { background: var(--coord-selected); }
 .coordination-shell .workspace-heading h1 {
   font-size: clamp(20px, 2vw, 28px);
   letter-spacing: -.036em;
@@ -29,8 +40,7 @@
 .coordination-shell .results-filter { min-height: 44px; height: auto; flex-wrap: wrap; gap: 6px 12px; padding-block: 4px; }
 .coordination-shell .filter-tabs > button,
 .coordination-shell .filter-tabs > button span,
-.coordination-shell .filter-controls > button,
-.coordination-shell .filter-controls > span { color: var(--coord-text); font-size: 11px; }
+.coordination-display-scope { color: var(--coord-text); font-size: 11px; }
 .coordination-shell .filter-tabs > button.active { background: var(--coord-selected); color: var(--coord-accent); font-weight: 650; }
 .coordination-shell .clash-result-summary { color: var(--coord-text); font-size: 11px; }
 .coordination-search { flex: 1 1 190px; max-width: 360px; display: flex; align-items: center; gap: 7px; padding: 0 8px; border: 1px solid #a8c2c9; border-radius: 6px; color: var(--coord-text); }
@@ -41,16 +51,20 @@
 .coordination-shell .results-table td.finding-id { font-size: 12px; color: var(--coord-ink); overflow-wrap: anywhere; }
 .coordination-shell .results-table td strong { font-size: 13px; font-weight: 650; color: var(--coord-ink); }
 .coordination-shell .results-table td small { font-size: 11px; color: var(--coord-text); }
-.coordination-shell .results-table td strong + small.coordination-row-ids { display: block; }
-.coordination-shell .results-table th:nth-child(4) { width: 120px; }
-.coordination-shell .results-table th:nth-child(5) { width: 90px; }
+.coordination-shell .results-table :is(th,td) { padding-inline: 10px; }
+.coordination-shell .results-table th:nth-child(1) { width: 94px; }
+.coordination-shell .results-table th:nth-child(2) { width: auto; }
+.coordination-shell .results-table th:nth-child(3) { width: 130px; }
+.coordination-shell .results-table th:nth-child(4) { width: 90px; }
+.coordination-shell .results-table th:nth-child(5) { width: 116px; }
+.coordination-shell .finding-id button { min-height: 32px; color: var(--coord-accent); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.coordination-row-distance { margin-inline-start: 7px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.coordination-shell .review-banner { width: fit-content; max-width: calc(100% - 26px); padding: 6px 8px; }
 .coordination-shell .results-table tbody tr.selected td { background: var(--coord-selected); }
 .coordination-shell .results-table tbody tr.selected td:first-child { box-shadow: inset 3px 0 var(--coord-accent); }
-.coordination-shell .results-table tbody tr:focus-visible { outline: 2px solid var(--coord-accent); outline-offset: -2px; }
 .coordination-shell .results-table .severity { font-size: 11px; color: #79471d; }
 .coordination-shell .finding-status { color: #35515d; font-size: 11px; }
 .coordination-shell .results-footer { font-size: 11px; color: var(--coord-text); }
-.coordination-shell .results-tip { display: none; }
 
 .coordination-inspector { flex: 0 1 auto; min-height: 0; overflow: auto; padding: 12px 13px; border-bottom: 1px solid var(--coord-line); }
 .coordination-inspector h2 { font-size: 13px; color: var(--coord-text); margin: 0 0 10px; }
@@ -95,14 +109,11 @@
 
 @media (max-width: 760px) {
   .project-models .app-shell.coordination-shell { min-width: 0; min-height: 0; width: 100%; display: block; }
-  .coordination-shell > .topbar,
-  .coordination-shell > .rail,
   .coordination-shell .workspace-tabs,
   .coordination-shell .workspace-heading,
   .coordination-shell .model-panel,
   .coordination-shell .inspector,
-  .coordination-shell .results-panel,
-  .coordination-shell .app-status { display: none; }
+  .coordination-shell .results-panel { display: none; }
   .coordination-shell .main { padding: 0 8px; }
   .coordination-shell .workspace-body,
   .coordination-shell .workspace-body.no-left { display: grid; grid-template-columns: minmax(0, 1fr); min-height: min(68dvh, 620px); }
