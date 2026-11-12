@@ -134,6 +134,7 @@ function updateSelectionFade(r: Runtime, progress: number) {
     }
     r.batches.sync(mesh);
   }
+  if (progress === 1 && r.meshes.size >= 4_000) r.batches.prepareMotionGeometry();
   r.invalidate();
 }
 
@@ -257,6 +258,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
         const r = runtime.current;
         if (!r) return;
         r.restoreResolution();
+        r.batches.setMoving(false);
         r.batches.flush();
         r.renderer.render(r.scene, r.activeCamera());
         const a = document.createElement("a");
@@ -397,7 +399,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const group = new THREE.Group();
     group.rotation.x = -Math.PI / 2;
     scene.add(group);
-    const batches = new ViewerBatches(group);
+    const batches = new ViewerBatches(group, () => invalidate());
     const meshes = new Map<string, THREE.Mesh>();
     const getScopeBounds = (clip: boolean) => {
       const bounds = new THREE.Box3();
@@ -585,6 +587,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     scene.add(marker);
     let dirty = true;
     let lastMotionAt = -Infinity;
+    let denseMotion = false;
     const invalidate = () => {
       dirty = true;
     };
@@ -784,7 +787,12 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
       const draw = renderer.info.render;
       const dense = draw.calls >= 2_500 || draw.triangles >= 750_000;
       const moving = planRotation === null && now - lastMotionAt < 140;
-      setResolution(dense && moving ? motionPixelRatio : fullPixelRatio);
+      denseMotion = moving && (denseMotion || dense);
+      setResolution(denseMotion ? motionPixelRatio : fullPixelRatio);
+      batches.setMoving(
+        denseMotion && callbacks.current.mode === "solid" && !callbacks.current.section &&
+          !r.selectionFade && !renderer.shadowMap.needsUpdate,
+      );
       if (dirty || changed) {
         const section = callbacks.current.section;
         sectionPreview.visible = planRotation === null && sectionDrag !== null && section !== null &&
@@ -1109,6 +1117,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
           durationMs: performance.now() - started,
           added: fresh.length,
         });
+        if (r.meshes.size >= 4_000) r.batches.prepareMotionGeometry();
       })
       .catch((error) => {
         if (!cancelled) callbacks.current.onGeometryError(String(error));
@@ -1131,6 +1140,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     const r = runtime.current;
     if (!r) return;
     applyAppearance(r, props);
+    if (!activeLoad.current && r.meshes.size >= 4_000) r.batches.prepareMotionGeometry();
   }, [
     props.elements,
     props.models,

@@ -6,7 +6,7 @@ alter table cde_private.invitations add column iso_role text
 
 do $migration$
 declare
-    api text := pg_get_functiondef('public.cde_api(text,jsonb,text)'::regprocedure);
+    api text := pg_get_functiondef(coalesce(to_regprocedure('cde_private.cde_api(text,jsonb,text)'), to_regprocedure('public.cde_api(text,jsonb,text)')));
     accounts text := pg_get_functiondef('public.cde_manage_account(text,jsonb)'::regprocedure);
     clause text[];
     old_join text := 'on conflict on constraint memberships_pkey do update set role=excluded.role,active=true,revision=cde_private.memberships.revision+1;';

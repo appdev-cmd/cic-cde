@@ -6,7 +6,7 @@
     "dev": "pnpm --dir apps/desktop dev",
     "desktop": "pnpm --dir apps/desktop tauri dev",
     "desktop:attach": "cargo run -p qabim-desktop",
-    "build": "pnpm --dir apps/desktop build",
+    "build": "pnpm --dir apps/desktop build && node scripts/write_release_manifest.mjs",
     "core": "cargo run -p qabim-host --bin qabim-local",
     "mcp": "cargo run -q -p qabim-mcp",
     "fixtures": "python scripts/create_fixtures.py",

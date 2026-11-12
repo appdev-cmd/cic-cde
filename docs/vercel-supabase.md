@@ -6,7 +6,7 @@ React gọi Supabase Auth và RPC `cde_api` bằng phiên của người dùng. 
 
 Trong tab **Thành viên**, quản trị dự án chỉnh quyền của đơn vị và tạo hoặc thu hồi lời mời. Đơn vị đã có tài khoản dùng tài khoản đó để nhận lời mời. Đơn vị mới có thể tạo tài khoản đầu tiên từ liên kết mời. Quản trị hệ thống có thể tạo tài khoản ngay trong tab này. Nếu đơn vị đã tham gia, tài khoản dùng quyền hiện có của đơn vị. Nếu thêm đơn vị mới vào dự án, quyền được chọn áp dụng cho mọi tài khoản của đơn vị đó.
 
-IFC tải trực tiếp vào bucket riêng `cde-files`. Worker Vercel tải IFC được phép đọc, dùng thư mục tạm để chạy IfcOpenShell và ghi geometry về Storage. Metadata và tiến trình nằm trong PostgreSQL. Tác vụ gắn người tạo và dự án, có lease để tránh ghi đè khi chạy trùng và kiểm tra quyền lại khi lưu. Định dạng geometry QBM1 dùng chung với desktop. Giới hạn pilot là IFC STEP tối đa 100 MB, tối đa 2.000 cấu kiện có hình học và thời gian worker theo cấu hình 300 giây của Vercel.
+IFC tải trực tiếp vào bucket riêng `cde-files`. Worker Vercel tải IFC được phép đọc, dùng thư mục tạm để chạy IfcOpenShell và ghi geometry về Storage. Metadata và tiến trình nằm trong PostgreSQL. Tác vụ gắn người tạo và dự án, có lease để tránh ghi đè khi chạy trùng và kiểm tra quyền lại khi lưu. Định dạng geometry QBM1 dùng chung với desktop. Giới hạn IFC STEP là 500 MB, preview tối đa 25.000 cấu kiện có hình học cùng ngân sách geometry riêng. Kiểm tra va chạm giới hạn 12 snapshot, 5.000 cấu kiện, 1.000 cặp kết quả và ngân sách xử lý 255 giây trong function Vercel 300 giây. Upload thành công không bảo đảm xử lý đầy đủ toàn bộ file.
 
 ## Cấu hình môi trường
 

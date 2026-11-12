@@ -1,5 +1,5 @@
 """Regression test for authenticated pilot boundaries using an isolated workspace."""
-import json, os, pathlib, secrets, shutil, socket, subprocess, tempfile, time, urllib.request, urllib.error
+import hashlib, json, os, pathlib, secrets, shutil, socket, subprocess, tempfile, time, urllib.request, urllib.error
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 BINARY=ROOT/'target/debug'/('qabim-local.exe' if os.name=='nt' else 'qabim-local')
 with tempfile.TemporaryDirectory(prefix='ciccde-auth-') as temporary:
@@ -165,6 +165,18 @@ with tempfile.TemporaryDirectory(prefix='ciccde-auth-') as temporary:
         rpc('documents.transition',consultant,403,project=p1['id'],id=item['id'],expectedState='Approved',state='Published')
         rpc('documents.transition',admin,project=p1['id'],id=item['id'],expectedState='Approved',state='Published')
         process.terminate();process.wait(timeout=10)
+        # Restore only this test's temporary workspace, including SQLite and source/cache files.
+        data_root = folder / '.local'
+        backup = folder / 'restore-source'
+        shutil.copytree(data_root, backup)
+        expected_files = {str(p.relative_to(backup)): hashlib.sha256(p.read_bytes()).hexdigest()
+                          for p in backup.rglob('*') if p.is_file()}
+        data_root.rename(folder / 'original-before-restore')
+        shutil.copytree(backup, data_root)
+        restored_files = {str(p.relative_to(data_root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                          for p in data_root.rglob('*') if p.is_file()}
+        assert restored_files == expected_files
+        print('Isolated workspace backup/restore: every file SHA-256 matched', flush=True)
         process=subprocess.Popen([str(BINARY)],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         for _ in range(100):
             try:request('/health');break

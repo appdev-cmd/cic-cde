@@ -95,6 +95,7 @@ admin = checked(admin_login).json()['access_token']
 assert rpc('profile', admin)['siteAdmin']
 print('Admin and cloud health verified', flush=True)
 tokens = [admin]
+test_projects = []
 try:
     for unit in ('arc', 'mep'):
         account = credentials[unit]
@@ -105,6 +106,12 @@ try:
         tokens.append(checked(response).json()['access_token'])
     _, arc, mep = tokens
     project = rpc('projects.create', admin, name=f'Kiểm thử CIC CDE Cloud {args.api == "local" and "nội bộ" or "Vercel"}')['id']
+    test_projects.append(project)
+    isolated_project = rpc('projects.create', admin, name='P0 permission isolation fixture')['id']
+    test_projects.append(isolated_project)
+    (LOCAL / 'p0-cloud-test-projects.json').write_text(json.dumps(test_projects))
+    rpc('workspace.get', arc, isolated_project, expected=403)
+    rpc('documents.list', mep, isolated_project, expected=403)
     rpc('workspace.get', arc, project, expected=403)
     for unit, role, member in [('ARC', 'reviewer', arc), ('MEP', 'viewer', mep)]:
         invitation = rpc('projects.invite', admin, projectId=project, organization=unit, role=role)
@@ -121,6 +128,23 @@ try:
     assert rpc('projects.current', joined, projectId=project)['role'] == 'viewer'
     checked(manage('join', account, code=invite['token']), 400)
     print('Project invitation, signup and role isolation verified', flush=True)
+    pending = rpc('projects.invite', admin, projectId=project, organization='P0-REVOKE-' + uuid4().hex[:8], role='viewer', isoRole='appointed_party')
+    assert any(item['id'] == pending['id'] for item in rpc('projects.invitations', admin, projectId=project))
+    rpc('projects.invitations.revoke', mep, expected=403, projectId=project, invitationId=pending['id'])
+    rpc('projects.invitations.revoke', admin, projectId=project, invitationId=pending['id'])
+    assert not any(item['id'] == pending['id'] for item in rpc('projects.invitations', admin, projectId=project))
+    account = {'username': 'p0-account-' + uuid4().hex[:10], 'password': secrets.token_urlsafe(32),
+               'organization': 'P0-ACCOUNT-' + uuid4().hex[:8], 'projectId': project,
+               'role': 'viewer', 'isoRole': 'appointed_party'}
+    checked(manage('project.create', account, token=arc), 403)
+    created = checked(manage('project.create', account, token=admin)).json()['user']
+    assert created['siteAdmin'] is False
+    created_token = checked(login(account)).json()['access_token']
+    tokens.append(created_token)
+    created_profile = rpc('projects.current', created_token, projectId=project)
+    assert created_profile['role'] == 'viewer' and created_profile['isoRole'] == 'appointed_party'
+    rpc('workspace.get', created_token, isolated_project, expected=403)
+    print('Project account cannot elevate system rights; invitation revocation and ISO role verified', flush=True)
 
     smoke = (FIXTURES / 'import-smoke.ifc').read_bytes()
     # Valid STEP comment keeps the model small while exercising uploads beyond 4.5 MB.
@@ -145,6 +169,28 @@ try:
     print('IFC upload over 5 MB, geometry and document approvals verified', flush=True)
 
     structure = import_ifc(arc, project, FIXTURES / 'riverside-structure.ifc')
+    legacy = next(d for d in rpc('documents.list', admin, project) if d['id'] == document['id'])
+    assert legacy['revisionCode'] is None and legacy['revision'] == 1
+    rules = {'reference': 'P0 isolated regression BEP', 'workingPrefix': 'P', 'sharedPrefix': 'P',
+             'publishedPrefix': 'C', 'workingSuffix': '.01', 'digits': 2,
+             'statuses': {stage: [{'code': code, 'label': stage}] for stage, code in
+                          [('WIP', 'S0'), ('Shared', 'S1'), ('Review', 'S3'), ('Approved', 'S4'), ('Published', 'A1')]}}
+    rpc('bep.save', mep, project, expected=403, expectedVersion=0, rules=rules)
+    rpc('bep.save', arc, project, expected=403, expectedVersion=0, rules=rules)
+    rpc('bep.save', admin, project, expectedVersion=0, rules=rules)
+    rpc('bep.save', admin, project, expected=409, expectedVersion=0, rules=rules)
+    registered = rpc('documents.register', arc, project, code='P0-BEP-001', title='BEP regression', discipline='STR', modelId=structure['id'])
+    current = next(d for d in registered if d['code'] == 'P0-BEP-001')
+    assert current['revisionCode'] == 'P01.01' and current['suitabilityCode'] == 'S0'
+    for before, after, status_code in [('WIP', 'Shared', 'S1'), ('Shared', 'Review', 'S3'), ('Review', 'Approved', 'S4'), ('Approved', 'Published', 'A1')]:
+        registered = rpc('documents.transition', admin, project, id=current['id'], expectedState=before, state=after, suitabilityCode=status_code)
+    current = next(d for d in registered if d['code'] == 'P0-BEP-001')
+    assert current['revisionCode'] == 'C01'
+    rpc('bep.save', admin, project, expectedVersion=1, rules={**rules, 'workingPrefix': 'T'})
+    after = rpc('documents.list', admin, project)
+    assert next(d for d in after if d['id'] == legacy['id']) == legacy
+    assert next(d for d in after if d['id'] == current['id']) == current
+    print('BEP permissions, optimistic concurrency, R01 and saved-rule preservation verified', flush=True)
     services = import_ifc(arc, project, FIXTURES / 'riverside-services.ifc')
     run = run_job(arc, project, kind='checks', modelIdsA=[services['id']], modelIdsB=[structure['id']])
     assert len(run['findings']) == 42
@@ -156,5 +202,8 @@ try:
     assert rpc('jobs.cancel', arc, project, jobId=cancelled)['phase'] == 'cancelled'
     print(json.dumps({'status': 'passed', 'projectId': project, 'ifcBytes': len(padded), 'clashes': len(run['findings']), 'issueId': issue['id'], 'api': args.api}))
 finally:
+    for test_project in test_projects:
+        checked(client.post(origin + '/rest/v1/rpc/cde_delete_project', headers=headers(admin),
+                            json={'project_id': test_project}), 204)
     for token in tokens:
         client.post(origin + '/auth/v1/logout?scope=local', headers=headers(token))

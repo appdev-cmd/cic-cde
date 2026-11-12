@@ -1,19 +1,31 @@
 import * as THREE from "three";
+import type { MotionRange } from "./viewerMotion.worker";
 
 type Surface = {
   source: THREE.Mesh;
-  material: THREE.MeshStandardMaterial;
+  color: string;
   start: number;
   count: number;
 };
 
-type Entry = { source: THREE.Mesh; start: number; count: number; included: boolean };
+type Entry = MotionRange & {
+  source: THREE.Mesh;
+  included: boolean;
+  motion?: Pick<MotionRange, "start" | "count">;
+};
+
+type IndexGeometry = {
+  geometry: THREE.BufferGeometry;
+  indices: Uint32Array;
+  drawIndex: THREE.BufferAttribute;
+};
 
 type Batch = {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   entries: Set<Entry>;
-  indices: Uint32Array;
-  drawIndex: THREE.BufferAttribute;
+  full: IndexGeometry;
+  motion?: IndexGeometry;
+  motionRequested?: boolean;
 };
 
 export function disposeViewerMesh(mesh: THREE.Mesh) {
@@ -28,9 +40,16 @@ export class ViewerBatches {
   private readonly dirty = new Set<Batch>();
   private readonly sources = new Map<THREE.Mesh, { batch: Batch; entry: Entry }[]>();
   private readonly transparentParts = new Map<THREE.Mesh, THREE.Mesh>();
+  private readonly transparentMaterials = new Map<THREE.Mesh, THREE.MeshStandardMaterial[]>();
   private readonly maskedMaterial = new THREE.MeshBasicMaterial({ visible: false });
+  private readonly motionQueue: Batch[] = [];
+  private motionWorker?: Worker;
+  private motionJob?: { batch: Batch; entries: Entry[] };
+  private motionTimer?: ReturnType<typeof setTimeout>;
+  private motionUnavailable = false;
+  private moving = false;
 
-  constructor(private readonly group: THREE.Group) {
+  constructor(private readonly group: THREE.Group, private readonly invalidate: () => void) {
     // Picking and bounds still use the original meshes, outside scene traversal.
     this.pickGroup.quaternion.copy(group.quaternion);
     this.pickGroup.updateMatrixWorld();
@@ -49,21 +68,27 @@ export class ViewerBatches {
       const groups = source.geometry.groups.length
         ? source.geometry.groups
         : [{ start: 0, count: index.count, materialIndex: 0 }];
+      // Each streamed asset is already a bounded chunk. Floor and room filters
+      // keep using the index ranges of individual source meshes within it.
+      const key = JSON.stringify([
+        source.userData.modelId, source.userData.relativeGeometry, slab,
+      ]);
       for (const { start, count, materialIndex } of groups) {
         const material = materials[materialIndex ?? 0];
         if (!isOpaque(material)) continue;
         eligible.add(source);
-        const key = JSON.stringify([
-          source.userData.modelId, source.userData.storey,
-          source.userData.relativeGeometry, slab, material.flatShading, material.userData.surfaceColor,
-        ]);
-        const surface = { source, material, start, count };
+        const surface = { source, color: material.userData.surfaceColor, start, count };
         const bucket = grouped.get(key);
         if (bucket) bucket.push(surface);
         else grouped.set(key, [surface]);
       }
-      if (eligible.has(source) && materials.some((material) => !isOpaque(material))) {
-        mixed.set(source, materials.map((material) => isOpaque(material) ? this.maskedMaterial : material));
+      const translucent = materials.filter((material) => !isOpaque(material));
+      if (translucent.length) {
+        this.transparentMaterials.set(source, translucent);
+        for (const material of translucent) material.forceSinglePass = this.moving;
+        if (eligible.has(source)) {
+          mixed.set(source, materials.map((material) => isOpaque(material) ? this.maskedMaterial : material));
+        }
       }
     }
     const opaqueSurfaces = [...grouped.values()].reduce((sum, surfaces) => sum + surfaces.length, 0);
@@ -85,43 +110,56 @@ export class ViewerBatches {
     const indexCount = surfaces.reduce((sum, { count }) => sum + count, 0);
     const positions = new Float32Array(vertices * 3);
     const normals = new Float32Array(vertices * 3);
+    const colors = new Float32Array(vertices * 3);
     const indices = new Uint32Array(indexCount);
     const entries = new Set<Entry>();
+    const color = new THREE.Color();
     let vertexOffset = 0;
     let indexOffset = 0;
-    for (const { source, start, count } of surfaces) {
+    for (const { source, color: surfaceColor, start, count } of surfaces) {
       const { attributes, index } = source.geometry;
       positions.set(attributes.position.array, vertexOffset * 3);
       normals.set(attributes.normal.array, vertexOffset * 3);
+      color.set(surfaceColor);
+      const colorEnd = (vertexOffset + attributes.position.count) * 3;
+      for (let i = vertexOffset * 3; i < colorEnd; i += 3) {
+        color.toArray(colors, i);
+      }
       for (let i = 0; i < count; i++) {
         indices[indexOffset + i] = index!.array[start + i] + vertexOffset;
       }
-      entries.add({ source, start: indexOffset, count, included: false });
+      entries.add({
+        source, start: indexOffset, count, included: false,
+        vertexStart: vertexOffset, vertexCount: attributes.position.count,
+      });
       vertexOffset += attributes.position.count;
       indexOffset += count;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     const drawIndex = new THREE.BufferAttribute(new Uint32Array(indexCount), 1).setUsage(THREE.DynamicDrawUsage);
     geometry.setIndex(drawIndex);
     geometry.setDrawRange(0, 0);
     geometry.computeBoundingSphere();
-    const first = surfaces[0];
-    const material = first.material.clone();
-    material.clippingPlanes = first.material.clippingPlanes;
-    material.color.set(first.material.userData.surfaceColor);
+    const { source } = surfaces[0];
+    const originalMaterial = (Array.isArray(source.material) ? source.material[0] : source.material) as THREE.MeshStandardMaterial;
+    const material = originalMaterial.clone();
+    material.clippingPlanes = originalMaterial.clippingPlanes;
+    material.color.set(0xffffff);
+    material.vertexColors = true;
     material.emissive.set(0);
     material.transparent = false;
     material.opacity = 1;
     material.depthWrite = true;
     material.wireframe = false;
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = first.source.userData.ifcClass !== "IfcSlab";
+    mesh.castShadow = source.userData.ifcClass !== "IfcSlab";
     mesh.receiveShadow = true;
     mesh.visible = false;
     this.group.add(mesh);
-    const batch = { mesh, entries, indices, drawIndex };
+    const batch = { mesh, entries, full: { geometry, indices, drawIndex } };
     this.batches.add(batch);
     for (const entry of entries) {
       const list = this.sources.get(entry.source);
@@ -129,6 +167,103 @@ export class ViewerBatches {
       if (list) list.push(link);
       else this.sources.set(entry.source, [link]);
     }
+  }
+
+  prepareMotionGeometry() {
+    if (this.motionUnavailable || typeof Worker === "undefined") return;
+    const pending = [...this.batches].filter((batch) =>
+      !batch.motionRequested && batch.full.indices.length >= 3_000 &&
+      [...batch.entries].some((entry) => entry.included),
+    ).sort((a, b) => b.full.indices.length - a.full.indices.length);
+    for (const batch of pending) batch.motionRequested = true;
+    this.motionQueue.push(...pending);
+    this.scheduleMotionJob();
+  }
+
+  setMoving(moving: boolean) {
+    if (this.moving === moving) return;
+    this.moving = moving;
+    for (const batch of this.batches) this.useMotionGeometry(batch);
+    // Avoid a second draw per translucent surface during motion. Keep alpha
+    // blending and restore the back-then-front pass order at full quality.
+    for (const materials of this.transparentMaterials.values()) {
+      for (const material of materials) material.forceSinglePass = moving;
+    }
+    this.invalidate();
+  }
+
+  private useMotionGeometry(batch: Batch) {
+    batch.mesh.geometry = (this.moving && batch.motion ? batch.motion : batch.full).geometry;
+  }
+
+  private scheduleMotionJob() {
+    if (this.motionTimer !== undefined || this.motionJob || !this.motionQueue.length) return;
+    this.motionTimer = setTimeout(() => {
+      this.motionTimer = undefined;
+      this.startMotionJob();
+    }, 4);
+  }
+
+  private startMotionJob() {
+    while (this.motionQueue.length) {
+      const batch = this.motionQueue.shift()!;
+      if (!this.batches.has(batch)) continue;
+      const entries = [...batch.entries];
+      try {
+        if (!this.motionWorker) {
+          this.motionWorker = new Worker(new URL("./viewerMotion.worker.ts", import.meta.url), { type: "module" });
+          this.motionWorker.onmessage = ({ data }) => this.finishMotionJob(data);
+          this.motionWorker.onerror = () => this.stopMotionWorker();
+        }
+        const positions = new Float32Array(batch.full.geometry.attributes.position.array);
+        const indices = batch.full.indices.slice();
+        const ranges = entries.map(({ start, count, vertexStart, vertexCount }) => ({
+          start, count, vertexStart, vertexCount,
+        }));
+        this.motionJob = { batch, entries };
+        this.motionWorker.postMessage({ positions, indices, ranges }, [positions.buffer, indices.buffer]);
+      } catch {
+        this.stopMotionWorker();
+      }
+      return;
+    }
+  }
+
+  private finishMotionJob(data: { indices: Uint32Array; counts: number[] } | null) {
+    const job = this.motionJob;
+    this.motionJob = undefined;
+    if (data && job && this.batches.has(job.batch)) {
+      const { batch, entries } = job;
+      let start = 0;
+      for (const [i, entry] of entries.entries()) {
+        const count = data.counts[i];
+        entry.motion = { start, count };
+        start += count;
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", batch.full.geometry.attributes.position);
+      geometry.setAttribute("normal", batch.full.geometry.attributes.normal);
+      geometry.setAttribute("color", batch.full.geometry.attributes.color);
+      geometry.boundingSphere = batch.full.geometry.boundingSphere;
+      const drawIndex = new THREE.BufferAttribute(new Uint32Array(data.indices.length), 1).setUsage(THREE.DynamicDrawUsage);
+      geometry.setIndex(drawIndex);
+      geometry.setDrawRange(0, 0);
+      batch.motion = { geometry, indices: data.indices, drawIndex };
+      this.pack(batch.entries, batch.motion, true);
+      this.useMotionGeometry(batch);
+      if (this.moving) this.invalidate();
+    }
+    this.scheduleMotionJob();
+  }
+
+  private stopMotionWorker() {
+    clearTimeout(this.motionTimer);
+    this.motionTimer = undefined;
+    this.motionWorker?.terminate();
+    this.motionWorker = undefined;
+    this.motionQueue.length = 0;
+    this.motionJob = undefined;
+    this.motionUnavailable = true;
   }
 
   sync(source: THREE.Mesh) {
@@ -158,24 +293,40 @@ export class ViewerBatches {
 
   flush() {
     for (const batch of this.dirty) {
-      let offset = 0;
-      for (const entry of batch.entries) {
-        if (!entry.included) continue;
-        batch.drawIndex.array.set(batch.indices.subarray(entry.start, entry.start + entry.count), offset);
-        offset += entry.count;
-      }
-      batch.mesh.geometry.setDrawRange(0, offset);
-      batch.mesh.visible = offset > 0;
-      if (offset) {
-        batch.drawIndex.clearUpdateRanges();
-        batch.drawIndex.addUpdateRange(0, offset);
-        batch.drawIndex.needsUpdate = true;
-      }
+      const fullCount = this.pack(batch.entries, batch.full, false);
+      batch.mesh.visible = fullCount > 0;
+      if (batch.motion) this.pack(batch.entries, batch.motion, true);
     }
     this.dirty.clear();
   }
 
+  private pack(entries: Set<Entry>, view: IndexGeometry, motion: boolean) {
+    let offset = 0;
+    for (const entry of entries) {
+      if (!entry.included) continue;
+      const range = motion ? entry.motion : entry;
+      if (!range) continue;
+      view.drawIndex.array.set(view.indices.subarray(range.start, range.start + range.count), offset);
+      offset += range.count;
+    }
+    view.geometry.setDrawRange(0, offset);
+    if (offset) {
+      view.drawIndex.clearUpdateRanges();
+      view.drawIndex.addUpdateRange(0, offset);
+      view.drawIndex.needsUpdate = true;
+    }
+    return offset;
+  }
+
+  private disposeBatch(batch: Batch) {
+    batch.mesh.removeFromParent();
+    batch.full.geometry.dispose();
+    batch.motion?.geometry.dispose();
+    batch.mesh.material.dispose();
+  }
+
   remove(source: THREE.Mesh) {
+    this.transparentMaterials.delete(source);
     const links = this.sources.get(source);
     if (!links) return;
     this.transparentParts.get(source)?.removeFromParent();
@@ -183,8 +334,7 @@ export class ViewerBatches {
     for (const { batch, entry } of links) {
       batch.entries.delete(entry);
       if (batch.entries.size === 0) {
-        batch.mesh.removeFromParent();
-        disposeViewerMesh(batch.mesh);
+        this.disposeBatch(batch);
         this.batches.delete(batch);
         this.dirty.delete(batch);
       } else if (entry.included) this.dirty.add(batch);
@@ -193,10 +343,10 @@ export class ViewerBatches {
   }
 
   dispose() {
+    this.stopMotionWorker();
     for (const mesh of this.transparentParts.values()) mesh.removeFromParent();
     for (const batch of this.batches) {
-      batch.mesh.removeFromParent();
-      disposeViewerMesh(batch.mesh);
+      this.disposeBatch(batch);
     }
     for (const source of this.sources.keys()) {
       if (source.parent === this.pickGroup) disposeViewerMesh(source);
@@ -205,6 +355,7 @@ export class ViewerBatches {
     this.sources.clear();
     this.dirty.clear();
     this.transparentParts.clear();
+    this.transparentMaterials.clear();
     this.maskedMaterial.dispose();
   }
 }

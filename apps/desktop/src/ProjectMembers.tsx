@@ -63,16 +63,19 @@ export default function ProjectMembers({
   const [error, setError] = useState("");
   const canManage = profile.role === "admin";
   const isoReady = profile.isoRole !== undefined || members?.some(({ isoRole }) => isoRole !== undefined);
+  // The production API may precede the optional project-account migration.
+  const accountApiReady = !cloudEnabled || profile.isoRole !== undefined;
   const accountMembership = members?.find((member) => member.organization === accountUnit.trim());
 
   const loadMembers = useCallback(async () => {
     setMembers(await call<Membership[]>("projects.members", { projectId: selectedProject }));
   }, []);
   const loadInvitations = useCallback(async () => {
+    if (cloudEnabled && profile.isoRole === undefined) return;
     const pending = await call<Invitation[]>("projects.invitations", { projectId: selectedProject });
     setInvitations(pending);
     setInviteLink((link) => pending.some(({ id }) => id === link?.id) ? link : undefined);
-  }, []);
+  }, [profile.isoRole]);
 
   useEffect(() => {
     if (canManage) void Promise.all([loadMembers(), loadInvitations()]).catch((failure) => setError(String(failure)));
@@ -179,7 +182,7 @@ export default function ProjectMembers({
         <section className="project-surface project-panel" aria-labelledby="project-organizations">
           <div className="project-members-heading">
             <h2 id="project-organizations">Đơn vị tham gia</h2>
-            {profile.siteAdmin && <button type="button" className="button project-primary" disabled={busy || !members}
+            {profile.siteAdmin && accountApiReady && <button type="button" className="button project-primary" disabled={busy || !members}
               onClick={() => { setError(""); setMessage(""); setAccountUnit(""); setShowAccount(true); }}>
               <UserPlus size={16} /> Tạo tài khoản
             </button>}

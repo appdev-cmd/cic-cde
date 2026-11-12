@@ -7,7 +7,7 @@ import {
   type DisciplineCode,
   type DocumentDraft,
 } from "./documentMetadata";
-import type { DocumentVersion } from "./Cde";
+import { documentRevision, type DocumentVersion } from "./documentVersion";
 import type { BimModel } from "./types";
 
 type DraftRow = {
@@ -226,7 +226,7 @@ export default function DocumentRegistration({
           }
           onDocumentSaved(next, document.id);
           saved++;
-          updateRow(row.id, { phase: "saved", status: `Đã lưu WIP · R${String(document.revision).padStart(2, "0")}` });
+          updateRow(row.id, { phase: "saved", status: `Đã lưu WIP · ${documentRevision(document)}` });
         } catch (error) {
           failed++;
           updateRow(row.id, { phase: "error", status: error instanceof Error ? error.message : String(error) });

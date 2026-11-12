@@ -1,7 +1,7 @@
 import { createClient, FunctionsHttpError } from "@supabase/supabase-js";
 import { MAX_IFC_BYTES, selectedProject } from "./bridge";
 import type { DocumentDraft, DocumentMetadataInput } from "./documentMetadata";
-import type { DocumentVersion } from "./Cde";
+import type { DocumentVersion } from "./documentVersion";
 import type { CadAlignmentValues, ProjectCadAlignment } from "./cadAlignment";
 
 export const supabase = createClient(

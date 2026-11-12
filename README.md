@@ -48,7 +48,7 @@ python scripts/verify_mcp.py
 
 Để gắn vào MCP client, chạy binary `target/debug/qabim-mcp.exe` bằng transport stdio sau khi desktop (hoặc core browser-only) hoạt động. Các tool hiện có là `project_get`, `models_list`, `elements_search`, `checks_run`. Đây là development bridge đọc dữ liệu và chạy kiểm tra có giới hạn; named pipe có xác thực và điều khiển view từ agent còn trong backlog.
 
-File IFC nhập được lưu snapshot và cache trong `.local/models`; metadata/audit nằm trong `.local/workspace.sqlite`. Thư mục `.local` không được commit. Preview spike giới hạn IFC STEP 100 MB, 2.000 represented products và geometry budget rõ ràng.
+File IFC nhập được lưu snapshot và cache trong `.local/models`; metadata/audit nằm trong `.local/workspace.sqlite`. Thư mục `.local` không được commit. IFC STEP có giới hạn 500 MB, preview tối đa 25.000 represented products và ngân sách geometry riêng. Kiểm tra va chạm giới hạn 12 snapshot, 5.000 cấu kiện trong phạm vi và 1.000 cặp kết quả; khả năng upload không bảo đảm xử lý đầy đủ toàn bộ mô hình.
 
 ## Tài liệu triển khai
 

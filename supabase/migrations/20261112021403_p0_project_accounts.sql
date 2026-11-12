@@ -3,7 +3,7 @@ create index memberships_organization_lower on cde_private.memberships (lower(or
 
 do $migration$
 declare
-    api text := pg_get_functiondef('public.cde_api(text,jsonb,text)'::regprocedure);
+    api text := pg_get_functiondef(coalesce(to_regprocedure('cde_private.cde_api(text,jsonb,text)'), to_regprocedure('public.cde_api(text,jsonb,text)')));
     clause text[];
 begin
     foreach clause slice 1 in array array[

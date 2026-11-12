@@ -48,9 +48,10 @@ export function changeCadFolder({ operation, ...payload }: CadFolderChange) {
   return folderRpc<{ id: string }>(operation, payload);
 }
 
-export function moveCadDrawing(location: NonNullable<CadDrawing["location"]>, folderId: string | null) {
-  return folderRpc("move_drawing", {
-    objectId: location.objectId, expectedRevision: location.revision, folderId,
+export function moveCadDrawings(locations: NonNullable<CadDrawing["location"]>[], folderId: string | null) {
+  return folderRpc("move_drawings", {
+    folderId,
+    drawings: locations.map(({ objectId, revision }) => ({ objectId, expectedRevision: revision })),
   });
 }
 
