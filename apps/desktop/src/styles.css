@@ -2782,3 +2782,7 @@ table {
 .bim-library-grid a { color: var(--accent-strong); }
 .bim-library-grid table tbody th { font-weight: 600; }
 .bim-library .cde-file-views { flex-wrap: wrap; }
+.cloud-jobs-dialog { width: min(900px, calc(100vw - 32px)); max-width: 900px; max-height: 90vh; overflow: auto; }
+.cloud-job-list { list-style: none; padding: 0; }
+.cloud-job-list li { border-bottom: 1px solid #dce5ef; padding: 16px 0; overflow-wrap: anywhere; }
+.cloud-job-list p { margin: 8px 0; }

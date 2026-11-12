@@ -203,7 +203,7 @@ export async function uploadCloudIfc(
   }
   const path = `${selectedProject}/uploads/${crypto.randomUUID()}.ifc`;
   await uploadCloudFile("cde-files", path, file, signal, onProgress);
-  return cloudRpc<{ jobId: string }>("jobs.create", { kind: "import", path, name: file.name });
+  return cloudRpc<{ jobId: string }>("jobs.create", { kind: "import", path, name: file.name, requestId: crypto.randomUUID() });
 }
 
 export async function uploadCloudFile(

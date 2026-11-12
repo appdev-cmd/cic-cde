@@ -302,6 +302,7 @@ export default function App({
   const [checkFloor, setCheckFloor] = useState("all");
   const [tolerance, setTolerance] = useState(2);
   const [checkRun, setCheckRun] = useState<CheckRun | null>(null);
+  const restoredJob = useRef<string | undefined>(undefined);
   const [issues, setIssues] = useState<CoordinationIssue[]>([]);
   const [activeIssueId, setActiveIssueId] = useState<number | null>(null);
   const activeIssue = issues.find((issue) => issue.id === activeIssueId);
@@ -387,6 +388,30 @@ export default function App({
       workspaceGeneration.current++;
     };
   }, [workspaceAttempt, initialModelId, loadWhileVisible, registeredOnly, registerRevision]);
+  useEffect(() => {
+    const jobId = new URLSearchParams(location.search).get("job");
+    if (!cloudWorkspace || loading || !connected || !jobId || restoredJob.current === jobId) return;
+    let cancelled = false;
+    void call<{ phase: string; kind: string; result: CheckRun | { model: Workspace["models"][number]; elements: Workspace["elements"] } }>("jobs.get", { jobId }).then((job) => {
+      if (cancelled) return;
+      if (job.phase !== "completed" || !job.result) throw new Error("Tác vụ chưa hoàn tất. Mở Tác vụ cloud để xem trạng thái.");
+      restoredJob.current = jobId;
+      if (job.kind === "checks") {
+        const run = job.result as CheckRun;
+        setCheckRun(run); setData((previous) => ({ ...previous, findings: run.findings }));
+        setFinding(null); setSelected(null); setFloor(run.rule?.floor ?? "all"); setFocusIds([]);
+        setStatus("all"); setNav("checks"); setBottom(true);
+        notify(`Đã mở kết quả đã lưu · ${run.findings.length} va chạm · ${clashCoverageLabel(run.coverage)}`);
+      } else {
+        const imported = job.result as { model: Workspace["models"][number]; elements: Workspace["elements"] };
+        setData((previous) => ({ ...previous,
+          models: [...previous.models.filter((m) => m.id !== imported.model.id), imported.model],
+          elements: [...previous.elements.filter((e) => e.modelId !== imported.model.id), ...imported.elements] }));
+        setNav("models"); notify("Đã mở mô hình từ tác vụ đã hoàn tất.");
+      }
+    }).catch((error) => { if (!cancelled) { restoredJob.current = jobId; notify(String(error)); } });
+    return () => { cancelled = true; };
+  }, [cloudWorkspace, loading, connected, notify]);
   useEffect(() => () => clearTimeout(toastTimer.current), []);
   useEffect(() => {
     if (!loadWhileVisible || ((cloudWorkspace || registeredOnly) && (loading || workspaceError))) return;

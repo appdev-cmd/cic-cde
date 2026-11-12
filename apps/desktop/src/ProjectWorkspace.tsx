@@ -5,6 +5,8 @@ import Brand from "./Brand";
 import { localProject } from "./ProjectDirectory";
 import ProjectOverview from "./ProjectOverview";
 import WorkspaceLayout from "./WorkspaceLayout";
+import { cloudEnabled, localDesktop } from "./bridge";
+const CloudJobs = lazy(() => import("./CloudJobs"));
 import { directoryHrefs, projectHref, projectTabs, readProjectTab } from "./projectRoute";
 
 const App = lazy(() => import("./App"));
@@ -19,6 +21,7 @@ export default function ProjectWorkspace({ account, members }: { account: ReactN
   const [openedModels, setOpenedModels] = useState(activeTab === "models");
   const [initialModelId] = useState(() => new URLSearchParams(location.search).get("model"));
   const [ifcRegisterRevision, setIfcRegisterRevision] = useState(0);
+  const [showJobs, setShowJobs] = useState(false);
   const body = useRef<HTMLDivElement>(null);
 
   function syncTab() {
@@ -64,9 +67,13 @@ export default function ProjectWorkspace({ account, members }: { account: ReactN
               <span title={name}>{name}</span>
             </nav>
           </div>
-          <div className="project-header-actions">{account}</div>
+          <div className="project-header-actions">
+            {cloudEnabled && !localDesktop && <button className="button secondary" onClick={() => setShowJobs(true)}>Tác vụ cloud</button>}
+            {account}
+          </div>
         </div>
       </header>
+      {showJobs && <Suspense fallback={<p role="status">Đang mở tác vụ…</p>}><CloudJobs onClose={() => setShowJobs(false)} /></Suspense>}
       <WorkspaceLayout label="Điều hướng dự án" links={tabs} current={activeTab} onSelect={selectTab}>
         <div className="project-workspace-body" ref={body}>
           {openedModels && (

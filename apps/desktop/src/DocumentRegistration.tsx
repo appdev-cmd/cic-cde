@@ -213,9 +213,10 @@ export default function DocumentRegistration({
           if (!model.modelId) throw new Error(model.error || "Thiếu mô hình IFC.");
           const code = row.draft.code.trim().toUpperCase();
           updateRow(row.id, { status: "Đang ghi phiên bản WIP…" });
-          const next = await call<DocumentVersion[]>("documents.register", {
+          const response = await call<DocumentVersion[] | DocumentVersion>(cloudEnabled && !localDesktop ? "documents.registerOne" : "documents.register", {
             ...row.draft, code, title: row.draft.title.trim(), modelId: model.modelId,
           });
+          const next = Array.isArray(response) ? response : [response];
           const document = next.find((item) => item.code === code && item.modelId === model.modelId);
           if (!document) throw new Error("Chưa ghi được phiên bản. Hãy thử lưu lại.");
           if (document.state !== "WIP") {

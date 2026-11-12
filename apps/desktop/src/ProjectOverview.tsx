@@ -30,8 +30,8 @@ export default function ProjectOverview({ id, name }: { id: string; name: string
       (models) => update({ models: models.length, elements: models.reduce((count, model) => count + model.count, 0) }),
       () => update({ models: null, elements: null }),
     );
-    void call<unknown[]>("documents.list").then(
-      (versions) => update({ versions: versions.length }),
+    void (cloudEnabled && !localDesktop ? call<{ total: number }>("documents.page", { limit: 1 }) : call<unknown[]>("documents.list").then((versions) => ({ total: versions.length }))).then(
+      (result) => update({ versions: result.total }),
       () => update({ versions: null }),
     );
     if (cloudFiles) {

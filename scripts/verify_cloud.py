@@ -1,5 +1,6 @@
 """Cloud acceptance test with synthetic IFCs and isolated test projects."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,7 @@ LOCAL = ROOT / '.local'
 FIXTURES = ROOT / 'tests/fixtures/synthetic'
 parser = argparse.ArgumentParser()
 parser.add_argument('--api', default='local', help='local ASGI app or deployed HTTPS origin')
+parser.add_argument('--p1', action='store_true', help='Exercise P1 permissions, concurrency, pagination and job recovery')
 args = parser.parse_args()
 public = json.loads((LOCAL / 'cde-cloud-public.json').read_text())
 credentials = json.loads((LOCAL / 'cic-cde-accounts.json').read_text(encoding='utf-8'))
@@ -200,6 +202,111 @@ try:
     source_path = store_ifc(arc, project, smoke)
     cancelled = rpc('jobs.create', arc, project, kind='import', path=source_path, name='cancelled.ifc')['jobId']
     assert rpc('jobs.cancel', arc, project, jobId=cancelled)['phase'] == 'cancelled'
+    if args.p1:
+        # Live JWTs must lose project access immediately after membership revocation.
+        membership = next(m for m in rpc('projects.members', admin, projectId=project) if m['organization']=='ARC')
+        rpc('projects.members.update', admin, projectId=project, organization='ARC', role='reviewer', active=False,
+            expectedRevision=membership['revision'], isoRole='appointed_party')
+        for operation in ('documents.page','jobs.list','bep.get'):
+            rpc(operation, arc, project, expected=403)
+        rpc('documents.get', arc, project, expected=403, id=document['id'])
+        rpc('projects.members.update', admin, projectId=project, organization='ARC', role='reviewer', active=True,
+            expectedRevision=membership['revision']+1, isoRole='appointed_party')
+        # A project administrator is still not a system administrator.
+        account_membership = next(m for m in rpc('projects.members', admin, projectId=project) if m['organization']==account['organization'])
+        rpc('projects.members.update', admin, projectId=project, organization=account['organization'], role='admin', active=True,
+            expectedRevision=account_membership['revision'], isoRole='appointing_party')
+        checked(manage('project.create', {**account,'username':'p1-denied-'+uuid4().hex[:10]}, token=created_token),403)
+        assert not rpc('profile', created_token)['siteAdmin']
+        # Compact register preserves atomic counters for simultaneous requests.
+        def register_parallel(model_id):
+            return rpc('documents.registerOne', arc, project, code='P1-PARALLEL',title='Concurrency fixture',discipline='STR',modelId=model_id)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            parallel = list(pool.map(register_parallel,[structure['id'],services['id']]))
+        assert len({d['revisionCode'] for d in parallel})==2
+        assert len({d['revision'] for d in parallel})==2
+        untouched = parallel[0]
+        rpc('documents.transitionOne',admin,project,expected=400,id=untouched['id'],expectedState='WIP',state='Shared',suitabilityCode='INVALID')
+        assert rpc('documents.get',admin,project,id=untouched['id'])==untouched
+        for d in parallel:
+            for before,after,code in [('WIP','Shared','S1'),('Shared','Review','S3')]:
+                rpc('documents.transitionOne',arc,project,id=d['id'],expectedState=before,state=after,suitabilityCode=code)
+        member_state = next(m for m in rpc('projects.members',admin,projectId=project) if m['organization']=='ARC')
+        rpc('projects.members.update',admin,projectId=project,organization='ARC',role='member',active=True,
+            expectedRevision=member_state['revision'],isoRole='appointed_party')
+        rpc('documents.transitionOne',arc,project,expected=403,id=parallel[0]['id'],expectedState='Review',state='Approved',suitabilityCode='S4')
+        rpc('projects.members.update',admin,projectId=project,organization='ARC',role='reviewer',active=True,
+            expectedRevision=member_state['revision']+1,isoRole='appointed_party')
+        returned=rpc('documents.transitionOne',arc,project,id=parallel[0]['id'],expectedState='Review',state='WIP',note='Revise fixture')
+        assert returned['revisionCode'] not in {d['revisionCode'] for d in parallel}
+        for before,after,code in [('WIP','Shared','S1'),('Shared','Review','S3')]:
+            rpc('documents.transitionOne',arc,project,id=returned['id'],expectedState=before,state=after,suitabilityCode=code)
+        for d in parallel:
+            rpc('documents.transitionOne',arc,project,id=d['id'],expectedState='Review',state='Approved',suitabilityCode='S4')
+        def publish(d):
+            publisher=admin if d['id']==parallel[0]['id'] else created_token
+            return rpc('documents.transitionOne',publisher,project,id=d['id'],expectedState='Approved',state='Published',suitabilityCode='A1')
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            published=list(pool.map(publish,parallel))
+        assert {d['revisionCode'] for d in published}=={'C01','C02'}
+        # Two decisions on the same state cannot both commit.
+        def archive(_):
+            return client.post(origin+'/rest/v1/rpc/cde_api',headers=headers(admin),json={'operation':'documents.transitionOne','project_id':project,
+                'payload':{'id':published[0]['id'],'expectedState':'Published','state':'Archived'}}).status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            assert sorted(pool.map(archive,range(2)))==[200,400]
+        assert rpc('documents.get',admin,project,id=legacy['id'])==legacy
+        # Bounded pages, lazy history, exact filtering and cross-project/WIP isolation.
+        for number in range(30):
+            rpc('documents.registerOne',arc,project,code=f'P1-PAGE-{number:03}',title='Page fixture',discipline='STR',modelId=structure['id'])
+        ids=[]
+        for offset in (0,10,20):
+            page=rpc('documents.page',arc,project,query='P1-PAGE-',limit=10,offset=offset)
+            assert len(page['items'])==10 and page['filteredTotal']==30
+            assert all(d['history']==[] and 'suitabilityOptions' not in d for d in page['items'])
+            ids.extend(d['id'] for d in page['items'])
+        assert len(set(ids))==30
+        assert rpc('documents.get',arc,project,id=ids[0])['history']
+        assert rpc('documents.page',mep,project,query='P1-PAGE-')['filteredTotal']==0
+        rpc('documents.get',mep,project,expected=403,id=ids[0])
+        rpc('documents.page',arc,isolated_project,expected=403)
+        # Same idempotency key creates one job, including concurrent submissions.
+        payload={'kind':'checks','modelIdsA':[services['id']],'modelIdsB':[structure['id']],'requestId':str(uuid4())}
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            created_jobs=list(pool.map(lambda _:rpc('jobs.create',arc,project,**payload),range(2)))
+        assert created_jobs[0]==created_jobs[1]
+        job_id=created_jobs[0]['jobId']
+        rpc('jobs.create',arc,project,expected=409,**{**payload,'floor':'L05'})
+        claimed=rpc('jobs.claim',arc,project,jobId=job_id,workerKey=config['worker'])
+        rpc('jobs.retry',arc,project,expected=409,jobId=job_id)
+        rpc('jobs.fail',arc,project,jobId=job_id,workerKey=config['worker'],leaseId=claimed['leaseId'],error='P1 simulated interruption')
+        rpc('jobs.retry',mep,project,expected=403,jobId=job_id)
+        rpc('jobs.retry',arc,project,jobId=job_id)
+        # A stale worker completion cannot overwrite the retried job.
+        assert rpc('jobs.complete',arc,project,jobId=job_id,workerKey=config['worker'],leaseId=claimed['leaseId'],result={}) is None
+        checked(worker.post(worker_origin+'/api/process/'+job_id,headers={**headers(arc),'X-CIC-Project':project}))
+        recovered=rpc('jobs.get',arc,project,jobId=job_id)
+        assert recovered['phase']=='completed' and recovered['attempts']==2 and len(recovered['result']['findings'])==42
+        rpc('jobs.retry',arc,project,jobId=job_id)
+        checked(worker.post(worker_origin+'/api/process/'+job_id,headers={**headers(arc),'X-CIC-Project':project}))
+        assert rpc('jobs.get',arc,project,jobId=job_id)['result']==recovered['result']
+        assert rpc('jobs.list',mep,project)['items']==[]
+        assert 'result' not in rpc('jobs.list',arc,project)['items'][0]
+        rpc('jobs.retry',arc,project,expected=409,jobId=cancelled)
+        # Explicitly bound failed attempts; cancelled results stay cancelled.
+        exhausted=rpc('jobs.create',arc,project,**{**payload,'requestId':str(uuid4())})['jobId']
+        for attempt in range(3):
+            claim=rpc('jobs.claim',arc,project,jobId=exhausted,workerKey=config['worker'])
+            rpc('jobs.fail',arc,project,jobId=exhausted,workerKey=config['worker'],leaseId=claim['leaseId'],error='P1 bounded retry fixture')
+            if attempt<2: rpc('jobs.retry',arc,project,jobId=exhausted)
+        rpc('jobs.retry',arc,project,expected=409,jobId=exhausted)
+        assert not rpc('jobs.get',arc,project,jobId=exhausted)['retryable']
+        to_cancel=rpc('jobs.create',arc,project,**{**payload,'requestId':str(uuid4())})['jobId']
+        claim=rpc('jobs.claim',arc,project,jobId=to_cancel,workerKey=config['worker'])
+        rpc('jobs.cancel',arc,project,jobId=to_cancel)
+        rpc('jobs.complete',arc,project,jobId=to_cancel,workerKey=config['worker'],leaseId=claim['leaseId'],result={})
+        assert rpc('jobs.get',arc,project,jobId=to_cancel)['phase']=='cancelled'
+        print('P1 passed: revocation, project-admin boundary, concurrent revisions, return/resubmit, pagination, recovery and stale/cancelled leases',flush=True)
     print(json.dumps({'status': 'passed', 'projectId': project, 'ifcBytes': len(padded), 'clashes': len(run['findings']), 'issueId': issue['id'], 'api': args.api}))
 finally:
     for test_project in test_projects:

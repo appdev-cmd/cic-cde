@@ -188,6 +188,10 @@ export default function ProjectMembers({
             </button>}
           </div>
           <p>Quyền dự án áp dụng cho mọi tài khoản thuộc đơn vị. Vai trò ISO 19650 ghi theo hồ sơ giao nhiệm vụ.</p>
+          <details><summary>Hướng dẫn phân quyền</summary>
+            <p>Quản trị dự án quản lý đơn vị, BEP và phát hành hồ sơ. Người xem xét được duyệt hoặc trả lại hồ sơ; người phối hợp tạo và trình hồ sơ thuộc đơn vị; người xem chỉ đọc dữ liệu được chia sẻ.</p>
+            <p>Vai trò ISO 19650 không tự cấp quyền thao tác. Bỏ chọn “Đang tham gia” thu hồi quyền của cả đơn vị trong dự án; phải giữ ít nhất một đơn vị quản trị. Chỉ quản trị hệ thống tạo tài khoản mới.</p>
+          </details>
           {members ? members.map((member) => (
             <form className="membership-row" key={member.organization + member.revision} onSubmit={(event) => save(event, member)}>
               <strong>{member.organization}</strong>

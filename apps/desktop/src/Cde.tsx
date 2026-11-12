@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useCdeUser } from "./AuthGate";
-import { call, cloudEnabled, desktop, selectedProject } from "./bridge";
+import { call, cloudEnabled, desktop, localDesktop, selectedProject } from "./bridge";
 import DocumentRegistration from "./DocumentRegistration";
 import DeleteFileDialog from "./DeleteFileDialog";
 import { projectHref } from "./projectRoute";
@@ -11,6 +11,7 @@ import { documentRevision, type DocumentVersion, type Stage } from "./documentVe
 const CadDrawings = lazy(() => import("./CadDrawings"));
 const ProjectFiles = lazy(() => import("./ProjectFiles"));
 type FileView = "documents" | "cad" | "ifc";
+type DocumentPage = { items: DocumentVersion[]; total: number; review: number; published: number; filteredTotal: number };
 
 const stageLabels: Record<Stage, string> = {
   WIP: "Đang thực hiện (WIP)",
@@ -37,6 +38,7 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
   const isAdmin = !user || user.role === "admin";
   const canReview = isAdmin || user?.role === "reviewer";
   const cloudFiles = cloudEnabled && !desktop && Boolean(user);
+  const paged = cloudEnabled && !localDesktop;
   const canDelete = cloudEnabled && user?.role === "admin";
   const canUpload = Boolean(user && user.role !== "viewer");
   const [view, setView] = useState<FileView>(() =>
@@ -52,15 +54,21 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState("");
   const [stage, setStage] = useState("");
+  const [query, setQuery] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState<DocumentPage>();
+  const [detail, setDetail] = useState<DocumentVersion>();
+  const [detailRefresh, setDetailRefresh] = useState(0);
+  const requestSequence = useRef(0);
   const [selectedId, setSelectedId] = useState<number>();
   const [note, setNote] = useState("");
   const [bep, setBep] = useState<BepSettings | null>(null);
   const [suitability, setSuitability] = useState<Partial<Record<Stage, string>>>({});
-  const selected = documents.find((document) => document.id === selectedId);
+  const selected = paged ? detail : documents.find((document) => document.id === selectedId);
   const selectedSuitability = selected?.state === "Archived"
     ? selected.suitabilityOptions?.Published.find((option) => option.code === selected.suitabilityCode)
     : selected?.suitabilityOptions?.[selected.state]?.find((option) => option.code === selected.suitabilityCode);
-  const visible = documents.filter(
+  const visible = paged ? documents : documents.filter(
     (document) =>
       (!stage || document.state === stage) &&
       [document.code, document.title, document.discipline, documentRevision(document), document.suitabilityCode].join(" ")
@@ -69,43 +77,63 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
   );
 
   async function reload() {
+    const sequence = ++requestSequence.current;
     setBusy(true);
     try {
       const [versions, imported, settings] = await Promise.all([
-        call<DocumentVersion[]>("documents.list"),
+        paged ? call<DocumentPage>("documents.page", { offset, limit: 25, query, state: stage }) : call<DocumentVersion[]>("documents.list"),
         call<BimModel[]>("models.list"),
         cloudFiles && isAdmin ? call<BepSettings | null>("bep.get") : Promise.resolve(null),
       ]);
+      if (sequence !== requestSequence.current) return;
       setBep(settings);
-      setDocuments(versions);
+      if (Array.isArray(versions)) setDocuments(versions);
+      else {
+        setDocuments(versions.items); setPage(versions);
+        if (offset > 0 && offset >= versions.filteredTotal) setOffset(Math.max(0, Math.floor((versions.filteredTotal - 1) / 25) * 25));
+      }
       setModels(imported.filter((model) => !model.synthetic && model.hash));
       setReady(true);
+      setDetailRefresh((revision) => revision + 1);
       setMessage("");
     } catch (error) {
+      if (sequence !== requestSequence.current) return;
       setReady(false);
       setMessage(String(error));
     } finally {
-      setBusy(false);
+      if (sequence === requestSequence.current) setBusy(false);
     }
   }
 
   useEffect(() => {
     if (openedIfc) void reload();
-  }, [openedIfc]);
+    return () => { requestSequence.current++; };
+  }, [openedIfc, offset, query, stage]);
+
+  useEffect(() => {
+    if (!paged || selectedId === undefined) { setDetail(undefined); return; }
+    let cancelled = false;
+    setDetail(undefined);
+    void call<DocumentVersion>("documents.get", { id: selectedId }).then(
+      (value) => { if (!cancelled) setDetail(value); },
+      (error) => { if (!cancelled) setMessage(String(error)); },
+    );
+    return () => { cancelled = true; };
+  }, [selectedId, paged, detailRefresh]);
 
   async function transition(document: DocumentVersion, state: Stage, suitabilityCode?: string) {
     setBusy(true);
     setMessage("");
     try {
-      setDocuments(
-        await call<DocumentVersion[]>("documents.transition", {
+      const result = await call<DocumentVersion[] | DocumentVersion>(paged ? "documents.transitionOne" : "documents.transition", {
           id: document.id,
           expectedState: document.state,
           state,
           suitabilityCode,
           note,
-        }),
-      );
+        });
+      if (Array.isArray(result)) setDocuments(result);
+      else { setDetail(result); await reload(); }
       onIfcRegisterChange();
       setNote("");
       setSuitability({});
@@ -160,13 +188,13 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
           <div className="cde-summary">
             <div>
               <span>Phiên bản IFC</span>
-              <strong>{documents.length}</strong>
+              <strong>{page?.total ?? documents.length}</strong>
             </div>
             <div>
               <span>Chờ xem xét</span>
               <strong>
                 {
-                  documents.filter((document) => document.state === "Review")
+                  page?.review ?? documents.filter((document) => document.state === "Review")
                     .length
                 }
               </strong>
@@ -175,7 +203,7 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
               <span>Đã phát hành</span>
               <strong>
                 {
-                  documents.filter((document) => document.state === "Published")
+                  page?.published ?? documents.filter((document) => document.state === "Published")
                     .length
                 }
               </strong>
@@ -192,7 +220,8 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
                 previous.some((item) => item.id === model.id) ? previous : [...previous, model],
               )}
               onDocumentSaved={(next, id) => {
-                setDocuments(next);
+                if (paged) { setDetail(next.find((item) => item.id === id)); void reload(); }
+                else setDocuments(next);
                 setSelectedId(id);
                 onIfcRegisterChange();
               }}
@@ -200,7 +229,7 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
           )}
           <section className="cde-card cde-versions">
             <h2>Sổ đăng ký phiên bản IFC</h2>
-            <div className="cde-filters">
+            <form className="cde-filters" onSubmit={(event) => { event.preventDefault(); setOffset(0); setQuery(filter.trim()); }}>
               <input
                 aria-label="Tìm phiên bản IFC"
                 placeholder="Tìm theo mã, tên, bộ môn hoặc phiên bản"
@@ -210,7 +239,7 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
               <select
                 aria-label="Lọc theo trạng thái quy trình"
                 value={stage}
-                onChange={(event) => setStage(event.target.value)}
+                onChange={(event) => { setOffset(0); setStage(event.target.value); }}
               >
                 <option value="">Mọi trạng thái</option>
                 {Object.entries(stageLabels).map(([value, label]) => (
@@ -219,7 +248,8 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
                   </option>
                 ))}
               </select>
-            </div>
+              {paged && <button className="button secondary" disabled={busy}>Tìm kiếm</button>}
+            </form>
             {visible.length ? (
               <div className="cde-table">
                 <table>
@@ -283,6 +313,11 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
                   : "Đang tải sổ đăng ký…"}
               </p>
             )}
+            {paged && page && <nav className="cde-filters" aria-label="Phân trang hồ sơ">
+              <button type="button" className="button secondary" disabled={busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - 25))}>Trang trước</button>
+              <span>{page.filteredTotal ? `${offset + 1}–${Math.min(offset + 25, page.filteredTotal)}` : "0"} / {page.filteredTotal} phiên bản</span>
+              <button type="button" className="button secondary" disabled={busy || offset + 25 >= page.filteredTotal} onClick={() => setOffset(offset + 25)}>Trang sau</button>
+            </nav>}
           </section>
           {message && (
             <p className="cde-message" role="status">
@@ -377,7 +412,9 @@ export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () =
               setBusy(true);
               try {
                 const cloud = await import("./cloud");
-                setDocuments(await cloud.deleteDocumentDraft(toDelete.id));
+                const remaining = await cloud.deleteDocumentDraft(toDelete.id);
+                if (paged) { await reload(); setDetail(undefined); }
+                else setDocuments(remaining);
                 onIfcRegisterChange();
                 if (selectedId === toDelete.id) {
                   setSelectedId(undefined);

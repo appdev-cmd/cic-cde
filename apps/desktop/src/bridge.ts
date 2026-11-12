@@ -61,7 +61,7 @@ export async function call<T>(
     if (operation === "projects.accounts.create") return cloud.cloudCreateUser(input, true) as Promise<T>;
     if (operation === "projects.delete") return cloud.deleteCloudProject(input) as Promise<T>;
     if (operation === "checks.run") {
-      const job = await cloud.cloudRpc<{ jobId: string }>("jobs.create", { kind: "checks", ...input });
+      const job = await cloud.cloudRpc<{ jobId: string }>("jobs.create", { kind: "checks", ...input, requestId: crypto.randomUUID() });
       let processingError: unknown;
       const processing = cloud.startCloudJob(API, job.jobId).catch((error) => { processingError = error; });
       const result = await waitImport(job.jobId, new AbortController().signal, () => {}, () => processingError);
@@ -94,11 +94,11 @@ export function loadWorkspace(registeredOnly = false) {
 }
 
 async function requestRegisteredWorkspace() {
-  const [documents, data] = await Promise.all([
-    call<{ modelId: string }[]>("documents.list"),
+  const [ids, data] = await Promise.all([
+    cloudEnabled && !localDesktop ? call<string[]>("documents.modelIds") : call<{ modelId: string }[]>("documents.list").then((docs) => docs.map((d) => d.modelId)),
     call<Workspace>("workspace.get"),
   ]);
-  const modelIds = new Set(documents.map((document) => document.modelId));
+  const modelIds = new Set(ids);
   const models = data.models.filter((model) => modelIds.has(model.id));
   const elements = data.elements.filter((element) => modelIds.has(element.modelId));
   const elementIds = new Set(elements.map((element) => element.id));
@@ -140,6 +140,8 @@ export async function waitImport(
     cancellable: boolean;
     result?: ImportResult;
     error?: string;
+    stale?: boolean;
+    updatedAt?: string;
   };
   let processingSince: number | undefined;
   for (;;) {
@@ -149,7 +151,11 @@ export async function waitImport(
     if (job.phase === "completed") return job.result!;
     if (job.phase === "cancelled") throw new Error("Đã hủy tải mô hình");
     if (job.phase === "failed") throw new Error(job.error);
-    if (processingError?.()) throw processingError();
+    if (job.stale) throw new Error("Worker đã ngừng cập nhật. Mở Tác vụ cloud để tiếp tục cùng tác vụ.");
+    if (job.phase === "queued" && job.updatedAt && Date.now() - Date.parse(job.updatedAt) > 330_000) {
+      throw new Error("Tác vụ chưa được worker nhận. Mở Tác vụ cloud và chọn tiếp tục.");
+    }
+    if (processingError?.()) throw new Error("Kết nối worker bị gián đoạn. Tác vụ đã được lưu; mở Tác vụ cloud để xem trạng thái hoặc tiếp tục.");
     if (job.phase === "running") processingSince ??= Date.now();
     const elapsed = processingSince === undefined ? 0 : Math.floor((Date.now() - processingSince) / 1000);
     progress({

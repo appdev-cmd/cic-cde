@@ -115,6 +115,7 @@ export default function ProjectBepSettings({ settings, onSave }: {
           </div>
           <p>Ví dụ bản đầu tiên: <strong>{rules.workingPrefix + number + rules.workingSuffix}</strong> → <strong>{rules.sharedPrefix + number}</strong> → <strong>{rules.publishedPrefix + number}</strong>.</p>
           <p>Số bản phát hành chạy riêng. Khi trả về WIP, hệ thống cấp số sơ bộ mới. Quy tắc được lưu cùng hồ sơ IFC mới đăng ký.</p>
+          <p>Thay đổi này chỉ áp dụng cho hồ sơ đăng ký sau khi lưu. Hồ sơ đã có giữ quy tắc và lịch sử của mình; mã Rxx cũ không được đổi lại. Ví dụ phía trên minh họa định dạng, không phải số sẽ được cấp tiếp theo.</p>
           <h3>Mã trạng thái sử dụng</h3>
           <p>Mỗi dòng ghi một mã và mục đích sử dụng, cách nhau bằng dấu <code>|</code>. Bước WIP dùng một mã mặc định.</p>
           {!settings && <p>Biểu mẫu đang hiển thị mã minh họa. Đối chiếu với BEP của dự án trước khi lưu.</p>}
