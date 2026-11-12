@@ -76,6 +76,9 @@ export interface CheckRun {
     groupA: number;
     groupB: number;
     unmeasuredCollisionPairs: number;
+    hasCandidateGroups?: boolean;
+    totalMeasuredPairs?: number;
+    limitReached?: boolean;
   };
 }
 export interface Workspace {

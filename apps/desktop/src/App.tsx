@@ -288,6 +288,8 @@ export default function App({ project, account }: WorkspaceControls) {
   const [classB, setClassB] = useState("IfcBeam");
   const [tolerance, setTolerance] = useState(2);
   const [checkRun, setCheckRun] = useState<CheckRun | null>(null);
+  const checkResultCount = checkRun?.coverage.totalMeasuredPairs ?? checkRun?.findings.length;
+  const checkMissingGeometry = checkRun ? checkRun.coverage.expected - checkRun.coverage.generated : 0;
   const [issues, setIssues] = useState<CoordinationIssue[]>([]);
   const [activeIssueId, setActiveIssueId] = useState<number | null>(null);
   const activeIssue = issues.find((issue) => issue.id === activeIssueId);
@@ -1865,6 +1867,21 @@ export default function App({ project, account }: WorkspaceControls) {
                         </tr>
                       </thead>
                       <tbody>
+                        {checkRun && !findings.length && (
+                          <tr>
+                            <td colSpan={7}>
+                              {checkRun.findings.length > 0
+                                ? "Không có va chạm theo bộ lọc hiện tại."
+                                : !checkRun.coverage.groupA || !checkRun.coverage.groupB
+                                  ? "Thiếu cấu kiện có hình học ở một trong hai nhóm. Kiểm tra lại mô hình, lớp IFC và tầng đã chọn."
+                                  : checkRun.coverage.hasCandidateGroups === false
+                                    ? "Hai nhóm chỉ có cùng một cấu kiện. Hãy chọn thêm cấu kiện để tạo cặp kiểm tra."
+                                    : checkRun.coverage.complete
+                                      ? "Không phát hiện va chạm trong phạm vi và ngưỡng đã chọn."
+                                      : "Chưa ghi nhận va chạm. Kiểm tra lại phần hình học chưa đo được trước khi kết luận."}
+                            </td>
+                          </tr>
+                        )}
                         {findings.map((f) => (
                           <tr
                             key={f.id}
@@ -1918,7 +1935,10 @@ export default function App({ project, account }: WorkspaceControls) {
                   {nav === "issues"
                     ? `${issues.length} vấn đề phối hợp`
                     : checkRun
-                      ? `${findings.length} va chạm · ${checkRun.coverage.generated}/${checkRun.coverage.expected} đối tượng có hình học · ${checkRun.coverage.unmeasuredCollisionPairs} cặp không đo được`
+                      ? `${findings.length === checkResultCount ? findings.length : findings.length + "/" + checkResultCount} va chạm`
+                        + (checkRun.coverage.limitReached ? " · Ưu tiên cặp có độ giao cắt lớn" : "")
+                        + (checkMissingGeometry > 0 ? ` · ${checkMissingGeometry}/${checkRun.coverage.expected} cấu kiện chưa đo được` : "")
+                        + (checkRun.coverage.unmeasuredCollisionPairs > 0 ? ` · ${checkRun.coverage.unmeasuredCollisionPairs} cặp chưa đo được` : "")
                       : data.synthetic
                         ? `${findings.length} kết quả mẫu`
                         : "Chưa chạy kiểm tra va chạm"}

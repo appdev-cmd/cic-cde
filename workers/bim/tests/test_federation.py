@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 import ifcopenshell
 import pytest
@@ -56,6 +57,55 @@ def test_multiple_models_in_each_group(tmp_path):
         path=tmp_path/(name+".ifc");source_file(path,name,pos);sources.append({"modelId":name,"path":str(path)})
     result=worker.run_federation({"sources":sources,"modelIdsA":["a","c"],"modelIdsB":["b"],"classA":"IfcColumn","classB":"IfcColumn"})
     assert len(result["findings"])==1 and result["coverage"]["generated"]==3
+    assert result["coverage"]["prunedByBounds"] == 1
+
+
+def test_same_file_instances_are_distinct_but_each_pair_is_reported_once(tmp_path):
+    path = tmp_path / "reused.ifc"
+    source_file(path, "Column", [0, 0, 0])
+    result = worker.run_federation({
+        "sources": [
+            {"modelId": "a", "path": str(path)},
+            {"modelId": "b", "path": str(path), "transform": {"translation": [.15, .13, .17]}},
+        ],
+        "modelIdsA": ["a", "b"], "modelIdsB": ["a", "b"],
+        "classA": "IfcColumn", "classB": "IfcColumn",
+    })
+    finding, = result["findings"]
+    assert {finding["modelAId"], finding["modelBId"]} == {"a", "b"}
+    assert finding["a"] == finding["b"]  # Existing viewer IDs remain source-based.
+    assert result["coverage"]["complete"] and result["coverage"]["totalMeasuredPairs"] == 1
+
+
+def test_z_separation_is_checked_and_self_only_scope_is_incomplete(tmp_path):
+    path = tmp_path / "column.ifc"
+    source_file(path, "Column", [0, 0, 0])
+    a = {"modelId": "a", "path": str(path)}
+    b = {"modelId": "b", "path": str(path), "transform": {"translation": [0, 0, 50]}}
+    params = {"classA": "IfcColumn", "classB": "IfcColumn", "modelIdsA": ["a"]}
+    separate = worker.run_federation({**params, "sources": [a, b], "modelIdsB": ["b"]})
+    assert not separate["findings"]
+    assert separate["coverage"]["complete"]
+    assert separate["coverage"]["generated"] == separate["coverage"]["prunedByBounds"] == 2
+    self_only = worker.run_federation({**params, "sources": [a], "modelIdsB": ["a"]})
+    assert not self_only["findings"]
+    assert not self_only["coverage"]["hasCandidateGroups"] and not self_only["coverage"]["complete"]
+
+
+def test_deeper_measurement_wins_over_reverse_pair_and_unmeasured_collision():
+    from federation import best_measurements
+
+    def clash(a, b, kind, distance):
+        return SimpleNamespace(a=SimpleNamespace(id=lambda: a), b=SimpleNamespace(id=lambda: b),
+                               clash_type=kind, distance=distance)
+
+    deep = clash(2, 1, 1, .03)
+    measurements, unmeasured = best_measurements([
+        clash(1, 2, 2, 0), clash(1, 2, 0, .005), deep,
+        clash(3, 4, 2, 0), clash(4, 3, 2, 0), clash(5, 6, 0, .001),
+    ], .002)
+    assert list(measurements) == [deep]
+    assert unmeasured == 1
 
 
 @pytest.mark.parametrize("include_unrepresented_beam", [False, True])
