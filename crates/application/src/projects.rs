@@ -23,11 +23,15 @@ fn iso_role(input: &Value) -> Result<Option<&str>, String> {
     match input.get("isoRole") {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(role))
-            if ["appointing_party", "lead_appointed_party", "appointed_party"].contains(&role.as_str()) =>
+            if [
+                "owner", "design_consultant", "bim_consultant", "verification_consultant",
+                "supervision_consultant", "construction_contractor", "other",
+                "appointing_party", "lead_appointed_party", "appointed_party",
+            ].contains(&role.as_str()) =>
         {
             Ok(Some(role))
         }
-        _ => Err("Vai trò ISO 19650 không hợp lệ".into()),
+        _ => Err("Vai trò trong dự án không hợp lệ".into()),
     }
 }
 fn audit(

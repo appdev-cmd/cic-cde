@@ -3,7 +3,7 @@ import { useCdeUser } from "./AuthContext";
 import { call, cloudEnabled, desktop, localDesktop } from "./bridge";
 import { projectCover, projectRoles } from "./ProjectDirectory";
 import type { BimModel } from "./types";
-import { iso19650Roles } from "./iso19650";
+import { projectPartyRoleLabel } from "./projectPartyRoles";
 
 const metricLabels = {
   models: "Mô hình IFC",
@@ -54,7 +54,7 @@ export default function ProjectOverview({ id, name }: { id: string; name: string
       ["Tài khoản", profile.username],
       ["Quyền trên CIC CDE", projectRoles[profile.role] ?? profile.role],
       ...(profile.isoRole !== undefined ? [
-        ["Vai trò ISO 19650", profile.isoRole ? iso19650Roles[profile.isoRole] : "Chưa xác định"],
+        ["Vai trò trong dự án", projectPartyRoleLabel(profile.isoRole)],
       ] : []),
     ] : []),
   ];

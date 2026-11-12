@@ -5,14 +5,14 @@ import type { CdeUser } from "./AuthContext";
 import { API, call, cloudEnabled, remoteDesktop, selectedProject } from "./bridge";
 import { projectRoles } from "./ProjectDirectory";
 import { projectHref } from "./projectRoute";
-import { iso19650Roles, type Iso19650Role } from "./iso19650";
+import { legacyIso19650RoleLabel, projectPartyRoleLabel, projectPartyRoles, type ProjectPartyRole } from "./projectPartyRoles";
 
 type Membership = {
   organization: string;
   role: string;
   active: boolean;
   revision: number;
-  isoRole?: Iso19650Role | null;
+  isoRole?: ProjectPartyRole | null;
 };
 type Invitation = Pick<Membership, "organization" | "role" | "isoRole"> & {
   id: string;
@@ -23,14 +23,16 @@ const formatExpiry = new Intl.DateTimeFormat("vi-VN", {
 });
 
 const roles = Object.entries(projectRoles);
-const isoRoles = Object.entries(iso19650Roles);
+const partyRoles = Object.entries(projectPartyRoles);
 
-function IsoRoleField({ value, disabled }: { value?: Iso19650Role | null; disabled: boolean }) {
+function ProjectPartyRoleField({ value, disabled }: { value?: ProjectPartyRole | null; disabled: boolean }) {
+  const previous = legacyIso19650RoleLabel(value);
   return (
-    <label>Vai trò ISO 19650
+    <label>Vai trò trong dự án
       <select name="isoRole" defaultValue={value ?? ""} disabled={disabled}>
         <option value="">Chưa xác định</option>
-        {isoRoles.map(([role, label]) => <option key={role} value={role}>{label}</option>)}
+        {partyRoles.map(([role, label]) => <option key={role} value={role}>{label}</option>)}
+        {previous && <option value={value ?? ""}>ISO 19650 đã lưu · {previous}</option>}
       </select>
     </label>
   );
@@ -167,7 +169,7 @@ export default function ProjectMembers({
       <section className="project-surface">
         <h2>Quyền của bạn</h2>
         <p>{profile.organization} · {projectRoles[profile.role] ?? profile.role}</p>
-        {profile.isoRole && <p>{iso19650Roles[profile.isoRole]}</p>}
+        {profile.isoRole && <p>{projectPartyRoleLabel(profile.isoRole)}</p>}
         <p>Quản trị dự án phụ trách phân quyền và mời đơn vị.</p>
       </section>
     );
@@ -177,7 +179,7 @@ export default function ProjectMembers({
     <>
       {error && !showAccount && <p role="alert" className="cde-message">{error}</p>}
       {message && <p role="status">{message}</p>}
-      {members && !isoReady && <p className="cde-message">Cần cập nhật cơ sở dữ liệu để lưu vai trò ISO 19650.</p>}
+      {members && !isoReady && <p className="cde-message">Cần cập nhật cơ sở dữ liệu để lưu vai trò trong dự án.</p>}
       <div className="project-members">
         <section className="project-surface project-panel" aria-labelledby="project-organizations">
           <div className="project-members-heading">
@@ -187,15 +189,15 @@ export default function ProjectMembers({
               <UserPlus size={16} /> Tạo tài khoản
             </button>}
           </div>
-          <p>Quyền dự án áp dụng cho mọi tài khoản thuộc đơn vị. Vai trò ISO 19650 ghi theo hồ sơ giao nhiệm vụ.</p>
+          <p>Chọn vai trò theo nhiệm vụ của đơn vị. Quyền trên CIC CDE áp dụng cho mọi tài khoản thuộc đơn vị đó.</p>
           <details><summary>Hướng dẫn phân quyền</summary>
             <p>Quản trị dự án quản lý đơn vị, BEP và phát hành hồ sơ. Người xem xét được duyệt hoặc trả lại hồ sơ; người phối hợp tạo và trình hồ sơ thuộc đơn vị; người xem chỉ đọc dữ liệu được chia sẻ.</p>
-            <p>Vai trò ISO 19650 không tự cấp quyền thao tác. Bỏ chọn “Đang tham gia” thu hồi quyền của cả đơn vị trong dự án; phải giữ ít nhất một đơn vị quản trị. Chỉ quản trị hệ thống tạo tài khoản mới.</p>
+            <p>Quyền thao tác được đặt ở ô “Quyền trên CIC CDE”. Bỏ chọn “Đang tham gia” thu hồi quyền của cả đơn vị trong dự án; phải giữ ít nhất một đơn vị quản trị. Chỉ quản trị hệ thống tạo tài khoản mới.</p>
           </details>
           {members ? members.map((member) => (
             <form className="membership-row" key={member.organization + member.revision} onSubmit={(event) => save(event, member)}>
               <strong>{member.organization}</strong>
-              <IsoRoleField value={member.isoRole} disabled={busy || !isoReady} />
+              <ProjectPartyRoleField value={member.isoRole} disabled={busy || !isoReady} />
               <PermissionField value={member.role} disabled={busy} />
               <label className="project-member-active">
                 <input name="active" type="checkbox" defaultChecked={member.active} disabled={busy} /> Đang tham gia
@@ -209,7 +211,7 @@ export default function ProjectMembers({
           <h2 id="project-invite">Mời đơn vị</h2>
           <form className="project-invite-form" onSubmit={invite}>
             <label>Tên đơn vị<input name="organization" required maxLength={120} disabled={busy} placeholder="Tên đơn vị của tài khoản nhận lời mời" /></label>
-            <IsoRoleField disabled={busy || !isoReady} />
+            <ProjectPartyRoleField disabled={busy || !isoReady} />
             <PermissionField disabled={busy} />
             <button className="button project-primary" disabled={busy}><MailPlus size={16} /> Tạo liên kết mời</button>
           </form>
@@ -228,7 +230,7 @@ export default function ProjectMembers({
                     <div>
                       <strong>{entry.organization}</strong>
                       <p>{projectRoles[entry.role]} · Hết hạn {formatExpiry.format(entry.expires * 1000)}</p>
-                      {entry.isoRole && <p>{iso19650Roles[entry.isoRole]}</p>}
+                      {entry.isoRole && <p>{projectPartyRoleLabel(entry.isoRole)}</p>}
                     </div>
                     <button type="button" className="button secondary" disabled={busy}
                       aria-label={`Thu hồi lời mời của ${entry.organization}`} onClick={() => revoke(entry)}>Thu hồi</button>
@@ -265,7 +267,7 @@ export default function ProjectMembers({
               ) : (
                 <>
                   <PermissionField />
-                  <IsoRoleField disabled={!isoReady} />
+                  <ProjectPartyRoleField disabled={!isoReady} />
                 </>
               )}
               <button className="button project-primary" disabled={!accountUnit.trim() || accountMembership?.active === false}>

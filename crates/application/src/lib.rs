@@ -83,6 +83,7 @@ fn database() -> Result<rusqlite::Connection, String> {
         ("005_projects", include_str!("../migrations/005_projects.sql")),
         ("006_project_iso19650_roles", include_str!("../migrations/006_project_iso19650_roles.sql")),
         ("007_delete_projects", include_str!("../migrations/007_delete_projects.sql")),
+        ("008_project_party_roles", include_str!("../migrations/008_project_party_roles.sql")),
     ] {
         let installed = |conn: &rusqlite::Connection| {
             conn.query_row(
