@@ -65,6 +65,13 @@ interface Runtime {
   invalidate: () => void;
 }
 
+const flatShadedClasses = new Set([
+  "IfcBeam", "IfcBeamStandardCase", "IfcColumn", "IfcColumnStandardCase",
+  "IfcFooting", "IfcMember", "IfcMemberStandardCase", "IfcPlate", "IfcPlateStandardCase",
+  "IfcSlab", "IfcSlabStandardCase", "IfcSlabElementedCase", "IfcStairFlight",
+  "IfcWall", "IfcWallStandardCase", "IfcWallElementedCase",
+]);
+
 function applyAppearance(r: Runtime, props: Props) {
   r.prepareSelectionFade(props);
   const models = new Map(props.models.map((model) => [model.id, model]));
@@ -161,7 +168,7 @@ function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel |
   for (const material of materials as THREE.MeshStandardMaterial[]) {
     const slab = mesh.userData.ifcClass === "IfcSlab";
     const xrayOpacity = slab ? 0.2 : mesh.userData.ifcClass === "IfcWall" ? 0.4 : 0.9;
-    const surfaceOpacity = material.userData.surfaceOpacity ?? (slab ? 0.78 : 1);
+    const surfaceOpacity = material.userData.surfaceOpacity ?? 1;
     material.color.set(highlight ?? material.userData.surfaceColor);
     material.emissive.set(selected ? "#47210e" : highlight ? "#351c0a" : "#000000");
     material.emissiveIntensity = 0.18;
@@ -176,9 +183,9 @@ function styleMesh(r: Runtime, mesh: THREE.Mesh, props: Props, model: BimModel |
   r.batches.sync(mesh);
 }
 
-function surfaceMaterial(planes: THREE.Plane[], color: string, opacity?: number) {
+function surfaceMaterial(planes: THREE.Plane[], flatShading: boolean, color: string, opacity?: number) {
   const material = new THREE.MeshStandardMaterial({
-    color, roughness: 0.82, metalness: 0, side: THREE.DoubleSide,
+    color, flatShading, roughness: flatShading ? 1 : 0.82, metalness: 0, side: THREE.DoubleSide,
     clippingPlanes: planes, clipShadows: true,
   });
   material.userData = { surfaceColor: color, surfaceOpacity: opacity };
@@ -359,9 +366,9 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     controls.dampingFactor = 0.09;
     controls.maxDistance = 180;
     controls.minDistance = 1;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xaeb2b8, 1.35));
-    const light = new THREE.DirectionalLight(0xffffff, 1.65);
-    light.position.set(12, 50, 22);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xc4c4c4, 1.15));
+    const light = new THREE.DirectionalLight(0xffffff, 1.85);
+    light.position.set(28, 45, 18);
     light.castShadow = true;
     light.shadow.mapSize.set(2048, 2048);
     Object.assign(light.shadow.camera, {
@@ -373,7 +380,7 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
     });
     light.shadow.bias = -0.001;
     scene.add(light);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.55);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.45);
     fill.position.set(-30, 15, -10);
     scene.add(fill);
     const ground = new THREE.Mesh(
@@ -1034,13 +1041,15 @@ export default forwardRef<ViewerApi, Props>(function Viewer(props, ref) {
             new THREE.BufferAttribute(raw.vertices, 3),
           );
           geometry.setIndex(new THREE.BufferAttribute(raw.indices, 1));
+          // Shared IFC vertices still use a face normal in the flat shader.
+          const flatShading = flatShadedClasses.has(e.ifcClass);
           geometry.computeVertexNormals();
           const material = e.surfaceMaterials?.length
             ? e.surfaceMaterials.map(({ start, count, color, opacity }, index) => {
                 geometry.addGroup(start, count, index);
-                return surfaceMaterial(r.sectionPlanes, color, opacity);
+                return surfaceMaterial(r.sectionPlanes, flatShading, color, opacity);
               })
-            : surfaceMaterial(r.sectionPlanes, e.color, e.surfaceOpacity);
+            : surfaceMaterial(r.sectionPlanes, flatShading, e.color, e.surfaceOpacity);
           const mesh = new THREE.Mesh(geometry, material);
           mesh.userData = {
             elementId: e.id,

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, FunctionsHttpError } from "@supabase/supabase-js";
 import { MAX_IFC_BYTES, selectedProject } from "./bridge";
 import type { DocumentDraft, DocumentMetadataInput } from "./documentMetadata";
 import type { DocumentVersion } from "./Cde";
@@ -96,6 +96,7 @@ export async function cloudRpc<T>(operation: string, payload: Record<string, unk
   });
   if (error) {
     if (error.code === "28000") window.dispatchEvent(new Event("ciccde-expired"));
+    if (error.code === "42501") throw new Error("Bạn không có quyền thực hiện thao tác này trong dự án.");
     throw new Error(error.message);
   }
   return data as T;
@@ -107,6 +108,15 @@ export async function deleteDocumentDraft(id: number): Promise<DocumentVersion[]
     document_id: id,
   });
   if (error) throw new Error(error.code === "42501" ? "Bạn cần quyền quản trị dự án để xóa hồ sơ." : error.message);
+  return data;
+}
+
+export async function deleteCloudProject(input: Record<string, unknown>) {
+  const { data, error } = await supabase.rpc("cde_delete_project", { project_id: input.projectId });
+  if (error) {
+    if (error.code === "28000") window.dispatchEvent(new Event("ciccde-expired"));
+    throw new Error(error.code === "42501" ? "Bạn cần quyền quản trị dự án để xóa dự án." : error.message);
+  }
   return data;
 }
 
@@ -132,6 +142,16 @@ export function saveProjectCadAlignment(floor: string, expectedRevision: number,
   return cadAlignmentRpc<ProjectCadAlignment>("save", { floor, expectedRevision, alignment });
 }
 
+async function accountRequest(action: "join" | "create" | "project.create", input: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("cde-accounts", { body: { ...input, action } });
+  if (error instanceof FunctionsHttpError) {
+    const body = await error.context.json().catch(() => null);
+    if (typeof body?.error === "string") throw new Error(body.error);
+  }
+  if (error) throw new Error("Chưa thể xử lý yêu cầu tài khoản. Vui lòng thử lại.");
+  return data;
+}
+
 export async function cloudAuth(path: string, input: Record<string, unknown> = {}) {
   if (path === "logout") {
     const { error } = await supabase.auth.signOut();
@@ -146,24 +166,18 @@ export async function cloudAuth(path: string, input: Record<string, unknown> = {
     if (error) throw new Error("Tên đăng nhập hoặc mật khẩu không đúng");
   }
   if (path === "join") {
-    const { data, error } = await supabase.functions.invoke("cde-accounts", {
-      body: { action: "join", ...input },
-    });
-    if (error || data?.error) throw new Error(data?.error || "Không thể nhận lời mời");
-    const result = await supabase.auth.setSession(data.session);
-    if (result.error) throw result.error;
+    const data = await accountRequest("join", input);
+    if (!data.session) return { user: null, required: true, accountCreated: true };
+    const { error } = await supabase.auth.setSession(data.session);
+    if (error) return { user: null, required: true, accountCreated: true };
   }
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { user: null, required: true };
   return { user: await cloudRpc("profile"), required: true, token: session.access_token };
 }
 
-export async function cloudCreateUser(input: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke("cde-accounts", {
-    body: { action: "create", ...input },
-  });
-  if (error || data?.error) throw new Error(data?.error || "Không thể tạo tài khoản");
-  return data;
+export function cloudCreateUser(input: Record<string, unknown>, project = false) {
+  return accountRequest(project ? "project.create" : "create", input);
 }
 
 export async function startCloudJob(api: string, jobId: string) {

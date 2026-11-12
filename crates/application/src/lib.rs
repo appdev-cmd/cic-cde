@@ -77,20 +77,29 @@ fn workspace_database_at(base: &std::path::Path) -> Result<rusqlite::Connection,
 
 fn database() -> Result<rusqlite::Connection, String> {
     let mut connection = workspace_database_at(&root())?;
-    if connection
-        .query_row(
-            "SELECT 1 FROM cic_migrations WHERE name='005_projects'",
-            [],
-            |r| r.get::<_, i64>(0),
-        )
-        .is_err()
-    {
-        let tx = connection
-            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-            .map_err(|e| e.to_string())?;
-        tx.execute_batch(include_str!("../migrations/005_projects.sql"))
-            .map_err(|e| e.to_string())?;
-        tx.commit().map_err(|e| e.to_string())?;
+    connection.execute_batch("CREATE TABLE IF NOT EXISTS cic_migrations (name TEXT PRIMARY KEY);")
+        .map_err(|e| e.to_string())?;
+    for (name, sql) in [
+        ("005_projects", include_str!("../migrations/005_projects.sql")),
+        ("006_project_iso19650_roles", include_str!("../migrations/006_project_iso19650_roles.sql")),
+        ("007_delete_projects", include_str!("../migrations/007_delete_projects.sql")),
+    ] {
+        let installed = |conn: &rusqlite::Connection| {
+            conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM cic_migrations WHERE name=?1)",
+                [name],
+                |row| row.get::<_, bool>(0),
+            ).map_err(|e| e.to_string())
+        };
+        if !installed(&connection)? {
+            let tx = connection
+                .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+                .map_err(|e| e.to_string())?;
+            if !installed(&tx)? {
+                tx.execute_batch(sql).map_err(|e| e.to_string())?;
+            }
+            tx.commit().map_err(|e| e.to_string())?;
+        }
     }
     Ok(connection)
 }

@@ -69,6 +69,7 @@ export interface CheckRun {
   sourceHash: string;
   engineVersion: string;
   findings: Finding[];
+  rule?: { classA: string; classB: string; floor: string; toleranceMetres: number };
   coverage: {
     expected: number;
     generated: number;
@@ -76,6 +77,9 @@ export interface CheckRun {
     groupA: number;
     groupB: number;
     unmeasuredCollisionPairs: number;
+    hasCandidateGroups?: boolean;
+    totalMeasuredPairs?: number;
+    limitReached?: boolean;
   };
 }
 export interface Workspace {

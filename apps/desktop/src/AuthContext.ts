@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
-export type WorkspaceControls = { project?: ReactNode; account: ReactNode };
+import type { Iso19650Role } from "./iso19650";
+export type WorkspaceControls = { account: ReactNode; members?: ReactNode };
 export type CdeUser = {
   username: string;
   organization: string;
@@ -7,6 +8,7 @@ export type CdeUser = {
   siteAdmin?: boolean;
   projectId?: string;
   projectName?: string;
+  isoRole?: Iso19650Role | null;
 };
 export const UserContext = createContext<CdeUser | null>(null);
 export const useCdeUser = () => useContext(UserContext);

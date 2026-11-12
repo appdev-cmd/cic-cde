@@ -114,7 +114,7 @@ try:
         rpc('projects.accept', member, expected=400, token=invitation['token'])
         assert rpc('projects.current', member, projectId=project)['role'] == role
     # Join as a new account using the same one-time link flow used by the UI.
-    invite = rpc('projects.invite', admin, projectId=project, organization='CLOUD-TEST', role='viewer')
+    invite = rpc('projects.invite', admin, projectId=project, organization='CLOUD-TEST-' + uuid4().hex[:10], role='viewer')
     account = {'username': 'cloud-test-' + uuid4().hex[:10], 'password': secrets.token_urlsafe(32)}
     joined = checked(manage('join', account, code=invite['token'])).json()['session']['access_token']
     tokens.append(joined)

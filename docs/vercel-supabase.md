@@ -4,9 +4,13 @@ Project Supabase `cic-cde` thuộc **CIC's Org**, kết nối **cty**, vùng Sin
 
 React gọi Supabase Auth và RPC `cde_api` bằng phiên của người dùng. PostgreSQL kiểm tra phiên, dự án và vai trò theo đơn vị. Các bảng ứng dụng nằm trong schema riêng tư, có RLS và không cấp quyền đọc trực tiếp cho client. RPC được phép gọi khi đã đăng nhập và thực thi kiểm tra quyền ở từng thao tác. Edge Function `cde-accounts` tạo tài khoản qua mã mời một lần hoặc theo quyền quản trị hệ thống.
 
+Trong tab **Thành viên**, quản trị dự án chỉnh quyền của đơn vị và tạo hoặc thu hồi lời mời. Đơn vị đã có tài khoản dùng tài khoản đó để nhận lời mời. Đơn vị mới có thể tạo tài khoản đầu tiên từ liên kết mời. Quản trị hệ thống có thể tạo tài khoản ngay trong tab này. Nếu đơn vị đã tham gia, tài khoản dùng quyền hiện có của đơn vị. Nếu thêm đơn vị mới vào dự án, quyền được chọn áp dụng cho mọi tài khoản của đơn vị đó.
+
 IFC tải trực tiếp vào bucket riêng `cde-files`. Worker Vercel tải IFC được phép đọc, dùng thư mục tạm để chạy IfcOpenShell và ghi geometry về Storage. Metadata và tiến trình nằm trong PostgreSQL. Tác vụ gắn người tạo và dự án, có lease để tránh ghi đè khi chạy trùng và kiểm tra quyền lại khi lưu. Định dạng geometry QBM1 dùng chung với desktop. Giới hạn pilot là IFC STEP tối đa 100 MB, tối đa 2.000 cấu kiện có hình học và thời gian worker theo cấu hình 300 giây của Vercel.
 
 ## Cấu hình môi trường
+
+Áp dụng migration trước khi triển khai Edge Function `cde-accounts` và bản web dùng các thao tác thành viên mới.
 
 | Tên biến | Mục đích |
 |---|---|

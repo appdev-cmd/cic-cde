@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useCdeUser } from "./AuthGate";
-import { call, cloudEnabled, desktop } from "./bridge";
+import { call, cloudEnabled, desktop, selectedProject } from "./bridge";
 import DocumentRegistration from "./DocumentRegistration";
 import DeleteFileDialog from "./DeleteFileDialog";
+import { projectHref } from "./projectRoute";
 import type { BimModel } from "./types";
 
 const CadDrawings = lazy(() => import("./CadDrawings"));
@@ -41,14 +42,16 @@ const actions: Record<Stage, [Stage, string][]> = {
   Archived: [],
 };
 
-export default function Cde() {
+export default function Cde({ onIfcRegisterChange }: { onIfcRegisterChange: () => void }) {
   const user = useCdeUser();
   const isAdmin = !user || user.role === "admin";
   const canReview = isAdmin || user?.role === "reviewer";
   const cloudFiles = cloudEnabled && !desktop && Boolean(user);
   const canDelete = cloudEnabled && user?.role === "admin";
   const canUpload = Boolean(user && user.role !== "viewer");
-  const [view, setView] = useState<FileView>(cloudFiles ? "documents" : "ifc");
+  const [view, setView] = useState<FileView>(() =>
+    cloudFiles && new URLSearchParams(location.search).get("file") !== "ifc" ? "documents" : "ifc",
+  );
   const [openedViews, setOpenedViews] = useState<FileView[]>([view]);
   const openedIfc = openedViews.includes("ifc");
   const [toDelete, setToDelete] = useState<DocumentVersion>();
@@ -105,6 +108,7 @@ export default function Cde() {
           note,
         }),
       );
+      onIfcRegisterChange();
       setNote("");
     } catch (error) {
       setMessage(String(error));
@@ -115,18 +119,6 @@ export default function Cde() {
 
   return (
     <div className="cde-page">
-      <header className="cde-header">
-        <strong>
-          CIC CDE <span>{user ? (cloudEnabled ? "TRỰC TUYẾN" : "THỬ NGHIỆM") : "CỤC BỘ"}</span>
-        </strong>
-        <nav aria-label="Điều hướng CDE">
-          <a aria-current="page" href="?cde=1">
-            Hồ sơ
-          </a>
-          <a href="?cde=issues">Vấn đề phối hợp</a>
-          <a href="/">Phối hợp mô hình</a>
-        </nav>
-      </header>
       <main>
         <div className="cde-intro">
           <div>
@@ -202,6 +194,7 @@ export default function Cde() {
               onDocumentSaved={(next, id) => {
                 setDocuments(next);
                 setSelectedId(id);
+                onIfcRegisterChange();
               }}
             />
           )}
@@ -307,7 +300,7 @@ export default function Cde() {
                 </div>
                 <a
                   className="button secondary"
-                  href={"?model=" + encodeURIComponent(selected.modelId)}
+                  href={projectHref(user?.projectId ?? selectedProject, "models", selected.modelId)}
                 >
                   Mở phiên bản trong khung nhìn 3D
                 </a>
@@ -359,13 +352,14 @@ export default function Cde() {
         {toDelete && (
           <DeleteFileDialog title="Xóa phiên bản IFC"
             name={`${toDelete.code} · R${String(toDelete.revision).padStart(2, "0")}`}
-            description="Phiên bản đang thực hiện (WIP) sẽ bị xóa khỏi sổ đăng ký. Bạn vẫn có thể xem mô hình IFC trong khung nhìn 3D và đăng ký lại."
+            description="Phiên bản đang thực hiện (WIP) sẽ bị xóa khỏi sổ đăng ký. Mô hình IFC chỉ còn hiển thị trong khung nhìn 3D nếu vẫn có phiên bản đăng ký khác dùng tệp đó."
             onClose={() => setToDelete(undefined)}
             onDelete={async () => {
               setBusy(true);
               try {
                 const cloud = await import("./cloud");
                 setDocuments(await cloud.deleteDocumentDraft(toDelete.id));
+                onIfcRegisterChange();
                 if (selectedId === toDelete.id) {
                   setSelectedId(undefined);
                   setNote("");

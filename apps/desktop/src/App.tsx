@@ -1,4 +1,4 @@
-import { useCdeUser, type WorkspaceControls } from "./AuthContext";
+import { useCdeUser } from "./AuthContext";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CadWindow } from "@qabim/cad-viewer/overlay";
 import {
@@ -45,6 +45,9 @@ import {
   X,
 } from "lucide-react";
 import Viewer from "./Viewer";
+import ClashCheckGuide from "./ClashCheckGuide";
+import { clashClasses, clashCoverageLabel, countClashCandidates, type ClashClass } from "./clashChecks";
+import { openProjectIssues } from "./projectRoute";
 import SectionControls from "./SectionControls";
 import CadDirectory, { type CadFiles } from "./CadDirectory";
 import type { CadOverlayApi } from "./CadOverlay";
@@ -93,7 +96,7 @@ const EMPTY: Workspace = {
   models: [],
   elements: [],
   findings: [],
-  synthetic: true,
+  synthetic: false,
 };
 function mergeImported(
   previous: Workspace,
@@ -156,18 +159,30 @@ function ToolButton({
   );
 }
 
-export default function App({ project, account }: WorkspaceControls) {
+export default function App({
+  active,
+  initialModelId,
+  ifcRegisterRevision,
+  onOpenIfcRegister,
+}: {
+  active: boolean;
+  initialModelId: string | null;
+  ifcRegisterRevision: number;
+  onOpenIfcRegister: () => void;
+}) {
   const projectUser = useCdeUser();
+  const registeredOnly = Boolean(projectUser);
+  const loadWhileVisible = !registeredOnly || active;
+  const registerRevision = registeredOnly ? ifcRegisterRevision : 0;
   const projectName = projectUser?.projectName || "Riverside Tower";
   const readOnly = projectUser?.role === "viewer";
   const [data, setData] = useState<Workspace>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [workspaceAttempt, setWorkspaceAttempt] = useState(0);
   const [connected, setConnected] = useState(false);
-  const [nav, setNav] = useState<Nav>(() =>
-    new URLSearchParams(window.location.search).has("cde")
-      ? "issues"
-      : "models",
-  );
+  const cloudWorkspace = cloudEnabled && !localDesktop;
+  const [nav, setNav] = useState<Nav>(openProjectIssues ? "issues" : "models");
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [floor, setFloorValue] = useState("all");
   const [room, setRoom] = useState<string | null>(null);
@@ -258,8 +273,19 @@ export default function App({ project, account }: WorkspaceControls) {
   const [geometryStopped, setGeometryStopped] = useState(false);
   const [geometryAttempt, setGeometryAttempt] = useState(0);
   const [checking, setChecking] = useState(false);
-  const [checkModelsA, setCheckModelsA] = useState<string[]>(["demo"]);
-  const [checkModelsB, setCheckModelsB] = useState<string[]>(["demo"]);
+  const [checkError, setCheckError] = useState("");
+  const cloudClashChecks = cloudEnabled && !localDesktop;
+  const [checkModelsA, setCheckModelsA] = useState<string[]>(cloudClashChecks ? [] : ["demo"]);
+  const [checkModelsB, setCheckModelsB] = useState<string[]>(cloudClashChecks ? [] : ["demo"]);
+  const checkModelOptions = [
+    ...(cloudClashChecks ? [] : [{ id: "demo", name: "Riverside · IFC mẫu" }]),
+    ...data.models.filter((model) => !model.synthetic),
+  ];
+  const checkModelOptionIds = checkModelOptions.map((model) => model.id);
+  const selectedCheckModelsA = checkModelOptionIds.filter((id) => checkModelsA.includes(id));
+  const selectedCheckModelsB = checkModelOptionIds.filter((id) => checkModelsB.includes(id));
+  const maxCheckModels = 12;
+  const checkModelLimitExceeded = new Set([...selectedCheckModelsA, ...selectedCheckModelsB]).size > maxCheckModels;
   const [geometryLoading, setGeometryLoading] = useState(false);
   const [geometryStats, setGeometryStats] = useState<{
     durationMs: number;
@@ -271,8 +297,9 @@ export default function App({ project, account }: WorkspaceControls) {
   >([0, 0, 0]);
   const [alignmentAngle, setAlignmentAngle] = useState(0);
   const [aligning, setAligning] = useState(false);
-  const [classA, setClassA] = useState("IfcDuctSegment");
-  const [classB, setClassB] = useState("IfcBeam");
+  const [classA, setClassA] = useState<ClashClass>("IfcDuctSegment");
+  const [classB, setClassB] = useState<ClashClass>("IfcBeam");
+  const [checkFloor, setCheckFloor] = useState("all");
   const [tolerance, setTolerance] = useState(2);
   const [checkRun, setCheckRun] = useState<CheckRun | null>(null);
   const [issues, setIssues] = useState<CoordinationIssue[]>([]);
@@ -309,6 +336,8 @@ export default function App({ project, account }: WorkspaceControls) {
   const inputFile = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const viewer = useRef<ViewerApi>(null);
+  const openedInitialModel = useRef<string | null>(null);
+  const workspaceGeneration = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -318,19 +347,25 @@ export default function App({ project, account }: WorkspaceControls) {
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }, []);
   useEffect(() => {
-    let active = true;
-    loadWorkspace()
+    if (!loadWhileVisible) return;
+    let cancelled = false;
+    setLoading(true);
+    setWorkspaceError(null);
+    loadWorkspace(registeredOnly)
       .then(({ data, connected }) => {
-        if (active) {
-          setData(data);
-          const modelId = new URLSearchParams(window.location.search).get(
-            "model",
+        if (!cancelled) {
+          setData((previous) =>
+            registeredOnly && JSON.stringify(previous.models) === JSON.stringify(data.models)
+              ? previous
+              : data,
           );
-          if (modelId && data.models.some((model) => model.id === modelId)) {
+          if (initialModelId && openedInitialModel.current !== initialModelId &&
+              data.models.some((model) => model.id === initialModelId)) {
+            openedInitialModel.current = initialModelId;
             setHidden(
               new Set(
                 data.models
-                  .filter((model) => model.id !== modelId)
+                  .filter((model) => model.id !== initialModelId)
                   .map((model) => model.id),
               ),
             );
@@ -340,23 +375,30 @@ export default function App({ project, account }: WorkspaceControls) {
         }
       })
       .catch((e) => {
-        if (active) {
-          notify(String(e));
+        if (!cancelled) {
+          if (registeredOnly) setData(EMPTY);
+          setConnected(false);
+          setWorkspaceError(e instanceof Error ? e.message : String(e));
           setLoading(false);
         }
       });
     return () => {
-      active = false;
-      clearTimeout(toastTimer.current);
+      cancelled = true;
+      workspaceGeneration.current++;
     };
-  }, [notify]);
+  }, [workspaceAttempt, initialModelId, loadWhileVisible, registeredOnly, registerRevision]);
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
   useEffect(() => {
+    if (!loadWhileVisible || ((cloudWorkspace || registeredOnly) && (loading || workspaceError))) return;
+    let cancelled = false;
     const timer = setInterval(() => {
       call("health")
         .then(async () => {
+          if (cancelled) return;
           setConnected(true);
           if (remoteDesktop) {
-            const current = await call<Workspace>("workspace.get");
+            const { data: current } = await loadWorkspace(registeredOnly);
+            if (cancelled) return;
             setData((previous) =>
               JSON.stringify(previous.models) === JSON.stringify(current.models)
                 ? previous
@@ -364,11 +406,15 @@ export default function App({ project, account }: WorkspaceControls) {
             );
           }
         })
-        .catch(() => setConnected(false));
+        .catch(() => { if (!cancelled) setConnected(false); });
     }, 8000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [cloudWorkspace, loadWhileVisible, loading, registeredOnly, workspaceError]);
   useEffect(() => {
+    if (!active) return;
     const key = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -388,9 +434,9 @@ export default function App({ project, account }: WorkspaceControls) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
+  }, [active]);
   useEffect(() => {
-    if (!modal) return;
+    if (!active || !modal) return;
     const previous = document.activeElement as HTMLElement | null;
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     const focusable = () =>
@@ -418,13 +464,40 @@ export default function App({ project, account }: WorkspaceControls) {
       document.removeEventListener("keydown", trap);
       previous?.focus();
     };
-  }, [modal]);
+  }, [active, modal]);
   const elementsById = useMemo(
     () => new Map(data.elements.map((element) => [element.id, element])),
     [data.elements],
   );
   const element = selected ? elementsById.get(selected) : undefined;
   const storeys = useMemo(() => groupByStorey(data.elements), [data.elements]);
+  useEffect(() => {
+    if (loading || floor === "all") return;
+    const storey = storeys.find((item) => item.name === floor);
+    if (!storey) setFloor("all");
+    else if (room !== null && !storey.rooms.some(([key]) => key === room)) setRoom(null);
+  }, [floor, loading, room, setFloor, storeys]);
+  const checkScope = storeys.some((storey) => storey.name === checkFloor) ? checkFloor : "all";
+  const checkingSetup = modal === "check";
+  const checkCandidatesA = useMemo(() => checkingSetup
+    ? countClashCandidates(data.elements, checkScope, classA) : new Map<string, number>(),
+    [checkingSetup, data.elements, checkScope, classA]);
+  const checkCandidatesB = useMemo(() => checkingSetup
+    ? countClashCandidates(data.elements, checkScope, classB) : new Map<string, number>(),
+    [checkingSetup, data.elements, checkScope, classB]);
+  const checkValidation = !connected
+    ? "Cần kết nối dịch vụ kiểm tra va chạm."
+    : checkModelLimitExceeded
+      ? "Tối đa " + maxCheckModels + " mô hình khác nhau cho cả hai nhóm. Hãy bỏ chọn bớt hoặc chia phép kiểm tra theo bộ môn."
+      : !selectedCheckModelsA.length || !selectedCheckModelsB.length
+        ? "Chọn ít nhất một mô hình cho mỗi nhóm."
+        : !Number.isFinite(tolerance) || tolerance < 0.1 || tolerance > 1000
+          ? "Nhập ngưỡng giao cắt từ 0,1 đến 1.000 mm."
+          : null;
+  const canRunCheck = !checking && !checkValidation;
+  const checkCoverage = checkRun ? clashCoverageLabel(checkRun.coverage) : null;
+  const checkResultCount = checkRun?.coverage.totalMeasuredPairs ?? checkRun?.findings.length;
+  const checkMissingGeometry = checkRun ? checkRun.coverage.expected - checkRun.coverage.generated : 0;
   const currentRoom = storeys
     .find((storey) => storey.name === floor)
     ?.rooms.find(([key]) => key === room)?.[1];
@@ -528,6 +601,10 @@ export default function App({ project, account }: WorkspaceControls) {
       notify("Vai trò chỉ xem không được nhập IFC.");
       return;
     }
+    if (registeredOnly) {
+      onOpenIfcRegister();
+      return;
+    }
     if (!localDesktop) {
       inputFile.current?.click();
       return;
@@ -562,7 +639,7 @@ export default function App({ project, account }: WorkspaceControls) {
     }
   };
   const createIssue = async () => {
-    if (!finding || !checkRun?.findings.includes(finding) || issueSaving)
+    if (!finding || !checkRun?.findings.some((result) => result.id === finding.id) || issueSaving)
       return;
     setIssueSaving(true);
     try {
@@ -587,8 +664,12 @@ export default function App({ project, account }: WorkspaceControls) {
   const reviewIssue = async (issue: CoordinationIssue) => {
     if (activeIssueId !== issue.id) setComment("");
     setActiveIssueId(issue.id);
+    const generation = workspaceGeneration.current;
     try {
-      const current = await call<Workspace>("workspace.get");
+      const current = registeredOnly
+        ? (await loadWorkspace(true)).data
+        : await call<Workspace>("workspace.get");
+      if (generation !== workspaceGeneration.current) return;
       const evidenceAvailable =
         issue.snapshots?.length &&
         issue.snapshots.every((snapshot) => {
@@ -660,34 +741,36 @@ export default function App({ project, account }: WorkspaceControls) {
     }
   };
   const runCheck = async () => {
-    if (checking) return;
+    if (!canRunCheck) return;
+    setCheckError("");
     setChecking(true);
     try {
       const result = await call<CheckRun>("checks.run", {
-        modelIdsA: checkModelsA,
-        modelIdsB: checkModelsB,
+        modelIdsA: selectedCheckModelsA,
+        modelIdsB: selectedCheckModelsB,
         classA,
         classB,
-        floor,
+        floor: checkScope,
         tolerance: tolerance / 1000,
       });
       setCheckRun(result);
       setData((prev) => ({ ...prev, findings: result.findings }));
       setFinding(null);
       setSelected(null);
-      setRoom(null);
+      setFloor(checkScope);
       setFocusIds([]);
       setStatus("all");
       setNav("checks");
       setBottom(true);
       setModal(null);
       notify(
-        `${result.findings.length} va chạm · ${result.coverage.generated}/${result.coverage.expected} đối tượng có hình học · ${result.coverage.complete ? "Độ bao phủ đầy đủ" : "Độ bao phủ chưa đầy đủ"}`,
+        `${result.findings.length} va chạm · ${result.coverage.generated}/${result.coverage.expected} đối tượng có hình học · ${clashCoverageLabel(result.coverage)}`,
       );
     } catch (error) {
-      notify(
-        `Kiểm tra va chạm thất bại: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const detail = error instanceof Error ? error.message : String(error);
+      const message = "Kiểm tra va chạm thất bại. " + (detail || "Hãy thử lại.");
+      setCheckError(message);
+      notify(message);
     } finally {
       setChecking(false);
     }
@@ -767,21 +850,8 @@ export default function App({ project, account }: WorkspaceControls) {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#" aria-label="CIC CDE Home">
-          <span className="brand-symbol">
-            <Cuboid size={23} />
-          </span>
-          <span>
-            CIC<span className="brand-light">CDE</span>
-          </span>
-        </a>
-        <span className="top-divider" />
-        {project || <span className="local-project">{projectName}</span>}
+      <header className="topbar" aria-label="Công cụ phối hợp mô hình">
         <div className="top-spacer" />
-        <a className="top-ai" href="?cde=1">
-          Hồ sơ CDE
-        </a>
         <button className="top-ai" onClick={() => setAssistant((v) => !v)}>
           <Sparkles size={15} /> Trợ lý BIM <span>Ctrl J</span>
         </button>
@@ -802,7 +872,6 @@ export default function App({ project, account }: WorkspaceControls) {
           <Bell size={18} />
           <i />
         </button>
-        {account}
       </header>
 
       <aside className="rail">
@@ -942,6 +1011,9 @@ export default function App({ project, account }: WorkspaceControls) {
                 </button>
               </div>
               <div className="model-list">
+                {registeredOnly && !loading && !workspaceError && !data.models.length && (
+                  <p className="cde-message">Chưa có phiên bản IFC trong sổ đăng ký.</p>
+                )}
                 {data.models.map((m) => (
                   <div
                     className={`model-row ${hidden.has(m.id) ? "is-hidden" : ""}`}
@@ -992,7 +1064,7 @@ export default function App({ project, account }: WorkspaceControls) {
                 disabled={importing}
               >
                 <Upload size={15} />
-                {importing ? "Đang xử lý IFC..." : "Thêm mô hình IFC"}
+                {registeredOnly ? "Đăng ký phiên bản IFC" : importing ? "Đang xử lý IFC..." : "Thêm mô hình IFC"}
                 <span>+</span>
               </button>
               </>}
@@ -1352,7 +1424,24 @@ export default function App({ project, account }: WorkspaceControls) {
                   </div>
                 </>
               )}
-              {(loading || geometryLoading) && (
+              {workspaceError !== null && (
+                <div className="loading-overlay">
+                  <div role="alert">
+                    <strong>Không tải được mô hình dự án {projectName}</strong>
+                    <p>{workspaceError}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setWorkspaceError(null);
+                      setLoading(true);
+                      setWorkspaceAttempt((attempt) => attempt + 1);
+                    }}
+                  >
+                    Tải lại mô hình
+                  </button>
+                </div>
+              )}
+              {workspaceError === null && (loading || geometryLoading) && (
                 <div
                   className={
                     loading
@@ -1417,8 +1506,8 @@ export default function App({ project, account }: WorkspaceControls) {
               <span>
                 <span className={connected ? "green-dot" : "amber-dot"} />
                 {connected
-                  ? "Rust core connected"
-                  : "Preview · chưa kết nối Rust core"}
+                  ? (cloudWorkspace ? "Đã kết nối Supabase" : "Rust core connected")
+                  : (cloudWorkspace ? "Chưa kết nối Supabase" : "Preview · chưa kết nối Rust core")}
               </span>
               <span>
                 m <i /> Z-up <i />{" "}
@@ -1668,10 +1757,13 @@ export default function App({ project, account }: WorkspaceControls) {
             </div>
             <div className="results-actions">
               <span
-                className={`sample-label ${checkRun ? (checkRun.coverage.complete ? "computed" : "incomplete") : ""}`}
+                className={"sample-label " + (checkRun
+                  ? checkRun.coverage.complete && checkRun.coverage.groupA && checkRun.coverage.groupB
+                    ? "computed" : "incomplete"
+                  : "")}
               >
                 {checkRun
-                  ? `IfcOpenShell · ${checkRun.coverage.complete ? "Độ bao phủ đầy đủ" : "Độ bao phủ chưa đầy đủ"}`
+                  ? checkCoverage
                   : data.synthetic ? "Dữ liệu mẫu" : "Chưa kiểm tra"}
               </span>
               <button
@@ -1833,6 +1925,12 @@ export default function App({ project, account }: WorkspaceControls) {
                       </button>
                     </div>
                   </div>
+                  {checkRun?.rule && (
+                    <p className="clash-result-summary">
+                      {checkRun.rule.classA} × {checkRun.rule.classB} · {checkRun.rule.floor === "all" ? "Toàn bộ công trình" : storeyLabel(checkRun.rule.floor)}
+                      {" · Ngưỡng "}{(checkRun.rule.toleranceMetres * 1000).toLocaleString("vi-VN")} mm
+                    </p>
+                  )}
                   <div className="results-table-wrap">
                     <table className="results-table">
                       <thead>
@@ -1849,6 +1947,21 @@ export default function App({ project, account }: WorkspaceControls) {
                         </tr>
                       </thead>
                       <tbody>
+                        {checkRun && !findings.length && (
+                          <tr>
+                            <td colSpan={7} className="clash-results-empty">
+                              {checkRun.findings.length > 0
+                                ? "Không có va chạm theo bộ lọc hiện tại."
+                                : !checkRun.coverage.groupA || !checkRun.coverage.groupB
+                                  ? checkCoverage + ". Kiểm tra lại mô hình, lớp IFC và tầng đã chọn."
+                                  : checkRun.coverage.hasCandidateGroups === false
+                                    ? "Hai nhóm chỉ có cùng một cấu kiện. Hãy chọn thêm cấu kiện để tạo cặp kiểm tra."
+                                  : checkRun.coverage.complete
+                                    ? "Không phát hiện va chạm trong phạm vi và ngưỡng đã chọn."
+                                    : "Chưa ghi nhận va chạm. Kiểm tra lại phần hình học còn thiếu trước khi kết luận."}
+                            </td>
+                          </tr>
+                        )}
                         {findings.map((f) => (
                           <tr
                             key={f.id}
@@ -1902,7 +2015,10 @@ export default function App({ project, account }: WorkspaceControls) {
                   {nav === "issues"
                     ? `${issues.length} vấn đề phối hợp`
                     : checkRun
-                      ? `${findings.length} va chạm · ${checkRun.coverage.generated}/${checkRun.coverage.expected} đối tượng có hình học · ${checkRun.coverage.unmeasuredCollisionPairs} cặp không đo được`
+                      ? `${findings.length === checkResultCount ? findings.length : findings.length + "/" + checkResultCount} va chạm`
+                        + (checkRun.coverage.limitReached ? " · Ưu tiên cặp có độ giao cắt lớn" : "")
+                        + (checkMissingGeometry > 0 ? ` · ${checkMissingGeometry}/${checkRun.coverage.expected} cấu kiện chưa đo được` : "")
+                        + (checkRun.coverage.unmeasuredCollisionPairs > 0 ? ` · ${checkRun.coverage.unmeasuredCollisionPairs} cặp chưa đo được` : "")
                       : data.synthetic
                         ? `${findings.length} kết quả mẫu`
                         : "Chưa chạy kiểm tra va chạm"}
@@ -1930,7 +2046,7 @@ export default function App({ project, account }: WorkspaceControls) {
                     <button
                       className="button tiny primary"
                       disabled={
-                        !checkRun?.findings.includes(finding) || issueSaving
+                        !checkRun?.findings.some((result) => result.id === finding.id) || issueSaving
                       }
                       onClick={() => void createIssue()}
                     >
@@ -1949,9 +2065,10 @@ export default function App({ project, account }: WorkspaceControls) {
         </section>
         <footer className="app-status">
           <span>
-            <span className="green-dot" /> LOCAL WORKSPACE{" "}
+            <span className={connected ? "green-dot" : "amber-dot"} />{" "}
+            {cloudWorkspace ? "CIC CDE CLOUD" : "LOCAL WORKSPACE"}{" "}
             <span className="meta-divider" />{" "}
-            {connected ? "Rust application core" : "UI preview"}
+            {cloudWorkspace ? "Supabase" : connected ? "Rust application core" : "UI preview"}
           </span>
           <span>
             <Terminal size={11} /> MCP · 4 tools{" "}
@@ -2030,43 +2147,69 @@ export default function App({ project, account }: WorkspaceControls) {
                     <p>Chọn hai nhóm mô hình IFC để kiểm tra va chạm hình học.</p>
                   </div>
                 </header>
+                <ClashCheckGuide classA={classA} classB={classB} checking={checking}
+                  onPreset={(nextClassA, nextClassB) => {
+                    setClassA(nextClassA);
+                    setClassB(nextClassB);
+                  }} />
                 <div className="check-model-groups">
                   {[
-                    {
-                      label: "Mô hình IFC nhóm A",
-                      ids: checkModelsA,
-                      set: setCheckModelsA,
-                    },
-                    {
-                      label: "Mô hình IFC nhóm B",
-                      ids: checkModelsB,
-                      set: setCheckModelsB,
-                    },
-                  ].map((group) => (
-                    <fieldset key={group.label}>
-                      <legend>{group.label}</legend>
-                      {[
-                        { id: "demo", name: "Riverside · IFC mẫu" },
-                        ...data.models.filter((m) => !m.synthetic),
-                      ].map((model) => (
-                        <label key={model.id}>
-                          <input
-                            type="checkbox"
-                            checked={group.ids.includes(model.id)}
-                            disabled={checking}
-                            onChange={(event) =>
-                              group.set((previous) =>
-                                event.target.checked
-                                  ? [...previous, model.id]
-                                  : previous.filter((id) => id !== model.id),
-                              )
-                            }
-                          />
-                          <span>{model.name}</span>
-                        </label>
-                      ))}
-                    </fieldset>
-                  ))}
+                    { name: "A", ids: selectedCheckModelsA, set: setCheckModelsA, candidates: checkCandidatesA },
+                    { name: "B", ids: selectedCheckModelsB, set: setCheckModelsB, candidates: checkCandidatesB },
+                  ].map((group) => {
+                    const allSelected = checkModelOptions.length > 0 && group.ids.length === checkModelOptions.length;
+                    const action = allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả";
+                    const suggested = checkModelOptionIds.filter((id) => group.candidates.has(id));
+                    const candidateCount = group.ids.reduce((sum, id) => sum + (group.candidates.get(id) ?? 0), 0);
+                    return (
+                      <fieldset key={group.name}>
+                        <legend>Mô hình IFC nhóm {group.name}</legend>
+                        <div className="check-model-actions">
+                          <span>Đã chọn {group.ids.length}/{checkModelOptions.length} · Xem trước {candidateCount.toLocaleString("vi-VN")} đối tượng</span>
+                          {suggested.length > 0 && (
+                            <button type="button" className="button secondary tiny"
+                              aria-label={"Chọn mô hình gợi ý nhóm " + group.name}
+                              disabled={checking}
+                              onClick={() => group.set(suggested)}>
+                              Chọn mô hình gợi ý ({suggested.length})
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="button secondary tiny"
+                            aria-label={action + " mô hình nhóm " + group.name}
+                            disabled={checking || !checkModelOptions.length}
+                            onClick={() => group.set(allSelected ? [] : checkModelOptionIds)}
+                          >
+                            {action}
+                          </button>
+                        </div>
+                        <div className="check-model-list">
+                          {!checkModelOptions.length && <p>Chưa có mô hình IFC để kiểm tra.</p>}
+                          {checkModelOptions.map((model) => (
+                            <label key={model.id}>
+                              <input
+                                type="checkbox"
+                                checked={group.ids.includes(model.id)}
+                                disabled={checking}
+                                onChange={(event) =>
+                                  group.set((previous) =>
+                                    event.target.checked
+                                      ? [...previous, model.id]
+                                      : previous.filter((id) => id !== model.id),
+                                  )
+                                }
+                              />
+                              <span>{model.name}</span>
+                              {group.candidates.has(model.id) && (
+                                <small>{group.candidates.get(model.id)?.toLocaleString("vi-VN")} đối tượng</small>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    );
+                  })}
                 </div>
                 <div className="check-fields">
                   {[
@@ -2077,18 +2220,11 @@ export default function App({ project, account }: WorkspaceControls) {
                       {item.label}
                       <select
                         value={item.value}
-                        onChange={(e) => item.set(e.target.value)}
+                        onChange={(e) => item.set(e.target.value as ClashClass)}
                         disabled={checking}
                       >
-                        {[
-                          "IfcDuctSegment",
-                          "IfcPipeSegment",
-                          "IfcBeam",
-                          "IfcColumn",
-                          "IfcSlab",
-                          "IfcWall",
-                        ].map((c) => (
-                          <option key={c}>{c}</option>
+                        {Object.entries(clashClasses).map(([id, label]) => (
+                          <option key={id} value={id}>{label} ({id})</option>
                         ))}
                       </select>
                     </label>
@@ -2097,9 +2233,9 @@ export default function App({ project, account }: WorkspaceControls) {
                 <label className="field-label">
                   Phạm vi kiểm tra
                   <select
-                    value={floor}
+                    value={checkScope}
                     disabled={checking}
-                    onChange={(e) => setFloor(e.target.value)}
+                    onChange={(e) => setCheckFloor(e.target.value)}
                   >
                     <option value="all">Toàn bộ công trình</option>
                     {storeys.map(({ name }) => (
@@ -2129,17 +2265,13 @@ export default function App({ project, account }: WorkspaceControls) {
                     đạt giới hạn số kết quả.
                   </p>
                 </div>
+                {checkValidation && (
+                  <p className="check-model-validation" role="status">{checkValidation}</p>
+                )}
+                {checkError && <p className="check-model-error" role="alert">{checkError}</p>}
                 <button
                   className="button primary full"
-                  disabled={
-                    checking ||
-                    !checkModelsA.length ||
-                    !checkModelsB.length ||
-                    !connected ||
-                    !Number.isFinite(tolerance) ||
-                    tolerance < 0.1 ||
-                    tolerance > 1000
-                  }
+                  disabled={!canRunCheck}
                   onClick={() => void runCheck()}
                 >
                   {checking ? (

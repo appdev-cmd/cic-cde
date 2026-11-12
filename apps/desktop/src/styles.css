@@ -113,39 +113,25 @@ textarea::placeholder {
   z-index: 5;
 }
 .brand {
-  display: flex;
+  flex: none;
+}
+.brand-lockup {
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-size: 19px;
-  letter-spacing: -1px;
-  font-weight: 750;
-  color: #28374b;
+  gap: var(--brand-gap, 9px);
+  vertical-align: middle;
 }
-.brand-light {
-  font-weight: 450;
-  margin-left: 3px;
+.brand-mark {
+  display: inline-block;
+  width: var(--brand-mark-size, 32px);
+  height: var(--brand-mark-size, 32px);
+  flex: none;
 }
-.brand-symbol {
-  height: 32px;
-  width: 32px;
-  display: grid;
-  place-items: center;
-  background: #334860;
-  color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 3px #29334410;
-}
-.brand-symbol svg {
-  stroke-width: 1.6;
-}
-.top-divider {
-  height: 22px;
-  width: 1px;
-  background: var(--border);
-  margin: 0 4px;
-}
-.local-project {
-  font-weight: 500;
+.brand-wordmark {
+  display: block;
+  width: auto;
+  height: var(--brand-wordmark-height, 19px);
+  flex: none;
 }
 .top-spacer {
   flex: 1;
@@ -2384,9 +2370,12 @@ table {
 
 .check-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin: 12px 0;
+}
+.check-modal .field-label select {
+  min-width: 0;
 }
 .tolerance-field {
   margin-top: 12px;
@@ -2408,7 +2397,7 @@ table {
   overflow-y: auto;
 }
 .check-modal {
-  width: min(760px, calc(100vw - 32px));
+  width: min(1140px, calc(100vw - 32px));
 }
 .check-modal-heading {
   display: flex;
@@ -2428,6 +2417,50 @@ table {
   color: #687789;
   font-size: 11px;
   line-height: 1.6;
+}
+.clash-guide {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #e3e8ee;
+  border-radius: 6px;
+  background: #f8fafb;
+  color: #465367;
+  font-size: 11px;
+}
+.clash-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.clash-presets .button[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.clash-guide summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.clash-guide ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+.clash-guide li + li {
+  margin-top: 5px;
+}
+.clash-result-summary {
+  margin: 0;
+  padding: 4px 15px 8px;
+  color: #596779;
+  font-size: 10px;
+}
+.results-table .clash-results-empty {
+  padding: 12px 15px;
+  color: #596779;
 }
 
 .app-shell {
@@ -2451,8 +2484,33 @@ table {
   padding: 10px;
   border: 1px solid #e3e8ee;
   border-radius: 6px;
-  max-height: 200px;
+}
+.check-model-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #596779;
+  font-size: 10px;
+}
+.check-model-list {
+  max-height: 300px;
   overflow: auto;
+}
+.check-modal > .check-model-validation {
+  margin: 12px 0 0;
+  color: #8b4e24;
+}
+.check-modal > .check-model-error {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border: 1px solid #f0caca;
+  border-radius: 6px;
+  background: #fff4f4;
+  color: #8b2e2e;
+  overflow-wrap: anywhere;
 }
 .check-model-groups legend {
   font-size: 9px;
@@ -2470,6 +2528,15 @@ table {
 .check-model-groups label span {
   overflow-wrap: anywhere;
 }
+.check-model-groups label small {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #596779;
+}
+.check-model-list > p {
+  color: #596779;
+  font-size: 11px;
+}
 .check-model-groups input {
   flex: 0 0 auto;
   accent-color: var(--accent);
@@ -2478,7 +2545,8 @@ table {
   .check-modal {
     padding: 20px;
   }
-  .check-model-groups {
+  .check-model-groups,
+  .check-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -2504,11 +2572,9 @@ table {
 .issue-thread form { display: flex; gap: 8px; }
 .issue-thread input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; }
 .cde-page { flex: 1; overflow: auto; background: #f4f6f8; color: #263546; }
-.cde-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 18px clamp(20px, 5vw, 72px); background: white; border-bottom: 1px solid #e3e8ed; }
-.cde-header strong span, .cde-intro > div > p { color: var(--accent); font-size: 11px; letter-spacing: .1em; }
-.cde-header nav, .cde-filters, .cde-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-.cde-header a, .cde-doc-link { color: #344c67; }
-.cde-header a[aria-current] { color: var(--accent); font-weight: 600; }
+.cde-intro > div > p { color: var(--accent); font-size: 11px; letter-spacing: .1em; }
+.cde-filters, .cde-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.cde-doc-link { color: #344c67; }
 .cde-page main { max-width: 1440px; margin: 0 auto; padding: 30px clamp(16px, 5vw, 72px); }
 .cde-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .cde-intro h1, .cde-card h2 { margin: 5px 0 10px; }
@@ -2598,37 +2664,6 @@ table {
 .cde-registration-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .cde-stop-batch { margin-top: 10px; }
 .member-panel input, .member-panel select { width: 100%; border: 1px solid #d5dee8; border-radius: 6px; padding: 10px; }
-.access-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 16px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-  z-index: 5;
-}
-.project-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-.project-controls > select {
-  height: 30px;
-  min-width: 0;
-  max-width: 250px;
-  padding: 0 8px;
-  border: 1px solid #dde3e9;
-  border-radius: 5px;
-  background: #fff;
-  color: var(--ink);
-  text-overflow: ellipsis;
-}
-.project-controls > button {
-  flex-shrink: 0;
-}
 .account-menu {
   position: relative;
   margin-left: auto;
@@ -2683,7 +2718,6 @@ table {
 }
 .project-panel label { display:grid; gap:6px; }
 .project-panel input:not([type=checkbox]), .project-panel select { padding:8px; border:1px solid #ccd7e2; border-radius:6px; min-width:0; width:100%; }
-.project-empty { margin:16px; }
 .project-panel form { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin:14px 0; }
 .project-panel h2, .project-panel h3 { width:100%; }
 .membership-row { padding:10px 0; border-bottom:1px solid var(--border); }

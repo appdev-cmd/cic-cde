@@ -282,6 +282,9 @@ async fn rpc(
         "projects.accept",
         "projects.members",
         "projects.members.update",
+        "projects.accounts.create",
+        "projects.invitations",
+        "projects.invitations.revoke",
     ]
     .contains(&operation)
     {

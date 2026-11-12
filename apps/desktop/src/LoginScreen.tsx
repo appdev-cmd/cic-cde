@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { ArrowRight, Box, Cuboid, Eye, EyeOff, Files, Layers3, LockKeyhole, UserRound } from "lucide-react";
+import { ArrowRight, Box, Eye, EyeOff, Files, Layers3, LockKeyhole, UserRound } from "lucide-react";
+import Brand, { BrandMark } from "./Brand";
 import "./login.css";
 
 type LoginScreenProps = {
@@ -7,6 +8,7 @@ type LoginScreenProps = {
   joining: boolean;
   hasInvite: boolean;
   error: string;
+  notice: string;
   connection?: ReactNode;
   onSubmit(form: HTMLFormElement): void;
   onToggleJoin(): void;
@@ -23,8 +25,7 @@ export function LoginLayout({ title, description, children }: {
       <section className="login-showcase" aria-label="Không gian phối hợp BIM">
         <div className="login-showcase-content">
           <div className="login-brand">
-            <span className="login-brand-icon"><Cuboid size={23} aria-hidden="true" /></span>
-            <span>CIC CDE</span>
+            <Brand />
           </div>
           <div className="login-intro">
             <h1>Không gian phối hợp <span>BIM &amp; CDE</span></h1>
@@ -41,7 +42,7 @@ export function LoginLayout({ title, description, children }: {
       <section className="login-access" aria-labelledby="login-title">
         <div className="login-card">
           <div className="login-card-heading">
-            <span className="login-brand-icon"><Cuboid size={23} aria-hidden="true" /></span>
+            <BrandMark />
             <h2 id="login-title">{title}</h2>
             <p>{description}</p>
           </div>
@@ -53,7 +54,7 @@ export function LoginLayout({ title, description, children }: {
 }
 
 export default function LoginScreen({
-  busy, joining, hasInvite, error, connection, onSubmit, onToggleJoin, onRequestReset,
+  busy, joining, hasInvite, error, notice, connection, onSubmit, onToggleJoin, onRequestReset,
 }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -112,7 +113,7 @@ export default function LoginScreen({
   return (
     <LoginLayout
       title={joining ? "Tham gia dự án" : "Đăng nhập"}
-      description={joining ? "Tạo tài khoản từ lời mời bạn đã nhận." : "Truy cập không gian dự án CIC CDE của bạn."}
+      description={joining ? "Nếu đơn vị đã có tài khoản CIC CDE, hãy đăng nhập để nhận lời mời." : "Truy cập không gian dự án CIC CDE của bạn."}
     >
           <form onSubmit={(event) => { event.preventDefault(); onSubmit(event.currentTarget); }}>
             <fieldset disabled={busy}>
@@ -155,6 +156,7 @@ export default function LoginScreen({
                 </button>
               </div>
               {error && <p className="login-error" role="alert">{error}</p>}
+              {notice && <p className="login-notice" role="status">{notice}</p>}
               <button className="login-submit" type="submit">
                 {busy ? (joining ? "Đang tạo tài khoản…" : "Đang đăng nhập…")
                   : joining ? "Tạo tài khoản và tham gia" : "Đăng nhập"}

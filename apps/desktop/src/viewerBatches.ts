@@ -45,7 +45,7 @@ export class ViewerBatches {
       const index = source.geometry.index;
       const slab = source.userData.ifcClass === "IfcSlab";
       if (!index?.count) continue;
-      const isOpaque = (m: THREE.MeshStandardMaterial) => (m.userData.surfaceOpacity ?? (slab ? 0.78 : 1)) >= 1;
+      const isOpaque = (m: THREE.MeshStandardMaterial) => (m.userData.surfaceOpacity ?? 1) >= 1;
       const groups = source.geometry.groups.length
         ? source.geometry.groups
         : [{ start: 0, count: index.count, materialIndex: 0 }];
@@ -55,7 +55,7 @@ export class ViewerBatches {
         eligible.add(source);
         const key = JSON.stringify([
           source.userData.modelId, source.userData.storey,
-          source.userData.relativeGeometry, slab, material.userData.surfaceColor,
+          source.userData.relativeGeometry, slab, material.flatShading, material.userData.surfaceColor,
         ]);
         const surface = { source, material, start, count };
         const bucket = grouped.get(key);

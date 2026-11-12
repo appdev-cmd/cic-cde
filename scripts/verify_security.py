@@ -101,6 +101,28 @@ with tempfile.TemporaryDirectory(prefix='ciccde-auth-') as temporary:
         rpc('workspace.get',b,403,project=p1['id'])
         rpc('projects.create',a,403,name='Escalation')
         rpc('users.list',a,403,project=p1['id'])
+        rpc('projects.accounts.create',a,403,projectId=p1['id'],organization='ARC',role='admin',username='forbidden',password=password)
+        rpc('projects.invitations',a,403,projectId=p2['id'])
+        invite=rpc('projects.invite',a,projectId=p1['id'],organization='STRUCTURE',role='reviewer')
+        pending=rpc('projects.invitations',a,projectId=p1['id'])
+        assert [item['id'] for item in pending]==[invite['id']] and 'token' not in pending[0]
+        rpc('projects.invitations.revoke',admin,400,projectId=p2['id'],invitationId=invite['id'])
+        rpc('projects.invitations.revoke',a,projectId=p1['id'],invitationId=invite['id'])
+        request('/auth/join',json.dumps(dict(token=invite['token'],username='revoked',password=password)).encode(),expected=400)
+        existing=rpc('projects.invite',a,projectId=p1['id'],organization='MEP',role='member')
+        request('/auth/join',json.dumps(dict(token=existing['token'],username='mep-unverified',password=password)).encode(),expected=400)
+        rpc('projects.accept',b,token=existing['token'])
+        account=dict(username='second-mep',password=password)
+        rpc('projects.accounts.create',admin,projectId=p1['id'],organization='MEP',role='admin',**account)
+        second_mep=request('/auth/login',json.dumps(account).encode())['token']
+        assert rpc('projects.current',second_mep,projectId=p1['id'])['role']=='member'
+        rpc('projects.current',second_mep,403,projectId=p2['id'])
+        account=dict(username='project-viewer',password=password)
+        rpc('projects.accounts.create',admin,projectId=p2['id'],organization='FIELD',role='viewer',isoRole='appointed_party',**account)
+        viewer=request('/auth/login',json.dumps(account).encode())['token']
+        current=rpc('projects.current',viewer,projectId=p2['id'])
+        assert current['role']=='viewer' and current['isoRole']=='appointed_party'
+        assert [project['id'] for project in rpc('projects.list',viewer)]==[p2['id']]
         def project_upload(project):
             boundary='ciccde-project-check'
             body=(f'--{boundary}\r\nContent-Disposition: form-data; name="job"; filename="project.ifc"\r\n\r\n').encode()+data+f'\r\n--{boundary}--\r\n'.encode()

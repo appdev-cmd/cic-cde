@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import type { Workspace } from "./types";
+import { routeProjectId } from "./projectRoute";
 export const desktop = "__TAURI_INTERNALS__" in window;
 export const cloudEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL);
 export const remoteDesktop =
@@ -10,7 +11,7 @@ export const API = remoteDesktop
 export const localDesktop = desktop && !remoteDesktop;
 export const MAX_IFC_BYTES = 500_000_000;
 export const selectedProject =
-  localStorage.getItem("ciccde.project") || "demo-project";
+  routeProjectId ?? (localStorage.getItem("ciccde.project") || "demo-project");
 let bearer = "";
 window.addEventListener("ciccde-token", (event) => {
   bearer = (event as CustomEvent<string>).detail;
@@ -57,6 +58,8 @@ export async function call<T>(
   if (cloudEnabled) {
     const cloud = await import("./cloud");
     if (operation === "users.create") return cloud.cloudCreateUser(input) as Promise<T>;
+    if (operation === "projects.accounts.create") return cloud.cloudCreateUser(input, true) as Promise<T>;
+    if (operation === "projects.delete") return cloud.deleteCloudProject(input) as Promise<T>;
     if (operation === "checks.run") {
       const job = await cloud.cloudRpc<{ jobId: string }>("jobs.create", { kind: "checks", ...input });
       let processingError: unknown;
@@ -80,13 +83,37 @@ export async function call<T>(
     throw new Error(body.error || "Core unavailable");
   return body.result;
 }
-export async function loadWorkspace(): Promise<{
+let workspaceRequest: ReturnType<typeof requestWorkspace> | undefined;
+
+export function loadWorkspace(registeredOnly = false) {
+  if (registeredOnly) return requestRegisteredWorkspace();
+  workspaceRequest ??= requestWorkspace().finally(() => {
+    workspaceRequest = undefined;
+  });
+  return workspaceRequest;
+}
+
+async function requestRegisteredWorkspace() {
+  const [documents, data] = await Promise.all([
+    call<{ modelId: string }[]>("documents.list"),
+    call<Workspace>("workspace.get"),
+  ]);
+  const modelIds = new Set(documents.map((document) => document.modelId));
+  const models = data.models.filter((model) => modelIds.has(model.id));
+  const elements = data.elements.filter((element) => modelIds.has(element.modelId));
+  const elementIds = new Set(elements.map((element) => element.id));
+  const findings = data.findings.filter(({ a, b }) => elementIds.has(a) && elementIds.has(b));
+  return { data: { ...data, models, elements, findings }, connected: true };
+}
+
+async function requestWorkspace(): Promise<{
   data: Workspace;
   connected: boolean;
 }> {
   try {
     return { data: await call<Workspace>("workspace.get"), connected: true };
-  } catch {
+  } catch (error) {
+    if (cloudEnabled && !localDesktop) throw error;
     if (remoteDesktop || API === "/api")
       throw new Error(
         "Không kết nối được CIC CDE. Hãy đăng nhập lại hoặc kiểm tra VPN.",
