@@ -1,4 +1,13 @@
-import type { Finding, IssueState } from "./types";
+import type { CoordinationIssue, Finding, IssuePriority, IssueState } from "./types";
+
+export const issuePriorities: Record<IssuePriority, string> = {
+  low: "Thấp",
+  medium: "Trung bình",
+  high: "Cao",
+  critical: "Khẩn cấp",
+};
+
+export const issueTitle = (issue: CoordinationIssue) => issue.manual?.title ?? issue.finding?.title ?? "";
 
 export const issueLabels: Record<IssueState, string> = {
   Open: "Mới",

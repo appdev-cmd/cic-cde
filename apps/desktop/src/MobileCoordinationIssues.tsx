@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Box, ChevronRight } from "lucide-react";
-import { findingDistance, findingTitle, issueCode, issueLabels } from "./coordinationPresentation";
+import { findingDistance, findingTitle, issueCode, issueLabels, issuePriorities, issueTitle } from "./coordinationPresentation";
 import type { CoordinationIssue, IssueState } from "./types";
 
 type Props = {
@@ -10,13 +10,14 @@ type Props = {
   ready: boolean;
   error: string;
   onRetry: () => void;
+  onCreate?: () => void;
   onSelect: (id: number | null) => void;
   onView: (issue?: CoordinationIssue) => void;
   children: ReactNode;
 };
 
 export default function MobileCoordinationIssues({
-  projectName, issues, selected, ready, error, onRetry, onSelect, onView, children,
+  projectName, issues, selected, ready, error, onRetry, onCreate, onSelect, onView, children,
 }: Props) {
   const [filter, setFilter] = useState<IssueState | "">("");
   const focusReturn = useRef<number | null>(null);
@@ -42,20 +43,28 @@ export default function MobileCoordinationIssues({
             <span className="coordination-badge" data-state={selected.state}>{issueLabels[selected.state]}</span>
           </div>
           <h1 tabIndex={-1} ref={heading}>
-            {findingTitle(selected.finding)}
+            {selected.finding ? findingTitle(selected.finding) : issueTitle(selected)}
           </h1>
-          <button type="button" className="mobile-coordination-view" onClick={() => onView(selected)}>
+          {selected.finding && <button type="button" className="mobile-coordination-view" onClick={() => onView(selected)}>
             <Box size={21} aria-hidden="true" />
             <span><strong>Xem góc nhìn 3D</strong><small>Va chạm {selected.finding.id}</small></span>
             <ChevronRight size={18} aria-hidden="true" />
-          </button>
+          </button>}
+          {selected.manual && <p className="manual-issue-description">{selected.manual.description}</p>}
           <dl className="coordination-facts">
             <div><dt>Đơn vị phụ trách</dt><dd>{selected.assignee || "Chưa giao"}</dd></div>
-            <div><dt>Tầng</dt><dd>{selected.finding.storey || "Chưa xác định"}</dd></div>
-            {findingDistance(selected.finding) && <div><dt>Độ giao cắt</dt><dd>{findingDistance(selected.finding)}</dd></div>}
+            {selected.assignedUsername && <div><dt>Người phụ trách</dt><dd>{selected.assignedUsername}</dd></div>}
+            {selected.dueDate && <div><dt>Hạn xử lý</dt><dd>{new Date(selected.dueDate + "T00:00:00").toLocaleDateString("vi-VN")}</dd></div>}
+            {selected.finding && <div><dt>Tầng</dt><dd>{selected.finding.storey || "Chưa xác định"}</dd></div>}
+            {selected.finding && findingDistance(selected.finding) && <div><dt>Độ giao cắt</dt><dd>{findingDistance(selected.finding)}</dd></div>}
+            {selected.manual && <>
+              {selected.manual.location && <div><dt>Vị trí</dt><dd>{selected.manual.location}</dd></div>}
+              <div><dt>Mức ưu tiên</dt><dd>{issuePriorities[selected.manual.priority]}</dd></div>
+              <div><dt>Người tạo</dt><dd>{selected.manual.author}</dd></div>
+              <div><dt>Ngày tạo</dt><dd>{new Date(selected.manual.createdAt).toLocaleString("vi-VN")}</dd></div>
+            </>}
           </dl>
-          <details className="coordination-elements"><summary>Cấu kiện IFC</summary><p>{selected.finding.title}</p></details>
-          {children}
+          {selected.finding && <details className="coordination-elements"><summary>Cấu kiện IFC</summary><p>{selected.finding.title}</p></details>}
         </>
       ) : (
         <>
@@ -65,6 +74,7 @@ export default function MobileCoordinationIssues({
               <Box size={16} aria-hidden="true" /> Mô hình
             </button>
           </header>
+          {onCreate && <button type="button" className="button primary" onClick={onCreate}>Tạo vấn đề</button>}
           <label className="mobile-coordination-filter">
             <span aria-live="polite">{ready ? `${visible.length} vấn đề` : "Trạng thái"}</span>
             <select value={filter} aria-label="Lọc trạng thái vấn đề" onChange={(event) => setFilter(event.target.value as IssueState | "")}>
@@ -93,9 +103,9 @@ export default function MobileCoordinationIssues({
                     <span className="coordination-code">{issueCode(issue.id)}</span>
                     <span className="coordination-badge" data-state={issue.state}>{issueLabels[issue.state]}</span>
                   </span>
-                  <strong>{findingTitle(issue.finding)}</strong>
+                  <strong>{issue.finding ? findingTitle(issue.finding) : issueTitle(issue)}</strong>
                   <span className="mobile-coordination-meta">
-                    <span>{issue.finding.storey || "Chưa xác định tầng"} · {issue.assignee || "Chưa giao"}</span>
+                    <span>{[issue.finding?.storey || issue.manual?.location, issue.assignedUsername || issue.assignee || "Chưa giao"].filter(Boolean).join(" · ")}</span>
                     <ChevronRight size={17} aria-hidden="true" />
                   </span>
                 </button>
@@ -104,6 +114,7 @@ export default function MobileCoordinationIssues({
           </ul>
         </>
       )}
+      {children}
     </main>
   );
 }

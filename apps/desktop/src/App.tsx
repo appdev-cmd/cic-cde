@@ -43,7 +43,9 @@ import {
 import Viewer from "./Viewer";
 import CoordinationResultsPanel from "./CoordinationResultsPanel";
 import MobileCoordinationIssues from "./MobileCoordinationIssues";
-import { findingDistance, findingTitle, issueCode, issueLabels } from "./coordinationPresentation";
+import { findingDistance, findingTitle, issueCode, issueLabels, issuePriorities, issueTitle } from "./coordinationPresentation";
+import IssueEvidence from "./IssueEvidence";
+import ManualIssueForm from "./ManualIssueForm";
 import "./coordination.css";
 import ClashCheckGuide from "./ClashCheckGuide";
 import { clashClasses, clashCoverageLabel, countClashCandidates, type ClashClass } from "./clashChecks";
@@ -305,6 +307,9 @@ export default function App({
   const [checkRun, setCheckRun] = useState<CheckRun | null>(null);
   const restoredJob = useRef<string | undefined>(undefined);
   const [issues, setIssues] = useState<CoordinationIssue[]>([]);
+  const [issueAssignees, setIssueAssignees] = useState<{ id: string; username: string; organization: string }[]>([]);
+  const [showManualIssue, setShowManualIssue] = useState(false);
+  const issueThread = useRef<HTMLElement>(null);
   const [activeIssueId, setActiveIssueId] = useState<number | null>(null);
   const activeIssue = issues.find((issue) => issue.id === activeIssueId);
   const [comment, setComment] = useState("");
@@ -315,6 +320,17 @@ export default function App({
   const [mobileIssuesRetry, setMobileIssuesRetry] = useState(0);
   const pendingMobileView = useRef<CoordinationIssue | null>(null);
   const issueRequest = useRef(0);
+  useEffect(() => {
+    if (activeIssueId !== null && nav === "issues" && !mobileIssues) issueThread.current?.scrollIntoView({ block: "nearest" });
+  }, [activeIssueId, mobileIssues, nav]);
+  useEffect(() => {
+    if (!cloudWorkspace || !active || readOnly || !(mobileIssues ? mobileIssuesReady : connected && nav === "issues")) return;
+    let subscribed = true;
+    void call<typeof issueAssignees>("issues.assignees").then(
+      (items) => { if (subscribed) setIssueAssignees(items); }, () => {},
+    );
+    return () => { subscribed = false; };
+  }, [active, cloudWorkspace, connected, mobileIssues, mobileIssuesReady, nav, readOnly]);
   const loadIssues = useCallback(
     async (operation = "issues.list", input = {}) => {
       const request = ++issueRequest.current;
@@ -696,7 +712,7 @@ export default function App({
         findingId: finding.id,
       });
       const issue = next.find(
-        (i) => i.runId === checkRun.runId && i.finding.id === finding.id,
+        (i) => i.runId === checkRun.runId && i.finding?.id === finding.id,
       );
       setActiveIssueId(issue?.id ?? null);
       setComment("");
@@ -712,6 +728,8 @@ export default function App({
   const reviewIssue = async (issue: CoordinationIssue) => {
     if (activeIssueId !== issue.id) setComment("");
     setActiveIssueId(issue.id);
+    const savedFinding = issue.finding;
+    if (!savedFinding) return;
     const generation = workspaceGeneration.current;
     try {
       const current = registeredOnly
@@ -728,7 +746,7 @@ export default function App({
             (model.transform?.revision ?? 0) === snapshot.transform.revision
           );
         }) &&
-        [issue.finding.a, issue.finding.b].every((id) =>
+        [savedFinding.a, savedFinding.b].every((id) =>
           current.elements.some((e) => e.id === id),
         );
       if (!evidenceAvailable) {
@@ -739,10 +757,10 @@ export default function App({
         return;
       }
       setData((previous) => ({ ...current, findings: previous.findings }));
-      openFinding(issue.finding);
+      openFinding(savedFinding);
       const models = new Set(
         current.elements
-          .filter((e) => [issue.finding.a, issue.finding.b].includes(e.id))
+          .filter((e) => [savedFinding.a, savedFinding.b].includes(e.id))
           .map((e) => e.modelId),
       );
       setHidden(
@@ -764,6 +782,8 @@ export default function App({
     issue: CoordinationIssue,
     assignee: string,
     state: IssueState,
+    assignedUserId: string,
+    dueDate: string,
   ) => {
     if (issueSaving) return;
     setIssueSaving(true);
@@ -773,6 +793,7 @@ export default function App({
         expectedRevision: issue.revision,
         assignee,
         state,
+        ...(cloudWorkspace ? { assignedUserId, dueDate } : {}),
       });
       notify("Đã cập nhật vấn đề phối hợp");
     } catch (e) {
@@ -904,11 +925,51 @@ export default function App({
     }
   };
 
+  const attachIssue = async (payload: Record<string, unknown>) => {
+    await loadIssues("issues.attach", payload);
+  };
+  const manualIssueForm = showManualIssue && active && !readOnly && (
+    <ManualIssueForm assignees={issueAssignees} cloud onClose={() => setShowManualIssue(false)}
+      onCreate={async (payload) => {
+        const issue = await call<CoordinationIssue>("issues.createManual", payload);
+        issueRequest.current++;
+        setIssues((current) => current.some((item) => item.id === issue.id) ? current : [issue, ...current]);
+        return issue;
+      }}
+      onAttach={attachIssue}
+      onOpen={(issue) => {
+        setShowManualIssue(false);
+        setActiveIssueId(issue.id);
+        setMobileIssueId(issue.id);
+        setComment("");
+        setNav("issues");
+        setBottom(true);
+        notify("Đã tạo vấn đề phối hợp");
+      }} />
+  );
+  const assignmentFields = (issue: CoordinationIssue) => cloudWorkspace && (
+    <>
+      <label>Người phụ trách
+        <select name="assignedUserId" defaultValue={issue.assignedUserId ?? ""} disabled={issueSaving || readOnly}>
+          <option value="">Chưa chọn tài khoản</option>
+          {issue.assignedUserId && !issueAssignees.some(({ id }) => id === issue.assignedUserId) && (
+            <option value={issue.assignedUserId}>{issue.assignedUsername}</option>
+          )}
+          {issueAssignees.map(({ id, username, organization }) => <option key={id} value={id}>{username} · {organization}</option>)}
+        </select>
+      </label>
+      <label>Hạn xử lý
+        <input type="date" name="dueDate" min="2000-01-01" max="2100-12-31" defaultValue={issue.dueDate ?? ""} disabled={issueSaving || readOnly} />
+      </label>
+    </>
+  );
+
   if (mobileIssues) {
     const issue = issues.find((item) => item.id === mobileIssueId);
     return (
       <MobileCoordinationIssues projectName={projectUser ? undefined : projectName} issues={issues} selected={issue}
         ready={mobileIssuesReady} error={mobileIssuesError}
+        onCreate={cloudWorkspace && mobileIssuesReady && !readOnly ? () => setShowManualIssue(true) : undefined}
         onRetry={() => { setMobileIssuesError(""); setMobileIssuesRetry((attempt) => attempt + 1); }}
         onSelect={(id) => { setMobileIssueId(id); setComment(""); }}
         onView={(next) => {
@@ -917,15 +978,18 @@ export default function App({
           setNav("models");
           setShowMobileModel(true);
         }}>
+        {cloudWorkspace && issue && <IssueEvidence key={issue.id} issue={issue} cloud readOnly={!!readOnly} busy={issueSaving} onAttach={attachIssue} />}
         {issue && !readOnly && (
           <details className="coordination-elements mobile-coordination-form">
             <summary>Cập nhật phân công</summary>
             <form key={issue.id + ":" + issue.revision} onSubmit={(event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
-              void updateIssue(issue, String(form.get("assignee") ?? ""), form.get("state") as IssueState);
+              void updateIssue(issue, String(form.get("assignee") ?? ""), form.get("state") as IssueState,
+                String(form.get("assignedUserId") ?? ""), String(form.get("dueDate") ?? ""));
             }}>
               <label>Đơn vị phụ trách<input name="assignee" defaultValue={issue.assignee} maxLength={120} /></label>
+              {assignmentFields(issue)}
               <label>Trạng thái<select name="state" defaultValue={issue.state}>
                 {[issue.state, ...issueTransitions[issue.state]].map((state) => <option key={state} value={state}>{issueLabels[state]}</option>)}
               </select></label>
@@ -942,6 +1006,7 @@ export default function App({
             </form>}
           </details>
         )}
+        {manualIssueForm}
         {toast && <p className="mobile-coordination-notice" role="status">{toast}</p>}
       </MobileCoordinationIssues>
     );
@@ -949,6 +1014,7 @@ export default function App({
 
   return (
     <div className="app-shell coordination-shell">
+      {manualIssueForm}
       <main className="main">
         {narrow && <button type="button" className="mobile-coordination-back coordination-model-back"
           onClick={() => { pendingMobileView.current = null; setShowMobileModel(false); }}>
@@ -1836,6 +1902,9 @@ export default function App({
             <>
               {nav === "issues" ? (
                 <div className="issues-view">
+                  {cloudWorkspace && connected && !readOnly && <section className="issue-thread cde-filters">
+                    <button type="button" className="button tiny primary" onClick={() => setShowManualIssue(true)}>Tạo vấn đề</button>
+                  </section>}
                   {issues.length ? (
                     issues.map((i) => (
                       <div key={i.id}>
@@ -1849,11 +1918,12 @@ export default function App({
                         >
                           {issueCode(i.id)}
                         </button>
-                        <span>{i.finding.title}</span>
-                        <span>{storeyLabel(elementsById.get(i.finding.a)?.storey ?? i.finding.storey)}</span>
+                        <span>{issueTitle(i)}</span>
+                        <span>{i.finding ? storeyLabel(elementsById.get(i.finding.a)?.storey ?? i.finding.storey) : i.manual?.location}</span>
                         <small>
-                          {issueLabels[i.state]} · {i.assignee || "Chưa giao"} ·{" "}
+                          {issueLabels[i.state]} · {i.assignedUsername || i.assignee || "Chưa giao"} ·{" "}
                           {i.comments.length} bình luận
+                          {i.dueDate && (" · Hạn " + new Date(i.dueDate + "T00:00:00").toLocaleDateString("vi-VN"))}
                         </small>
                       </div>
                     ))
@@ -1861,20 +1931,26 @@ export default function App({
                     <div className="issues-empty">
                       <ClipboardList size={25} />
                       <span>
-                        Chưa có vấn đề phối hợp. Chọn một kết quả kiểm tra va chạm
-                        để tạo vấn đề.
+                        Chưa có vấn đề phối hợp.
                       </span>
                     </div>
                   )}
                   {activeIssue && (
                     <section
                       className="issue-thread"
+                      ref={issueThread}
                       aria-label="Thảo luận vấn đề phối hợp"
                     >
                       <strong>
                         {issueCode(activeIssue.id)} ·{" "}
-                        {activeIssue.finding.title}
+                        {issueTitle(activeIssue)}
                       </strong>
+                      {activeIssue.manual && <div className="manual-issue-description">
+                        <p>{activeIssue.manual.description}</p>
+                        <small>{activeIssue.manual.location && activeIssue.manual.location + " · "}
+                          Mức ưu tiên {issuePriorities[activeIssue.manual.priority]} · {activeIssue.manual.author}
+                          {" · "}{new Date(activeIssue.manual.createdAt).toLocaleString("vi-VN")}</small>
+                      </div>}
                       <form
                         key={activeIssue.id + ":" + activeIssue.revision}
                         className="issue-assignment"
@@ -1885,6 +1961,8 @@ export default function App({
                             activeIssue,
                             String(data.get("assignee") ?? ""),
                             data.get("state") as IssueState,
+                            String(data.get("assignedUserId") ?? ""),
+                            String(data.get("dueDate") ?? ""),
                           );
                         }}
                       >
@@ -1896,6 +1974,7 @@ export default function App({
                           maxLength={120}
                           disabled={issueSaving || readOnly}
                         />
+                        {assignmentFields(activeIssue)}
                         <select
                           name="state"
                           aria-label="Trạng thái vấn đề phối hợp"
@@ -1918,6 +1997,8 @@ export default function App({
                           Lưu phân công
                         </button>
                       </form>
+                      {cloudWorkspace && <IssueEvidence key={activeIssue.id} issue={activeIssue} cloud
+                        readOnly={!!readOnly} busy={issueSaving} onAttach={attachIssue} />}
                       <ul>
                         {activeIssue.comments.map((entry) => (
                           <li key={entry.id}>{entry.body}</li>

@@ -107,6 +107,61 @@
 .mobile-coordination-form textarea { resize: vertical; }
 .mobile-coordination-form form > button { justify-self: start; }
 
+.manual-issue-dialog {
+  width: min(560px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 20px;
+  border: 1px solid var(--line, #c4d1d6);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: var(--text, #18323b);
+}
+.manual-issue-dialog::backdrop { background: #142b3a80; }
+.manual-issue-dialog h2 { margin: 0 0 14px; font-size: 1.2rem; }
+.manual-issue-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.manual-issue-wide { grid-column: 1 / -1; }
+.manual-issue-dialog label { display: grid; gap: 4px; min-width: 0; font-weight: 600; }
+.manual-issue-dialog :is(input, textarea, select) {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #a8c2c9;
+  border-radius: 6px;
+  background: #fff;
+  color: #18323b;
+  font: inherit;
+  font-weight: 400;
+}
+.manual-issue-dialog textarea { resize: vertical; }
+.manual-issue-photos { margin-top: 12px; }
+.manual-issue-photos small { font-weight: 400; }
+.manual-issue-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.manual-issue-dialog [role="alert"] { color: #a42825; }
+.manual-issue-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.issue-file-list { padding-inline-start: 18px; overflow-wrap: anywhere; }
+.issue-file-list li { margin-block: 4px; }
+.issue-file-list li > .button { margin-inline-start: 8px; }
+.issue-image-preview { margin: 8px 0; }
+.issue-image-preview img { display: block; max-width: 100%; max-height: 320px; object-fit: contain; margin-bottom: 5px; }
+.issue-evidence input[type="file"] { max-width: 100%; }
+.issue-assignment label { display: grid; gap: 4px; }
+.issue-evidence { margin-top: 12px; }
+.issue-evidence summary { cursor: pointer; font-weight: 600; }
+.issue-evidence form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+@media (max-width: 480px) {
+  .manual-issue-dialog { padding: 14px; }
+  .manual-issue-fields { grid-template-columns: minmax(0, 1fr); }
+  .manual-issue-dialog :is(input, textarea, select) { font-size: 16px; }
+}
+
 @media (max-width: 760px) {
   .project-models .app-shell.coordination-shell { min-width: 0; min-height: 0; width: 100%; display: block; }
   .coordination-shell .workspace-tabs,

@@ -101,17 +101,34 @@ export interface ViewerApi {
 
 export type IssueState = "Open" | "InProgress" | "Review" | "Closed";
 
-export interface CoordinationIssue {
+export type IssueAttachment = { id: string; filename: string; path: string; addedBy: string; addedAt: string };
+export type IssuePriority = "low" | "medium" | "high" | "critical";
+export type ManualIssueDetails = {
+  title: string;
+  description: string;
+  priority: IssuePriority;
+  location: string;
+  author: string;
+  createdAt: string;
+};
+
+export type CoordinationIssue = {
   state: IssueState;
   assignee: string;
   revision: number;
   id: number;
-  runId: string;
-  finding: Finding;
+  assignedUserId?: string | null;
+  assignedUsername?: string | null;
+  dueDate?: string | null;
+  attachments?: IssueAttachment[];
+  viewpoint?: { position: [number, number, number]; target: [number, number, number]; fov: number } | null;
   snapshots: {
     modelId: string;
     sourceHash: string;
     transform: NonNullable<BimModel["transform"]>;
   }[];
-  comments: { id: number; body: string; createdAt: string }[];
-}
+  comments: { id: number; body: string; createdAt: string; author?: string }[];
+} & (
+  | { runId: string; finding: Finding; manual?: null }
+  | { runId: null; finding: null; manual: ManualIssueDetails }
+);

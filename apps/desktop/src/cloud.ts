@@ -89,8 +89,9 @@ export async function openPasswordRecovery(accessToken: string, refreshToken: st
 }
 
 export async function cloudRpc<T>(operation: string, payload: Record<string, unknown> = {}): Promise<T> {
-  const { data, error } = await supabase.rpc("cde_api", {
-    operation,
+  const isIssue = operation.startsWith("issues.");
+  const { data, error } = await supabase.rpc(isIssue ? "cde_issue_details" : "cde_api", {
+    operation: isIssue ? operation.slice("issues.".length) : operation,
     payload,
     project_id: selectedProject,
   });
